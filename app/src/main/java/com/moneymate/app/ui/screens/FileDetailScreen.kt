@@ -275,9 +275,9 @@ fun FileDetailScreen(
     val allGiven      = remember(filteredPersons) { filteredPersons.sumOf { it.amountGiven } }
     val allCashGiven  = remember(filteredPersons) { filteredPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
     val allUpiGiven   = remember(filteredPersons) { filteredPersons.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amountGiven } }
-    val allReceived   = remember(filePaymentsAll) { filePaymentsAll.sumOf { it.amount } }
-    val allRecCash    = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount } }
-    val allRecUpi     = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
+    val allReceived   = remember(filePayments) { filePayments.sumOf { it.amount } }
+    val allRecCash    = remember(filePayments) { filePayments.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount } }
+    val allRecUpi     = remember(filePayments) { filePayments.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
     val allBalance    = allGiven - allReceived
 
     val pageGiven     = remember(pagePersons) { pagePersons.sumOf { it.amountGiven } }
@@ -1408,7 +1408,7 @@ fun FileDetailScreen(
         var editAmount by remember { mutableStateOf(orig.amountGiven.toBigDecimal().stripTrailingZeros().toPlainString()) }
         var editMode   by remember { mutableStateOf(orig.mode) }
         var editType   by remember { mutableStateOf(orig.recordType) }
-        var editDate   by remember { mutableStateOf(System.currentTimeMillis()) }
+        var editDate   by remember { mutableStateOf(orig.dateGiven) }
         var editMoveAfterName   by remember { mutableStateOf("") }
         var editMoveAfterSerial by remember { mutableStateOf("") }
         var showEditDatePicker by remember { mutableStateOf(false) }

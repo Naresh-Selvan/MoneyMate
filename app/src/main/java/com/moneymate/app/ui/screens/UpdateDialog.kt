@@ -51,7 +51,7 @@ fun UpdateDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    "v${getInstalledVersionName(context)}",
+                                    "v${getInstalledVersionName(context)}-${getInstalledVersionCode(context)}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -199,6 +199,11 @@ private fun getInstalledVersionName(context: android.content.Context): String {
     return try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
     } catch (e: Exception) { "?" }
+}
+private fun getInstalledVersionCode(context: android.content.Context): Int {
+    return try {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+    } catch (e: Exception) { 0 }
 }
 
 private fun installApk(context: android.content.Context, fileUriString: String) {

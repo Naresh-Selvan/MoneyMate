@@ -425,10 +425,11 @@ fun SettingsScreen(
                     Spacer(Modifier.width(16.dp))
                     Column {
                         Text("MoneyMate", fontWeight = FontWeight.Medium)
-                        val versionName = LocalContext.current.packageManager
-                            .getPackageInfo(LocalContext.current.packageName, 0).versionName ?: "—"
-                        Text("Version $versionName", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                        val packageInfo = LocalContext.current.packageManager
+                            .getPackageInfo(LocalContext.current.packageName, 0)
+                        val versionName = packageInfo.versionName ?: "—"
+                        val versionCode = packageInfo.versionCode
+                        Text("Version $versionName-$versionCode", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)                    }
                 }
             }
             Spacer(Modifier.height(16.dp))

@@ -272,7 +272,9 @@ fun FileDetailScreen(
 
     // Totals
     // ── All totals wrapped in remember so they don't recompute on every frame ──
-    val allGiven      = remember(filteredPersons) { filteredPersons.sumOf { it.amountGiven } }
+    val allGiven = remember(filteredPersons, completedPersons) {
+        filteredPersons.sumOf { it.amountGiven } + completedPersons.sumOf { it.amountGiven }
+    }
     val allCashGiven  = remember(filteredPersons) { filteredPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
     val allUpiGiven   = remember(filteredPersons) { filteredPersons.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amountGiven } }
     val allReceived   = remember(filePayments) { filePayments.sumOf { it.amount } }

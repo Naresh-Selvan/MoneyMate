@@ -50,8 +50,19 @@ class UpdateViewModel @Inject constructor(
     /** Call on app launch — silently checks, only surfaces if update available */
     fun checkForUpdate(currentVersionCode: Int) {
         if (_updateState.value is UpdateState.Checking) return
+
+        val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+        val lastChecked = prefs.getLong("last_checked", 0L)
+        val now = System.currentTimeMillis()
+        val oneDayMs = 24 * 60 * 60 * 1000L
+
+        if (now - lastChecked < oneDayMs) return  // checked within last 24 hours
+
+        prefs.edit().putLong("last_checked", now).apply()
+
         _updateState.value = UpdateState.Checking
         viewModelScope.launch(Dispatchers.IO) {
+            // ... rest of function stays exactly the same
             try {
                 val apiUrl = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
                 val json = URL(apiUrl).readText()

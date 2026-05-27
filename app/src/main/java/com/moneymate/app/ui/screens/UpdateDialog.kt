@@ -72,7 +72,7 @@ fun UpdateDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    "v${state.info.latestVersion}",
+                                    "v${state.info.latestVersion}-${state.info.versionCode}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary

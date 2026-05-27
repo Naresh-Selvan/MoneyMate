@@ -94,7 +94,6 @@ interface PaymentDao {
         SELECT p.* FROM payments p
         INNER JOIN persons pr ON p.personId = pr.id
         WHERE pr.fileId = :fileId AND p.isDeleted = 0 AND pr.isDeleted = 0
-          AND pr.isPendingNewLoan = 0
     """)
     fun getPaymentsForFileIncludingCompleted(fileId: String): Flow<List<Payment>>
 }

@@ -15,7 +15,15 @@ android {
         applicationId = "com.moneymate.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
+        val gitVersionCode = "git rev-list --count HEAD".trimIndent()
+            .let { cmd ->
+                try {
+                    val process = Runtime.getRuntime().exec(cmd.split(" ").toTypedArray())
+                    process.inputStream.bufferedReader().readText().trim().toIntOrNull() ?: 1
+                } catch (e: Exception) { 1 }
+            }
+
+        versionCode = gitVersionCode
         versionName = "1.1"
     }
 

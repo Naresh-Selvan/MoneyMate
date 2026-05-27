@@ -202,6 +202,7 @@ private fun getInstalledVersionName(context: android.content.Context): String {
 }
 private fun getInstalledVersionCode(context: android.content.Context): Int {
     return try {
+        @Suppress("DEPRECATION")
         context.packageManager.getPackageInfo(context.packageName, 0).versionCode
     } catch (e: Exception) { 0 }
 }

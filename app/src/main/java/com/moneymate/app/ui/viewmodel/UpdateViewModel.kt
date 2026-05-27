@@ -173,4 +173,9 @@ class UpdateViewModel @Inject constructor(
     fun resetToAvailable(info: UpdateInfo) {
         _updateState.value = UpdateState.Available(info)
     }
+    fun forceCheckForUpdate(currentVersionCode: Int) {
+        val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putLong("last_checked", 0L).apply() // reset cooldown
+        checkForUpdate(currentVersionCode)
+    }
 }

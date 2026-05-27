@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
+import com.moneymate.app.ui.viewmodel.UpdateViewModel
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,8 +38,9 @@ fun SettingsScreen(
     authViewModel: AuthViewModel,
     templateViewModel: TemplateViewModel = hiltViewModel(),
     loanFileViewModel: LoanFileViewModel = hiltViewModel(),
-    restoreViewModel: RestoreViewModel = hiltViewModel()
-) {
+    restoreViewModel: RestoreViewModel = hiltViewModel(),
+    updateViewModel: UpdateViewModel = hiltViewModel()
+)  {
     val darkMode by viewModel.darkMode.collectAsState()
     val autoDeleteDays by viewModel.autoDeleteDays.collectAsState()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
@@ -424,13 +426,20 @@ fun SettingsScreen(
                     Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text("MoneyMate", fontWeight = FontWeight.Medium)
                         val packageInfo = LocalContext.current.packageManager
                             .getPackageInfo(LocalContext.current.packageName, 0)
                         val versionName = packageInfo.versionName ?: "—"
+                        @Suppress("DEPRECATION")
                         val versionCode = packageInfo.versionCode
-                        Text("Version $versionName-$versionCode", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)                    }
-                }
+                        Text("MoneyMate", fontWeight = FontWeight.Medium)
+                        Text("Version $versionName-$versionCode", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(
+                            onClick = { updateViewModel.forceCheckForUpdate(versionCode) },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("Check for updates", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }}
             }
             Spacer(Modifier.height(16.dp))
         }

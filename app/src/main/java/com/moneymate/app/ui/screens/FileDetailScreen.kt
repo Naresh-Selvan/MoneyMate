@@ -277,9 +277,9 @@ fun FileDetailScreen(
     }
     val allCashGiven  = remember(filteredPersons) { filteredPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
     val allUpiGiven   = remember(filteredPersons) { filteredPersons.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amountGiven } }
-    val allReceived   = remember(filePayments) { filePayments.sumOf { it.amount } }
-    val allRecCash    = remember(filePayments) { filePayments.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount } }
-    val allRecUpi     = remember(filePayments) { filePayments.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
+    val allReceived   = remember(filePaymentsAll) { filePaymentsAll.sumOf { it.amount } }
+    val allRecCash    = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount } }
+    val allRecUpi     = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
     val allBalance    = allGiven - allReceived
 
     val pageGiven     = remember(pagePersons) { pagePersons.sumOf { it.amountGiven } }

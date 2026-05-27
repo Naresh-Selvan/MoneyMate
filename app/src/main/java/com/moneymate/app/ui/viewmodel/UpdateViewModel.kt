@@ -91,7 +91,7 @@ class UpdateViewModel @Inject constructor(
                 withContext(Dispatchers.Main) {
                     if (apkUrl.isBlank()) {
                         _updateState.value = UpdateState.UpToDate
-                    } else if (vCode > currentVersionCode) {
+                    }  else if (vCode > currentVersionCode)  {
                         _updateState.value = UpdateState.Available(
                             UpdateInfo(vName, vCode, apkUrl, releaseNotes)
                         )

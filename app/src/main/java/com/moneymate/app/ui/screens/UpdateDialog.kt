@@ -29,7 +29,33 @@ fun UpdateDialog(
 
     when (val state = updateState) {
 
-        // ── Update available ─────────────────────────────────────────────────
+        is UpdateState.Checking -> {
+            AlertDialog(
+                onDismissRequest = {},
+                icon = { Icon(Icons.Default.Sync, null, tint = MaterialTheme.colorScheme.primary) },
+                title = { Text("Checking for updates…", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(8.dp))
+                        Text("Please wait.", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                confirmButton = {}
+            )
+        }
+
+        is UpdateState.UpToDate -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.dismiss() },
+                icon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) },
+                title = { Text("You're up to date!", fontWeight = FontWeight.Bold) },
+                text = { Text("MoneyMate is already on the latest version.") },
+                confirmButton = { TextButton(onClick = { viewModel.dismiss() }) { Text("OK") } }
+            )
+        }
+
         is UpdateState.Available -> {
             AlertDialog(
                 onDismissRequest = { viewModel.dismiss() },
@@ -37,60 +63,27 @@ fun UpdateDialog(
                 title = { Text("Update Available", fontWeight = FontWeight.Bold) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    "Current",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    "v${getInstalledVersionName(context)}-${getInstalledVersionCode(context)}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Text("Current", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("v${getInstalledVersionName(context)}-${getInstalledVersionCode(context)}",
+                                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Icon(
-                                Icons.Default.ArrowForward, null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.align(Alignment.CenterVertically)
-                            )
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    "New",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    "v${state.info.latestVersion}-${state.info.versionCode}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                            Icon(Icons.Default.ArrowForward, null, tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.align(Alignment.CenterVertically))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Text("New", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("v${state.info.latestVersion}-${state.info.versionCode}",
+                                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary)
                             }
                         }
                         if (state.info.releaseNotes.isNotBlank()) {
                             HorizontalDivider()
-                            Text(
-                                "What's new:",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                state.info.releaseNotes.take(300),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("What's new:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text(state.info.releaseNotes.take(300), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 },
@@ -101,41 +94,29 @@ fun UpdateDialog(
                         Text("Update Now")
                     }
                 },
-                dismissButton = {
-                    TextButton(onClick = { viewModel.dismiss() }) { Text("Later") }
-                }
+                dismissButton = { TextButton(onClick = { viewModel.dismiss() }) { Text("Later") } }
             )
         }
 
-        // ── Downloading ──────────────────────────────────────────────────────
         is UpdateState.Downloading -> {
             AlertDialog(
                 onDismissRequest = {},
                 icon = { Icon(Icons.Default.CloudDownload, null, tint = MaterialTheme.colorScheme.primary) },
                 title = { Text("Downloading Update…", fontWeight = FontWeight.Bold) },
                 text = {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(8.dp))
-                        Text(
-                            "The new APK is being downloaded. You'll be prompted to install once it's ready.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("The new APK is being downloaded. You'll be prompted to install once it's ready.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 confirmButton = {}
             )
         }
 
-        // ── Ready to install ─────────────────────────────────────────────────
         is UpdateState.ReadyToInstall -> {
-            LaunchedEffect(state.filePath) {
-                installApk(context, state.filePath)
-            }
+            LaunchedEffect(state.filePath) { installApk(context, state.filePath) }
             AlertDialog(
                 onDismissRequest = { viewModel.dismiss() },
                 icon = { Icon(Icons.Default.InstallMobile, null, tint = MaterialTheme.colorScheme.primary) },
@@ -144,22 +125,13 @@ fun UpdateDialog(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("The update has been downloaded. Tap Install to apply it.")
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                            !context.packageManager.canRequestPackageInstalls()
-                        ) {
+                            !context.packageManager.canRequestPackageInstalls()) {
                             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                                Row(
-                                    Modifier.padding(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(Icons.Default.Warning, null,
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(16.dp))
-                                    Text(
-                                        "\"Install unknown apps\" permission needed. Tap Install — Android will ask you to enable it.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
+                                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                    Text("\"Install unknown apps\" permission needed. Tap Install — Android will ask you to enable it.",
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                                 }
                             }
                         }
@@ -172,34 +144,29 @@ fun UpdateDialog(
                         Text("Install")
                     }
                 },
-                dismissButton = {
-                    TextButton(onClick = { viewModel.dismiss() }) { Text("Later") }
-                }
+                dismissButton = { TextButton(onClick = { viewModel.dismiss() }) { Text("Later") } }
             )
         }
 
-        // ── Error ────────────────────────────────────────────────────────────
         is UpdateState.Error -> {
             AlertDialog(
                 onDismissRequest = { viewModel.dismiss() },
                 icon = { Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error) },
-                title = { Text("Update Failed") },
+                title = { Text("Update Failed", fontWeight = FontWeight.Bold) },
                 text = { Text(state.message, style = MaterialTheme.typography.bodySmall) },
-                confirmButton = {
-                    TextButton(onClick = { viewModel.dismiss() }) { Text("OK") }
-                }
+                confirmButton = { TextButton(onClick = { viewModel.dismiss() }) { Text("OK") } }
             )
         }
 
-        else -> {} // Idle, Checking, UpToDate — no dialog
+        else -> {} // Idle — no dialog
     }
 }
 
 private fun getInstalledVersionName(context: android.content.Context): String {
-    return try {
-        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
-    } catch (e: Exception) { "?" }
+    return try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
+    catch (e: Exception) { "?" }
 }
+
 private fun getInstalledVersionCode(context: android.content.Context): Int {
     return try {
         @Suppress("DEPRECATION")
@@ -209,36 +176,18 @@ private fun getInstalledVersionCode(context: android.content.Context): Int {
 
 private fun installApk(context: android.content.Context, fileUriString: String) {
     try {
-        val file = if (fileUriString.startsWith("file://")) {
-            File(Uri.parse(fileUriString).path ?: return)
-        } else {
-            File(Uri.parse(fileUriString).path ?: return)
-        }
-
-        val apkUri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.update_provider",
-            file
-        )
-
+        val file = File(Uri.parse(fileUriString).path ?: return)
+        val apkUri = FileProvider.getUriForFile(context, "${context.packageName}.update_provider", file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(apkUri, "application/vnd.android.package-archive")
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
-
-        // Android 8+: check install permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            !context.packageManager.canRequestPackageInstalls()
-        ) {
-            val settingsIntent = Intent(
-                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                Uri.parse("package:${context.packageName}")
-            ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-            context.startActivity(settingsIntent)
+            !context.packageManager.canRequestPackageInstalls()) {
+            context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:${context.packageName}")).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK })
         } else {
             context.startActivity(intent)
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
+    } catch (e: Exception) { e.printStackTrace() }
 }

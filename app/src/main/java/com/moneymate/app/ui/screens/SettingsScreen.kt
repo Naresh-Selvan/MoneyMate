@@ -42,11 +42,11 @@ fun SettingsScreen(
     updateViewModel: UpdateViewModel = hiltViewModel()
 )  {
     val darkMode by viewModel.darkMode.collectAsState()
+    val updateState by updateViewModel.updateState.collectAsState()
     val autoDeleteDays by viewModel.autoDeleteDays.collectAsState()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
     var pinLen by remember { mutableStateOf(authViewModel.pinLength) }
     val currentRole by authViewModel.currentRole.collectAsState()
-
     var showChangeAdmin by remember { mutableStateOf(false) }
     var oldPin by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
@@ -442,7 +442,7 @@ fun SettingsScreen(
                     }}
             }
             Spacer(Modifier.height(16.dp))
-        }
+            UpdateDialog(updateState = updateState, viewModel = updateViewModel)}
     }
 }
 

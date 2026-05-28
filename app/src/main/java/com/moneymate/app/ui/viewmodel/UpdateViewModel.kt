@@ -17,15 +17,13 @@ import org.json.JSONObject
 import java.net.URL
 import javax.inject.Inject
 
-// ── Replace these two with your GitHub details ────────────────────────────────
 private const val GITHUB_OWNER = "Naresh-Selvan"
 private const val GITHUB_REPO  = "MoneyMate"
-// ─────────────────────────────────────────────────────────────────────────────
 
 data class UpdateInfo(
-    val latestVersion: String,   // e.g. "1.2"
-    val versionCode: Int,        // e.g. 5
-    val apkUrl: String,          // direct APK download URL
+    val latestVersion: String,
+    val versionCode: Int,
+    val apkUrl: String,
     val releaseNotes: String
 )
 
@@ -47,7 +45,6 @@ class UpdateViewModel @Inject constructor(
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState
 
-    /** Call on app launch — silently checks, only surfaces if update available */
     fun checkForUpdate(currentVersionCode: Int) {
         if (_updateState.value is UpdateState.Checking) return
 
@@ -56,30 +53,37 @@ class UpdateViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         val oneDayMs = 24 * 60 * 60 * 1000L
 
-        if (now - lastChecked < oneDayMs) return  // checked within last 24 hours
+        if (now - lastChecked < oneDayMs) return
 
         prefs.edit().putLong("last_checked", now).apply()
+        doCheck(currentVersionCode)
+    }
 
+    fun forceCheckForUpdate(currentVersionCode: Int) {
+        _updateState.value = UpdateState.Idle  // clear any stuck state
+        val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putLong("last_checked", 0L).apply()
+        doCheck(currentVersionCode)
+    }
+
+    private fun doCheck(currentVersionCode: Int) {
         _updateState.value = UpdateState.Checking
         viewModelScope.launch(Dispatchers.IO) {
-            // ... rest of function stays exactly the same
             try {
                 val apiUrl = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
                 val json = URL(apiUrl).readText()
                 val obj = JSONObject(json)
 
-                val tagName      = obj.getString("tag_name")          // e.g. "v1.2-5"
+                val tagName      = obj.getString("tag_name")
                 val releaseNotes = obj.optString("body", "")
 
-                // Tag format: v{versionName}-{versionCode}  e.g. "v1.2-5"
-                val stripped = tagName.removePrefix("v")               // "1.2-5"
+                val stripped = tagName.removePrefix("v")
                 val parts    = stripped.split("-")
-                val vName    = parts.getOrElse(0) { "1.0" }           // "1.2"
+                val vName    = parts.getOrElse(0) { "1.0" }
                 val vCode    = parts.getOrElse(1) { "1" }.toIntOrNull() ?: 1
 
-                // Find the APK asset
-                val assets   = obj.getJSONArray("assets")
-                var apkUrl   = ""
+                val assets = obj.getJSONArray("assets")
+                var apkUrl = ""
                 for (i in 0 until assets.length()) {
                     val asset = assets.getJSONObject(i)
                     if (asset.getString("name").endsWith(".apk")) {
@@ -89,26 +93,20 @@ class UpdateViewModel @Inject constructor(
                 }
 
                 withContext(Dispatchers.Main) {
-                    if (apkUrl.isBlank()) {
-                        _updateState.value = UpdateState.UpToDate
-                    }  else if (vCode > currentVersionCode)  {
-                        _updateState.value = UpdateState.Available(
-                            UpdateInfo(vName, vCode, apkUrl, releaseNotes)
-                        )
-                    } else {
-                        _updateState.value = UpdateState.UpToDate
+                    when {
+                        apkUrl.isBlank()          -> _updateState.value = UpdateState.UpToDate
+                        vCode > currentVersionCode -> _updateState.value = UpdateState.Available(UpdateInfo(vName, vCode, apkUrl, releaseNotes))
+                        else                       -> _updateState.value = UpdateState.UpToDate
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    // Silently fail — don't bother the user if check fails
-                    _updateState.value = UpdateState.Idle
+                    _updateState.value = UpdateState.Error(e.message ?: "Could not reach server. Check your connection.")
                 }
             }
         }
     }
 
-    /** Download APK using DownloadManager and track completion */
     fun downloadAndInstall(info: UpdateInfo) {
         _updateState.value = UpdateState.Downloading
         viewModelScope.launch(Dispatchers.IO) {
@@ -128,27 +126,20 @@ class UpdateViewModel @Inject constructor(
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 val downloadId = dm.enqueue(request)
 
-                // Poll until done
                 var downloading = true
                 while (downloading) {
-                    val query = DownloadManager.Query().setFilterById(downloadId)
+                    val query  = DownloadManager.Query().setFilterById(downloadId)
                     val cursor = dm.query(query)
                     if (cursor.moveToFirst()) {
-                        val statusCol  = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                        val uriCol     = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                        val status     = cursor.getInt(statusCol)
+                        val status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS))
+                        val uri    = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
                         when (status) {
                             DownloadManager.STATUS_SUCCESSFUL -> {
-                                val localUri = cursor.getString(uriCol)
-                                withContext(Dispatchers.Main) {
-                                    _updateState.value = UpdateState.ReadyToInstall(localUri)
-                                }
+                                withContext(Dispatchers.Main) { _updateState.value = UpdateState.ReadyToInstall(uri) }
                                 downloading = false
                             }
                             DownloadManager.STATUS_FAILED -> {
-                                withContext(Dispatchers.Main) {
-                                    _updateState.value = UpdateState.Error("Download failed. Check your connection and try again.")
-                                }
+                                withContext(Dispatchers.Main) { _updateState.value = UpdateState.Error("Download failed. Check your connection and try again.") }
                                 downloading = false
                             }
                             else -> kotlinx.coroutines.delay(1000)
@@ -159,23 +150,11 @@ class UpdateViewModel @Inject constructor(
                     cursor.close()
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    _updateState.value = UpdateState.Error(e.message ?: "Unknown error")
-                }
+                withContext(Dispatchers.Main) { _updateState.value = UpdateState.Error(e.message ?: "Unknown error") }
             }
         }
     }
 
-    fun dismiss() {
-        _updateState.value = UpdateState.Idle
-    }
-
-    fun resetToAvailable(info: UpdateInfo) {
-        _updateState.value = UpdateState.Available(info)
-    }
-    fun forceCheckForUpdate(currentVersionCode: Int) {
-        val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putLong("last_checked", 0L).apply() // reset cooldown
-        checkForUpdate(currentVersionCode)
-    }
+    fun dismiss() { _updateState.value = UpdateState.Idle }
+    fun resetToAvailable(info: UpdateInfo) { _updateState.value = UpdateState.Available(info) }
 }

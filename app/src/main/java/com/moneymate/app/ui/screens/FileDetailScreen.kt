@@ -306,17 +306,19 @@ fun FileDetailScreen(
     val balance       = if (showOverallTotal) allBalance  else pageBalance
 
     // ── Last target-day given & received (NLR files only) ─────────────────
-    val lastWeekGiven: Double? = remember(targetDayOfWeek, filteredPersons) {
+    // AFTER
+    val allPersonIds = remember(allPersons) { allPersons.map { it.id }.toSet() }
+    val lastWeekGiven: Double? = remember(targetDayOfWeek, allPersons) {
         val dow = targetDayOfWeek ?: return@remember null
         val weekStart = lastOccurrenceOf(dow)
         val weekEnd   = weekStart + 7L * 24 * 60 * 60 * 1000 - 1
-        filteredPersons.filter { it.dateGiven in weekStart..weekEnd }.sumOf { it.amountGiven }
+        allPersons.filter { it.dateGiven in weekStart..weekEnd }.sumOf { it.amountGiven }
     }
-    val lastWeekReceived: Double? = remember(targetDayOfWeek, filePayments, filteredPersonIds) {
+    val lastWeekReceived: Double? = remember(targetDayOfWeek, filePaymentsAll, allPersonIds) {
         val dow = targetDayOfWeek ?: return@remember null
         val weekStart = lastOccurrenceOf(dow)
         val weekEnd   = weekStart + 7L * 24 * 60 * 60 * 1000 - 1
-        filePayments.filter { it.personId in filteredPersonIds && it.date in weekStart..weekEnd }.sumOf { it.amount }
+        filePaymentsAll.filter { it.personId in allPersonIds && it.date in weekStart..weekEnd }.sumOf { it.amount }
     }
     val lastWeekDayLabel: String? = when (targetDayOfWeek) {
         Calendar.FRIDAY   -> "Last Friday"

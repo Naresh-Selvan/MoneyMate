@@ -1147,7 +1147,6 @@ public final class PaymentDao_Impl implements PaymentDao {
             + "        SELECT p.* FROM payments p\n"
             + "        INNER JOIN persons pr ON p.personId = pr.id\n"
             + "        WHERE pr.fileId = ? AND p.isDeleted = 0 AND pr.isDeleted = 0\n"
-            + "          AND pr.isPendingNewLoan = 0\n"
             + "    ";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;

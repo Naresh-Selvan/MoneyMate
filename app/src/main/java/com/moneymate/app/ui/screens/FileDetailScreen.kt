@@ -272,15 +272,16 @@ fun FileDetailScreen(
 
     // Totals
     // ── All totals wrapped in remember so they don't recompute on every frame ──
-    val allGiven = remember(filteredPersons, completedPersons) {
-        filteredPersons.sumOf { it.amountGiven } + completedPersons.sumOf { it.amountGiven }
-    }
-    val allCashGiven  = remember(filteredPersons) { filteredPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
-    val allUpiGiven   = remember(filteredPersons) { filteredPersons.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amountGiven } }
-    val allReceived   = remember(filePaymentsAll) { filePaymentsAll.sumOf { it.amount } }
-    val allRecCash    = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount } }
-    val allRecUpi     = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
-    val allBalance    = allGiven - allReceived
+    // AFTER
+    // AFTER
+    val allPersons   = remember(filteredPersons, completedPersons) { filteredPersons + completedPersons }
+    val allGiven     = remember(allPersons) { allPersons.sumOf { it.amountGiven } }
+    val allCashGiven = remember(allPersons) { allPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
+    val allUpiGiven  = remember(allPersons) { allPersons.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amountGiven } }
+    val allReceived  = remember(filePaymentsAll) { filePaymentsAll.sumOf { it.amount } }
+    val allRecCash   = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount } }
+    val allRecUpi    = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
+    val allBalance   = allGiven - allReceived
 
     val pageGiven     = remember(pagePersons) { pagePersons.sumOf { it.amountGiven } }
     val pageCashGiven = remember(pagePersons) { pagePersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
@@ -323,7 +324,7 @@ fun FileDetailScreen(
         else              -> null
     }
 
-    val dayBreakdowns: List<DayBreakdown> = remember(filterWeeks, filterViewStartDate, filterViewNumWeeks, targetDayOfWeek, filteredPersons, filePayments) {
+    val dayBreakdowns: List<DayBreakdown> = remember(filterWeeks, filterViewStartDate, filterViewNumWeeks, targetDayOfWeek, allPersons, filePaymentsAll) {
         val dayFmt = SimpleDateFormat("EEE dd MMM", Locale.getDefault())
 
         // ── VIEW MODE: forward from a given start date ───────────────────────
@@ -345,9 +346,9 @@ fun FileDetailScreen(
                 cal.add(Calendar.WEEK_OF_YEAR, 1) // move forward one week
             }
             return@remember days.map { (s, e) ->
-                val dayPayments  = filePayments.filter { it.date in s..e }
+                val dayPayments  = filePaymentsAll.filter { it.date in s..e }
                 val dayPersonIds = dayPayments.map { it.personId }.toSet()
-                val dayPersons   = filteredPersons.filter { it.id in dayPersonIds }
+                val dayPersons   = allPersons.filter { it.id in dayPersonIds }
                 val given    = dayPersons.sumOf { it.amountGiven }
                 val received = dayPayments.sumOf { it.amount }
                 DayBreakdown(dayFmt.format(Date(s)), given, received, given - received, weekStart = s, weekEnd = e)
@@ -377,9 +378,9 @@ fun FileDetailScreen(
         }
         // Reverse so oldest day is first (e.g. 1 May, then 8 May)
         days.reversed().map { (s, e) ->
-            val dayPayments  = filePayments.filter { it.date in s..e }
+            val dayPayments  = filePaymentsAll.filter { it.date in s..e }
             val dayPersonIds = dayPayments.map { it.personId }.toSet()
-            val dayPersons   = filteredPersons.filter { it.id in dayPersonIds }
+            val dayPersons   = allPersons.filter { it.id in dayPersonIds }
             val given    = dayPersons.sumOf { it.amountGiven }
             val received = dayPayments.sumOf { it.amount }
             DayBreakdown(dayFmt.format(Date(s)), given, received, given - received, weekStart = s, weekEnd = e)

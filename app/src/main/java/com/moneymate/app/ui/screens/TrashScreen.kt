@@ -16,7 +16,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.moneymate.app.data.local.entity.LoanFile
+import com.moneymate.app.data.local.entity.Person
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel
+import com.moneymate.app.ui.viewmodel.PersonViewModel
 import com.moneymate.app.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -24,11 +26,14 @@ import com.moneymate.app.ui.viewmodel.SettingsViewModel
 fun TrashScreen(
     navController: NavHostController,
     loanFileViewModel: LoanFileViewModel = hiltViewModel(),
+    personViewModel: PersonViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel
 ) {
     val trashedFiles by loanFileViewModel.trashedFiles.collectAsState()
+    val deletedCompletedPersons by personViewModel.deletedCompletedPersons.collectAsState()
     val autoDeleteDays by settingsViewModel.autoDeleteDays.collectAsState()
     var fileToDelete by remember { mutableStateOf<LoanFile?>(null) }
+    var personToDelete by remember { mutableStateOf<Person?>(null) }
     var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showMultiDeleteDialog by remember { mutableStateOf(false) }
     var showMultiRestoreDialog by remember { mutableStateOf(false) }
@@ -84,7 +89,6 @@ fun TrashScreen(
                                 Icon(Icons.Default.DoneAll, contentDescription = "Select All")
                             }
                             IconButton(onClick = {
-                                val cutoff = System.currentTimeMillis() - (autoDeleteDays.toLong() * 24 * 60 * 60 * 1000)
                                 loanFileViewModel.purgeExpiredFiles()
                             }) {
                                 Icon(Icons.Default.DeleteForever, contentDescription = "Empty Trash")
@@ -95,7 +99,8 @@ fun TrashScreen(
             }
         }
     ) { padding ->
-        if (trashedFiles.isEmpty()) {
+        val isEmpty = trashedFiles.isEmpty() && deletedCompletedPersons.isEmpty()
+        if (isEmpty) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
@@ -106,7 +111,7 @@ fun TrashScreen(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Trash is empty", style = MaterialTheme.typography.titleMedium)
-                    Text("Deleted files appear here for $autoDeleteDays days",
+                    Text("Deleted items appear here for 180 days",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -117,25 +122,57 @@ fun TrashScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(trashedFiles, key = { it.id }) { file ->
-                    val isSelected = selectedIds.contains(file.id)
-                    TrashedFileCard(
-                        file = file,
-                        autoDeleteDays = autoDeleteDays,
-                        isSelected = isSelected,
-                        isSelecting = isSelecting,
-                        onLongClick = { selectedIds = selectedIds + file.id },
-                        onClick = {
-                            if (isSelecting) {
-                                selectedIds = if (isSelected)
-                                    selectedIds - file.id
-                                else
-                                    selectedIds + file.id
-                            }
-                        },
-                        onRestore = { loanFileViewModel.restoreFile(file.id) },
-                        onDelete = { fileToDelete = file }
-                    )
+                // ── Deleted Files section ─────────────────────────────────────
+                if (trashedFiles.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Deleted Files",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                    items(trashedFiles, key = { it.id }) { file ->
+                        val isSelected = selectedIds.contains(file.id)
+                        TrashedFileCard(
+                            file = file,
+                            autoDeleteDays = autoDeleteDays,
+                            isSelected = isSelected,
+                            isSelecting = isSelecting,
+                            onLongClick = { selectedIds = selectedIds + file.id },
+                            onClick = {
+                                if (isSelecting) {
+                                    selectedIds = if (isSelected)
+                                        selectedIds - file.id
+                                    else
+                                        selectedIds + file.id
+                                }
+                            },
+                            onRestore = { loanFileViewModel.restoreFile(file.id) },
+                            onDelete = { fileToDelete = file }
+                        )
+                    }
+                }
+
+                // ── Deleted Completed Persons section ─────────────────────────
+                if (deletedCompletedPersons.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Deleted Completed Persons",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = if (trashedFiles.isNotEmpty()) 12.dp else 0.dp, bottom = 4.dp)
+                        )
+                    }
+                    items(deletedCompletedPersons, key = { it.id }) { person ->
+                        DeletedCompletedPersonCard(
+                            person = person,
+                            onRestore = { personViewModel.restorePerson(person.id) },
+                            onDelete = { personToDelete = person }
+                        )
+                    }
                 }
             }
         }
@@ -154,6 +191,23 @@ fun TrashScreen(
             },
             dismissButton = {
                 TextButton(onClick = { fileToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    personToDelete?.let { person ->
+        AlertDialog(
+            onDismissRequest = { personToDelete = null },
+            title = { Text("Permanently Delete?") },
+            text = { Text("\"${person.name}\" will be permanently deleted and cannot be recovered.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    personViewModel.hardDeletePerson(person.id)
+                    personToDelete = null
+                }) { Text("Delete Forever", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { personToDelete = null }) { Text("Cancel") }
             }
         )
     }
@@ -192,6 +246,54 @@ fun TrashScreen(
                 TextButton(onClick = { showMultiRestoreDialog = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DeletedCompletedPersonCard(
+    person: Person,
+    onRestore: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val deletedAt = person.deletedAt ?: 0L
+    val daysLeft = 180 - ((System.currentTimeMillis() - deletedAt) / (1000 * 60 * 60 * 24)).toInt()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Person, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(40.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(person.name, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium)
+                if (!person.place.isNullOrBlank()) {
+                    Text(person.place, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(
+                    if (daysLeft > 0) "Deleted • $daysLeft days left" else "Expires soon",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (daysLeft <= 3) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onRestore) {
+                Icon(Icons.Default.Restore, contentDescription = "Restore",
+                    tint = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.DeleteForever, contentDescription = "Delete Forever",
+                    tint = MaterialTheme.colorScheme.error)
+            }
+        }
     }
 }
 
@@ -257,5 +359,4 @@ fun TrashedFileCard(
                 }
             }
         }
-    }
-}
+    }}

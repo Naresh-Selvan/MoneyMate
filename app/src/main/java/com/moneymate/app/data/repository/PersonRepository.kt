@@ -28,6 +28,9 @@ class PersonRepository @Inject constructor(
     fun getDeletedPersons(): Flow<List<Person>> =
         personDao.getDeletedPersons()
 
+    fun getDeletedCompletedPersons(): Flow<List<Person>> =
+        personDao.getDeletedCompletedPersons()
+
     fun getCompletedPersonsByFile(fileId: String): Flow<List<Person>> =
         personDao.getCompletedPersonsByFile(fileId)
 
@@ -61,6 +64,9 @@ class PersonRepository @Inject constructor(
     suspend fun softDeletePerson(id: String, deletedAt: Long) =
         personDao.softDeletePerson(id, deletedAt)
 
+    suspend fun softDeleteCompletedPerson(id: String, deletedAt: Long) =
+        personDao.softDeleteCompletedPerson(id, deletedAt)
+
     suspend fun restorePerson(id: String) =
         personDao.restorePerson(id)
 
@@ -72,6 +78,9 @@ class PersonRepository @Inject constructor(
 
     suspend fun purgeExpiredCompletedPersons(cutoff: Long) =
         personDao.purgeExpiredCompletedPersons(cutoff)
+
+    suspend fun purgeExpiredDeletedCompletedPersons(cutoff: Long) =
+        personDao.purgeExpiredDeletedCompletedPersons(cutoff)
 
     suspend fun markAllUploadedInFile(fileId: String, uploadedAt: Long) =
         personDao.markAllUploadedInFile(fileId, uploadedAt)

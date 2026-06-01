@@ -78,9 +78,21 @@ interface PersonDao {
     @Query("DELETE FROM persons WHERE isDeleted = 1 AND deletedAt < :cutoff")
     suspend fun purgeExpiredPersons(cutoff: Long)
 
-    // Auto-purge completed persons older than 30 days
-    @Query("DELETE FROM persons WHERE isCompleted = 1 AND completedAt < :cutoff")
+    // Soft-delete a completed person (moves it to Recently Deleted in TrashScreen)
+    @Query("UPDATE persons SET isDeleted = 1, deletedAt = :deletedAt WHERE id = :id AND isCompleted = 1")
+    suspend fun softDeleteCompletedPerson(id: String, deletedAt: Long)
+
+    // Returns all soft-deleted completed persons (for TrashScreen "Deleted Completed Persons" section)
+    @Query("SELECT * FROM persons WHERE isCompleted = 1 AND isDeleted = 1 ORDER BY deletedAt DESC")
+    fun getDeletedCompletedPersons(): Flow<List<Person>>
+
+    // Auto-purge completed persons older than 180 days
+    @Query("DELETE FROM persons WHERE isCompleted = 1 AND isDeleted = 0 AND completedAt < :cutoff")
     suspend fun purgeExpiredCompletedPersons(cutoff: Long)
+
+    // Auto-purge soft-deleted completed persons older than 180 days
+    @Query("DELETE FROM persons WHERE isCompleted = 1 AND isDeleted = 1 AND deletedAt < :cutoff")
+    suspend fun purgeExpiredDeletedCompletedPersons(cutoff: Long)
 
     @Query("UPDATE persons SET uploadedAt = :uploadedAt WHERE fileId = :fileId AND isDeleted = 0")
     suspend fun markAllUploadedInFile(fileId: String, uploadedAt: Long)

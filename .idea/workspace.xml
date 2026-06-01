@@ -5,6 +5,16 @@
       <config />
     </shared>
     <layouts>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/mipmap-anydpi/ic_launcher.xml">
+        <config>
+          <theme>@style/Theme.MoneyMate</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/mipmap-anydpi/ic_launcher_round.xml">
+        <config>
+          <theme>@style/Theme.MoneyMate</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/app/src/main/res/xml/update_file_paths.xml">
         <config>
           <theme>@style/Theme.MoneyMate</theme>
@@ -17,11 +27,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fb06efd4-786f-470c-893b-138f47af15ff" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/SettingsScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/SettingsScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/UpdateDialog.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/UpdateDialog.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/UpdateViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/UpdateViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/dao/PersonDao.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/dao/PersonDao.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/repository/PersonRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/repository/PersonRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/FileDetailScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/FileDetailScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/TrashScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/TrashScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/PaymentViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/PaymentViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/PersonViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/PersonViewModel.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,7 +45,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[PhysicalDevice::serial=1369445776000A0]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[LocalEmulator::path=C:\Users\Naresh\.android\avd\Pixel_6.avd]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -203,12 +217,12 @@
       <map>
         <entry key="com.moneymate.app">
           <value>
-            <CheckInfo lastCheckTimestamp="1779861200783" />
+            <CheckInfo lastCheckTimestamp="1780307847924" />
           </value>
         </entry>
         <entry key="com.moneymate.app.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1779861200780" />
+            <CheckInfo lastCheckTimestamp="1780307847924" />
           </value>
         </entry>
       </map>

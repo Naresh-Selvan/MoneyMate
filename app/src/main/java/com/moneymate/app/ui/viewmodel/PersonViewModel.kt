@@ -31,6 +31,10 @@ class PersonViewModel @Inject constructor(
     val deletedPersons: StateFlow<List<Person>> = repository.getDeletedPersons()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Completed persons that have been soft-deleted → shown in TrashScreen
+    val deletedCompletedPersons: StateFlow<List<Person>> = repository.getDeletedCompletedPersons()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Completed persons (fully repaid; auto-purge after 30 days)
     val completedPersons: StateFlow<List<Person>> = _currentFileId
         .flatMapLatest { fileId ->
@@ -67,6 +71,11 @@ class PersonViewModel @Inject constructor(
         repository.softDeletePerson(id, System.currentTimeMillis())
     }
 
+    /** Soft-deletes a completed person so it appears in TrashScreen for 180 days. */
+    fun softDeleteCompletedPerson(id: String) = viewModelScope.launch {
+        repository.softDeleteCompletedPerson(id, System.currentTimeMillis())
+    }
+
     fun restorePerson(id: String) = viewModelScope.launch {
         repository.restorePerson(id)
     }
@@ -76,13 +85,14 @@ class PersonViewModel @Inject constructor(
     }
 
     fun purgeExpiredPersons() = viewModelScope.launch {
-        val cutoff = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+        val cutoff = System.currentTimeMillis() - (180L * 24 * 60 * 60 * 1000)
         repository.purgeExpiredPersons(cutoff)
     }
 
     fun purgeExpiredCompletedPersons() = viewModelScope.launch {
-        val cutoff = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+        val cutoff = System.currentTimeMillis() - (180L * 24 * 60 * 60 * 1000)
         repository.purgeExpiredCompletedPersons(cutoff)
+        repository.purgeExpiredDeletedCompletedPersons(cutoff)
     }
 
     fun setEditPermission(id: String, granted: Boolean, scope: EditPermissionScope) = viewModelScope.launch {

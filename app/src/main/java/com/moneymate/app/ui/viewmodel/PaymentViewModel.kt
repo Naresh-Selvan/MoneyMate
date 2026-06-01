@@ -56,7 +56,7 @@ class PaymentViewModel @Inject constructor(
     }
 
     fun purgeExpiredPayments() = viewModelScope.launch {
-        val cutoff = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+        val cutoff = System.currentTimeMillis() - (180L * 24 * 60 * 60 * 1000)
         repository.purgeExpiredPayments(cutoff)
     }
 

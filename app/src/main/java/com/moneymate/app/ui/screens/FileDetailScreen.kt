@@ -2,9 +2,11 @@ package com.moneymate.app.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,8 +25,15 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -58,6 +67,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.lazy.items
+import kotlin.math.roundToInt
 
 const val PAGE_SIZE = 20
 
@@ -166,6 +176,20 @@ fun FileDetailScreen(
     val isSelecting            = selectedIds.isNotEmpty()
     val isSelectingTrash       = selectedTrashIds.isNotEmpty()
 
+    // ── Fix 2/3: Completed person drag-to-delete state ───────────────────────
+    var draggingCompletedPerson   by remember { mutableStateOf<Person?>(null) }
+    var dragOffset                by remember { mutableStateOf(Offset.Zero) }
+    var showDustbin               by remember { mutableStateOf(false) }
+    var dustbinPosition           by remember { mutableStateOf(Offset.Zero) }
+    var isOverDustbin             by remember { mutableStateOf(false) }
+    var completedPersonToConfirmDelete by remember { mutableStateOf<Person?>(null) }
+    // Animation for dustbin entrance
+    val dustbinScale by animateFloatAsState(
+        targetValue = if (showDustbin) (if (isOverDustbin) 1.3f else 1f) else 0f,
+        animationSpec = tween(200),
+        label = "dustbinScale"
+    )
+
     // ── Add-dialog fields ───────────────────────────────────────────────────
     var newName   by remember { mutableStateOf("") }
     var newPlace  by remember { mutableStateOf("") }
@@ -271,9 +295,6 @@ fun FileDetailScreen(
     val pagePersonIds     = remember(pagePersons) { pagePersons.map { it.id }.toSet() }
 
     // Totals
-    // ── All totals wrapped in remember so they don't recompute on every frame ──
-    // AFTER
-    // AFTER
     val allPersons   = remember(filteredPersons, completedPersons) { filteredPersons + completedPersons }
     val allGiven     = remember(allPersons) { allPersons.sumOf { it.amountGiven } }
     val allCashGiven = remember(allPersons) { allPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
@@ -306,7 +327,6 @@ fun FileDetailScreen(
     val balance       = if (showOverallTotal) allBalance  else pageBalance
 
     // ── Last target-day given & received (NLR files only) ─────────────────
-    // AFTER
     val allPersonIds = remember(allPersons) { allPersons.map { it.id }.toSet() }
     val lastWeekGiven: Double? = remember(targetDayOfWeek, allPersons) {
         val dow = targetDayOfWeek ?: return@remember null
@@ -391,8 +411,6 @@ fun FileDetailScreen(
 
     @Suppress("UNUSED_VARIABLE")
     val summaryPager  = rememberPagerState(pageCount = { 2 })
-    // This single pager drives BOTH the summary day-breakdown card AND the person list column arrows
-    // so that clicking ← → actually scrolls the visible day column
     val daySummaryPager = if ((filterWeeks.isNotBlank() || isViewMode) && dayBreakdowns.isNotEmpty())
         rememberPagerState(pageCount = { dayBreakdowns.size + 1 })
     else null
@@ -414,7 +432,6 @@ fun FileDetailScreen(
     BackHandler(enabled = showTrash)        { showTrash = false; selectedTrashIds = emptySet() }
     BackHandler(enabled = isSelecting)      { selectedIds = emptySet() }
     BackHandler(enabled = showSearch)       { showSearch = false; personViewModel.filterSearchQuery.value = "" }
-    // When a filter is active, back clears it — does NOT navigate to Home
     BackHandler(enabled = isFiltered)       { personViewModel.clearFilters() }
 
     // Upload snackbar
@@ -485,637 +502,673 @@ fun FileDetailScreen(
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            when {
-                showTrash && isSelectingTrash -> TopAppBar(
-                    title = { Text("${selectedTrashIds.size} selected", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = { selectedTrashIds = emptySet() }) { Icon(Icons.Default.Close, null) } },
-                    actions = {
-                        val allTrashSelected = selectedTrashIds.size == deletedPersons.size && deletedPersons.isNotEmpty()
-                        IconButton(onClick = {
-                            selectedTrashIds = if (allTrashSelected) emptySet() else deletedPersons.map { it.id }.toSet()
-                        }) {
-                            Icon(
-                                if (allTrashSelected) Icons.Default.Close else Icons.Default.DoneAll,
-                                contentDescription = if (allTrashSelected) "Deselect All" else "Select All",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        IconButton(onClick = { showMultiRestoreDialog = true }) { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary) }
-                        IconButton(onClick = { showMultiTrashDeleteDialog = true }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) }
-                    }
-                )
-                showTrash -> TopAppBar(
-                    title = { Text("Recently Deleted", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = { showTrash = false; selectedTrashIds = emptySet() }) { Icon(Icons.Default.ArrowBack, null) } },
-                    actions = {
-                        if (deletedPersons.isNotEmpty()) {
-                            IconButton(onClick = { selectedTrashIds = deletedPersons.map { it.id }.toSet() }) {
-                                Icon(Icons.Default.DoneAll, contentDescription = "Select All")
-                            }
-                        }
-                    }
-                )
-                isSelecting -> TopAppBar(
-                    title = { Text("${selectedIds.size} selected", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = { selectedIds = emptySet() }) { Icon(Icons.Default.Close, null) } },
-                    actions = {
-                        val allSelected = selectedIds.size == filteredPersons.size && filteredPersons.isNotEmpty()
-                        IconButton(onClick = {
-                            selectedIds = if (allSelected) emptySet() else filteredPersons.map { it.id }.toSet()
-                        }) {
-                            Icon(
-                                if (allSelected) Icons.Default.Close else Icons.Default.DoneAll,
-                                contentDescription = if (allSelected) "Deselect All" else "Select All",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        IconButton(onClick = { showMultiDeleteDialog = true }) { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
-                    }
-                )
-                showSearch -> TopAppBar(
-                    title = {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { personViewModel.filterSearchQuery.value = it },
-                            placeholder = { Text("Search name, place, mobile…") },
-                            singleLine = true, modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                            )
-                        )
-                    },
-                    navigationIcon = { IconButton(onClick = { showSearch = false; personViewModel.filterSearchQuery.value = "" }) { Icon(Icons.Default.ArrowBack, null) } }
-                )
-                else -> TopAppBar(
-                    title = { Text(file?.name ?: "File Detail", fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            if (isFiltered) personViewModel.clearFilters()
-                            else navController.popBackStack()
-                        }) { Icon(Icons.Default.ArrowBack, null) }
-                    },
-                    actions = {
-                        if (isFiltered || searchQuery.isNotBlank()) {
-                            IconButton(onClick = { personViewModel.clearFilters() }) {
-                                Icon(Icons.Default.FilterAltOff, null, tint = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                        // Add person button
-                        IconButton(onClick = { showAddDialog = true }) {
-                            Icon(Icons.Default.PersonAdd, contentDescription = "Add Person")
-                        }
-                        // Upload button
-                        val anyUploaded = persons.any { it.uploadedAt != null && !it.isDeleted }
-                        IconButton(onClick = { showUploadConfirm = true }) {
-                            when {
-                                uploadState is UploadState.Uploading ->
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                anyUploaded ->
-                                    Icon(Icons.Default.CloudDone, "Uploaded to Firebase",
-                                        tint = MaterialTheme.colorScheme.primary)
-                                else ->
-                                    Icon(Icons.Default.Upload, "Upload to Firebase")
-                            }
-                        }
-                        IconButton(onClick = { showSearch = true }) { Icon(Icons.Default.Search, "Search") }
-                        // ── 3-dot overflow menu ──────────────────────────────
-                        Box {
-                            IconButton(onClick = { showThreeDotMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "More options")
-                            }
-                            DropdownMenu(
-                                expanded = showThreeDotMenu,
-                                onDismissRequest = { showThreeDotMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Filter") },
-                                    leadingIcon = { Icon(Icons.Default.FilterList, null) },
-                                    onClick = { showThreeDotMenu = false; showFilterSheet = true }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbar) },
+            topBar = {
+                when {
+                    showTrash && isSelectingTrash -> TopAppBar(
+                        title = { Text("${selectedTrashIds.size} selected", fontWeight = FontWeight.Bold) },
+                        navigationIcon = { IconButton(onClick = { selectedTrashIds = emptySet() }) { Icon(Icons.Default.Close, null) } },
+                        actions = {
+                            val allTrashSelected = selectedTrashIds.size == deletedPersons.size && deletedPersons.isNotEmpty()
+                            IconButton(onClick = {
+                                selectedTrashIds = if (allTrashSelected) emptySet() else deletedPersons.map { it.id }.toSet()
+                            }) {
+                                Icon(
+                                    if (allTrashSelected) Icons.Default.Close else Icons.Default.DoneAll,
+                                    contentDescription = if (allTrashSelected) "Deselect All" else "Select All",
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
-                                if (completedPersons.isNotEmpty()) {
-                                    DropdownMenuItem(
-                                        text = { Text("Completed (${completedPersons.size})") },
-                                        leadingIcon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { showThreeDotMenu = false; showCompletedDialog = true }
-                                    )
+                            }
+                            IconButton(onClick = { showMultiRestoreDialog = true }) { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary) }
+                            IconButton(onClick = { showMultiTrashDeleteDialog = true }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) }
+                        }
+                    )
+                    showTrash -> TopAppBar(
+                        title = { Text("Recently Deleted", fontWeight = FontWeight.Bold) },
+                        navigationIcon = { IconButton(onClick = { showTrash = false; selectedTrashIds = emptySet() }) { Icon(Icons.Default.ArrowBack, null) } },
+                        actions = {
+                            if (deletedPersons.isNotEmpty()) {
+                                IconButton(onClick = { selectedTrashIds = deletedPersons.map { it.id }.toSet() }) {
+                                    Icon(Icons.Default.DoneAll, contentDescription = "Select All")
                                 }
-                                DropdownMenuItem(
-                                    text = { Text("Recently Deleted") },
-                                    leadingIcon = { Icon(Icons.Default.Delete, null) },
-                                    onClick = { showThreeDotMenu = false; showTrash = true }
-                                )
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text("View by Date") },
-                                    leadingIcon = { Icon(Icons.Default.CalendarToday, null) },
-                                    onClick = {
-                                        showThreeDotMenu = false
-                                        viewPersonFilter = null
-                                        showViewDatePicker2 = true
-                                    }
-                                )
                             }
                         }
-                    }
-                )
-            }
-        },
-        floatingActionButton = {}
-    ) { padding ->
-        if (showTrash) {
-            TrashContent(
-                deletedPersons = deletedPersons, autoDeleteDays = autoDeleteDays,
-                isSelectingTrash = isSelectingTrash, selectedTrashIds = selectedTrashIds, padding = padding,
-                onToggleSelect = { id -> selectedTrashIds = if (id in selectedTrashIds) selectedTrashIds - id else selectedTrashIds + id },
-                onLongSelect   = { id -> selectedTrashIds = selectedTrashIds + id },
-                onRestore      = { personViewModel.restorePerson(it) },
-                onHardDelete   = { personViewModel.hardDeletePerson(it) }
-            )
-        } else {
-            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-
-                // Active filter chips row
-                if (isFiltered) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (filterWeeks.isNotBlank()) {
-                            val dowLabel = when (targetDayOfWeek) { Calendar.FRIDAY -> "Fri"; Calendar.SATURDAY -> "Sat"; else -> "Day" }
-                            FilterChip(selected = true, onClick = { personViewModel.filterWeeks.value = "" },
-                                label = { Text("Last $filterWeeks ${dowLabel}s", style = MaterialTheme.typography.labelSmall) },
-                                trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
+                    )
+                    isSelecting -> TopAppBar(
+                        title = { Text("${selectedIds.size} selected", fontWeight = FontWeight.Bold) },
+                        navigationIcon = { IconButton(onClick = { selectedIds = emptySet() }) { Icon(Icons.Default.Close, null) } },
+                        actions = {
+                            val allSelected = selectedIds.size == filteredPersons.size && filteredPersons.isNotEmpty()
+                            IconButton(onClick = {
+                                selectedIds = if (allSelected) emptySet() else filteredPersons.map { it.id }.toSet()
+                            }) {
+                                Icon(
+                                    if (allSelected) Icons.Default.Close else Icons.Default.DoneAll,
+                                    contentDescription = if (allSelected) "Deselect All" else "Select All",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = { showMultiDeleteDialog = true }) { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
                         }
-                        if (isViewMode) {
-                            val viewFmt = SimpleDateFormat("dd MMM", Locale.getDefault())
-                            FilterChip(selected = true, onClick = { personViewModel.filterViewStartDate.value = 0L; personViewModel.filterViewNumWeeks.value = "" },
-                                label = { Text("View: ${viewFmt.format(Date(filterViewStartDate))} × ${filterViewNumWeeks}wks", style = MaterialTheme.typography.labelSmall) },
-                                trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
-                        }
-                        if (minAmount.isNotBlank() || maxAmount.isNotBlank()) {
-                            FilterChip(selected = true,
-                                onClick = { personViewModel.filterMinAmount.value = ""; personViewModel.filterMaxAmount.value = "" },
-                                label = { Text("₹${minAmount.ifBlank { "0" }}–₹${maxAmount.ifBlank { "∞" }}", style = MaterialTheme.typography.labelSmall) },
-                                trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
-                        }
-                        if (paymentTypeFilter != PaymentTypeFilter.ALL) {
-                            FilterChip(selected = true,
-                                onClick = { personViewModel.filterPaymentType.value = PersonViewModel.PaymentTypeFilterState.ALL },
-                                label = { Text(paymentTypeFilter.displayName(), style = MaterialTheme.typography.labelSmall) },
-                                trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
-                        }
-                    }
-                }
-
-                // Summary card
-                LaunchedEffect(totalsRevealed) {
-                    autoHideJob?.cancel()
-                    if (totalsRevealed) {
-                        autoHideJob = coroutineScope.launch {
-                            delay(2 * 60 * 1000L)
-                            totalsRevealed = false
-                        }
-                    }
-                }
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .pointerInput(totalsRevealed) {
-                            detectTapGestures(
-                                onTap = {
-                                    if (totalsRevealed) {
-                                        totalsRevealed = false
-                                        autoHideJob?.cancel()
-                                        coroutineScope.launch { holdProgress.snapTo(0f) }
-                                    }
-                                },
-                                onPress = {
-                                    if (!totalsRevealed) {
-                                        val job = coroutineScope.launch {
-                                            holdProgress.snapTo(0f)
-                                            holdProgress.animateTo(1f, tween(1500))
-                                            if (holdProgress.value >= 1f) totalsRevealed = true
-                                        }
-                                        tryAwaitRelease()
-                                        if (!totalsRevealed) {
-                                            job.cancel()
-                                            coroutineScope.launch { holdProgress.snapTo(0f) }
-                                        }
-                                    }
-                                }
+                    )
+                    showSearch -> TopAppBar(
+                        title = {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { personViewModel.filterSearchQuery.value = it },
+                                placeholder = { Text("Search name, place, mobile…") },
+                                singleLine = true, modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                )
                             )
                         },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        // Page / Overall chips — consume ALL pointer events so hold never leaks to card
-                        Box(
-                            modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                                // Absorb every event: prevents long-press on chips from triggering reveal
-                                awaitPointerEventScope {
-                                    while (true) { awaitPointerEvent() }
+                        navigationIcon = { IconButton(onClick = { showSearch = false; personViewModel.filterSearchQuery.value = "" }) { Icon(Icons.Default.ArrowBack, null) } }
+                    )
+                    else -> TopAppBar(
+                        title = { Text(file?.name ?: "File Detail", fontWeight = FontWeight.Bold) },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                if (isFiltered) personViewModel.clearFilters()
+                                else navController.popBackStack()
+                            }) { Icon(Icons.Default.ArrowBack, null) }
+                        },
+                        actions = {
+                            if (isFiltered || searchQuery.isNotBlank()) {
+                                IconButton(onClick = { personViewModel.clearFilters() }) {
+                                    Icon(Icons.Default.FilterAltOff, null, tint = MaterialTheme.colorScheme.error)
                                 }
                             }
-                        ) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                                FilterChip(selected = !showOverallTotal, onClick = { personViewModel.filterShowOverallTotal.value = false },
-                                    label = { Text("Page ${currentPage + 1}/$totalPages", style = MaterialTheme.typography.labelSmall) })
-                                Spacer(Modifier.width(8.dp))
-                                FilterChip(selected = showOverallTotal, onClick = { personViewModel.filterShowOverallTotal.value = true },
-                                    label = { Text("Overall", style = MaterialTheme.typography.labelSmall) })
+                            IconButton(onClick = { showAddDialog = true }) {
+                                Icon(Icons.Default.PersonAdd, contentDescription = "Add Person")
                             }
-                        }
-                        Spacer(Modifier.height(4.dp))
-
-                        // Hidden state: fill-bar + masked amounts
-                        if (!totalsRevealed) {
-                            val progValue by holdProgress.asState()
-                            val isRevealing = progValue > 0f
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    if (isRevealing) "Revealing…" else "Hold to view totals",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (isRevealing) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.65f)
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f))
+                            val anyUploaded = persons.any { it.uploadedAt != null && !it.isDeleted }
+                            IconButton(onClick = { showUploadConfirm = true }) {
+                                when {
+                                    uploadState is UploadState.Uploading ->
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    anyUploaded ->
+                                        Icon(Icons.Default.CloudDone, "Uploaded to Firebase",
+                                            tint = MaterialTheme.colorScheme.primary)
+                                    else ->
+                                        Icon(Icons.Default.Upload, "Upload to Firebase")
+                                }
+                            }
+                            IconButton(onClick = { showSearch = true }) { Icon(Icons.Default.Search, "Search") }
+                            Box {
+                                IconButton(onClick = { showThreeDotMenu = true }) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                                }
+                                DropdownMenu(
+                                    expanded = showThreeDotMenu,
+                                    onDismissRequest = { showThreeDotMenu = false }
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(progValue)
-                                            .fillMaxHeight()
-                                            .clip(RoundedCornerShape(3.dp))
-                                            .background(MaterialTheme.colorScheme.primary)
+                                    DropdownMenuItem(
+                                        text = { Text("Filter") },
+                                        leadingIcon = { Icon(Icons.Default.FilterList, null) },
+                                        onClick = { showThreeDotMenu = false; showFilterSheet = true }
+                                    )
+                                    if (completedPersons.isNotEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("Completed (${completedPersons.size})") },
+                                            leadingIcon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) },
+                                            onClick = { showThreeDotMenu = false; showCompletedDialog = true }
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text("Recently Deleted") },
+                                        leadingIcon = { Icon(Icons.Default.Delete, null) },
+                                        onClick = { showThreeDotMenu = false; showTrash = true }
+                                    )
+                                    HorizontalDivider()
+                                    DropdownMenuItem(
+                                        text = { Text("View by Date") },
+                                        leadingIcon = { Icon(Icons.Default.CalendarToday, null) },
+                                        onClick = {
+                                            showThreeDotMenu = false
+                                            viewPersonFilter = null
+                                            showViewDatePicker2 = true
+                                        }
                                     )
                                 }
-                                Spacer(Modifier.height(6.dp))
-                                Text(
-                                    "Balance: ₹••••",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                                    fontWeight = FontWeight.Bold
-                                )
                             }
                         }
+                    )
+                }
+            },
+            floatingActionButton = {}
+        ) { padding ->
+            if (showTrash) {
+                TrashContent(
+                    deletedPersons = deletedPersons, autoDeleteDays = autoDeleteDays,
+                    isSelectingTrash = isSelectingTrash, selectedTrashIds = selectedTrashIds, padding = padding,
+                    onToggleSelect = { id -> selectedTrashIds = if (id in selectedTrashIds) selectedTrashIds - id else selectedTrashIds + id },
+                    onLongSelect   = { id -> selectedTrashIds = selectedTrashIds + id },
+                    onRestore      = { personViewModel.restorePerson(it) },
+                    onHardDelete   = { personViewModel.hardDeletePerson(it) }
+                )
+            } else {
+                Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
-                        // Revealed totals with fade-in
-                        AnimatedVisibility(
-                            visible = totalsRevealed,
-                            enter = fadeIn(tween(400)),
-                            exit = fadeOut(tween(300))
+                    if (isFiltered) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(Modifier.fillMaxWidth()) {
-                                if ((filterWeeks.isNotBlank() || isViewMode) && dayBreakdowns.isNotEmpty() && daySummaryPager != null) {
-                                    // Swipeable day cards driven by the hoisted daySummaryPager —
-                                    // the SAME state used by the column-header arrow buttons below
-                                    Column(Modifier.fillMaxWidth()) {
-                                        HorizontalPager(
-                                            state = daySummaryPager,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { page ->
-                                            if (page < dayBreakdowns.size) {
-                                                // Individual day card
-                                                val day = dayBreakdowns[page]
-                                                Column(
-                                                    Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
-                                                ) {
-                                                    Text(
-                                                        day.label,
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                    )
-                                                    Spacer(Modifier.height(8.dp))
-                                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                            Text("Given", style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                            Text(
-                                                                if (day.given == 0.0) "Nil" else "₹${day.given}",
-                                                                style = MaterialTheme.typography.titleMedium,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = MaterialTheme.colorScheme.primary
-                                                            )
-                                                        }
-                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                            Text("Returned", style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                            Text(
-                                                                if (day.received == 0.0) "Nil" else "₹${day.received}",
-                                                                style = MaterialTheme.typography.titleMedium,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = MaterialTheme.colorScheme.tertiary
-                                                            )
-                                                        }
-                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                            Text("Pending", style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                            Text(
-                                                                if (day.pending == 0.0) "Nil" else "₹${day.pending}",
-                                                                style = MaterialTheme.typography.titleMedium,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = if (day.pending > 0) MaterialTheme.colorScheme.error
-                                                                else MaterialTheme.colorScheme.primary
-                                                            )
+                            if (filterWeeks.isNotBlank()) {
+                                val dowLabel = when (targetDayOfWeek) { Calendar.FRIDAY -> "Fri"; Calendar.SATURDAY -> "Sat"; else -> "Day" }
+                                FilterChip(selected = true, onClick = { personViewModel.filterWeeks.value = "" },
+                                    label = { Text("Last $filterWeeks ${dowLabel}s", style = MaterialTheme.typography.labelSmall) },
+                                    trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
+                            }
+                            if (isViewMode) {
+                                val viewFmt = SimpleDateFormat("dd MMM", Locale.getDefault())
+                                FilterChip(selected = true, onClick = { personViewModel.filterViewStartDate.value = 0L; personViewModel.filterViewNumWeeks.value = "" },
+                                    label = { Text("View: ${viewFmt.format(Date(filterViewStartDate))} × ${filterViewNumWeeks}wks", style = MaterialTheme.typography.labelSmall) },
+                                    trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
+                            }
+                            if (minAmount.isNotBlank() || maxAmount.isNotBlank()) {
+                                FilterChip(selected = true,
+                                    onClick = { personViewModel.filterMinAmount.value = ""; personViewModel.filterMaxAmount.value = "" },
+                                    label = { Text("₹${minAmount.ifBlank { "0" }}–₹${maxAmount.ifBlank { "∞" }}", style = MaterialTheme.typography.labelSmall) },
+                                    trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
+                            }
+                            if (paymentTypeFilter != PaymentTypeFilter.ALL) {
+                                FilterChip(selected = true,
+                                    onClick = { personViewModel.filterPaymentType.value = PersonViewModel.PaymentTypeFilterState.ALL },
+                                    label = { Text(paymentTypeFilter.displayName(), style = MaterialTheme.typography.labelSmall) },
+                                    trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
+                            }
+                        }
+                    }
+
+                    LaunchedEffect(totalsRevealed) {
+                        autoHideJob?.cancel()
+                        if (totalsRevealed) {
+                            autoHideJob = coroutineScope.launch {
+                                delay(2 * 60 * 1000L)
+                                totalsRevealed = false
+                            }
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .pointerInput(totalsRevealed) {
+                                detectTapGestures(
+                                    onTap = {
+                                        if (totalsRevealed) {
+                                            totalsRevealed = false
+                                            autoHideJob?.cancel()
+                                            coroutineScope.launch { holdProgress.snapTo(0f) }
+                                        }
+                                    },
+                                    onPress = {
+                                        if (!totalsRevealed) {
+                                            val job = coroutineScope.launch {
+                                                holdProgress.snapTo(0f)
+                                                holdProgress.animateTo(1f, tween(1500))
+                                                if (holdProgress.value >= 1f) totalsRevealed = true
+                                            }
+                                            tryAwaitRelease()
+                                            if (!totalsRevealed) {
+                                                job.cancel()
+                                                coroutineScope.launch { holdProgress.snapTo(0f) }
+                                            }
+                                        }
+                                    }
+                                )
+                            },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) { awaitPointerEvent() }
+                                    }
+                                }
+                            ) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                    FilterChip(selected = !showOverallTotal, onClick = { personViewModel.filterShowOverallTotal.value = false },
+                                        label = { Text("Page ${currentPage + 1}/$totalPages", style = MaterialTheme.typography.labelSmall) })
+                                    Spacer(Modifier.width(8.dp))
+                                    FilterChip(selected = showOverallTotal, onClick = { personViewModel.filterShowOverallTotal.value = true },
+                                        label = { Text("Overall", style = MaterialTheme.typography.labelSmall) })
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+
+                            if (!totalsRevealed) {
+                                val progValue by holdProgress.asState()
+                                val isRevealing = progValue > 0f
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        if (isRevealing) "Revealing…" else "Hold to view totals",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (isRevealing) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.65f)
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f))
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(progValue)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(3.dp))
+                                                .background(MaterialTheme.colorScheme.primary)
+                                        )
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        "Balance: ₹••••",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            AnimatedVisibility(
+                                visible = totalsRevealed,
+                                enter = fadeIn(tween(400)),
+                                exit = fadeOut(tween(300))
+                            ) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    if ((filterWeeks.isNotBlank() || isViewMode) && dayBreakdowns.isNotEmpty() && daySummaryPager != null) {
+                                        Column(Modifier.fillMaxWidth()) {
+                                            HorizontalPager(
+                                                state = daySummaryPager,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) { page ->
+                                                if (page < dayBreakdowns.size) {
+                                                    val day = dayBreakdowns[page]
+                                                    Column(
+                                                        Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        Text(
+                                                            day.label,
+                                                            style = MaterialTheme.typography.titleMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                        Spacer(Modifier.height(8.dp))
+                                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                                Text("Given", style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                Text(
+                                                                    if (day.given == 0.0) "Nil" else "₹${day.given}",
+                                                                    style = MaterialTheme.typography.titleMedium,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = MaterialTheme.colorScheme.primary
+                                                                )
+                                                            }
+                                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                                Text("Returned", style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                Text(
+                                                                    if (day.received == 0.0) "Nil" else "₹${day.received}",
+                                                                    style = MaterialTheme.typography.titleMedium,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = MaterialTheme.colorScheme.tertiary
+                                                                )
+                                                            }
+                                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                                Text("Pending", style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                Text(
+                                                                    if (day.pending == 0.0) "Nil" else "₹${day.pending}",
+                                                                    style = MaterialTheme.typography.titleMedium,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = if (day.pending > 0) MaterialTheme.colorScheme.error
+                                                                    else MaterialTheme.colorScheme.primary
+                                                                )
+                                                            }
                                                         }
                                                     }
-                                                }
-                                            } else {
-                                                // Last page = Overall total card
-                                                val totalG = dayBreakdowns.sumOf { it.given }
-                                                val totalR = dayBreakdowns.sumOf { it.received }
-                                                val totalP = dayBreakdowns.sumOf { it.pending }
-                                                Column(
-                                                    Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
-                                                ) {
-                                                    Text(
-                                                        if (isViewMode) "All ${dayBreakdowns.size} Weeks" else "All ${dayBreakdowns.size} ${if (targetDayOfWeek == Calendar.FRIDAY) "Fridays" else "Saturdays"}",
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                    )
-                                                    Spacer(Modifier.height(8.dp))
-                                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                            Text("Total Given", style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                            Text("₹$totalG", style = MaterialTheme.typography.titleMedium,
-                                                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                                        }
-                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                            Text("Total Returned", style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                            Text("₹$totalR", style = MaterialTheme.typography.titleMedium,
-                                                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
-                                                        }
-                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                            Text("Total Pending", style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                            Text("₹$totalP", style = MaterialTheme.typography.titleMedium,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = if (totalP > 0) MaterialTheme.colorScheme.error
-                                                                else MaterialTheme.colorScheme.primary)
+                                                } else {
+                                                    val totalG = dayBreakdowns.sumOf { it.given }
+                                                    val totalR = dayBreakdowns.sumOf { it.received }
+                                                    val totalP = dayBreakdowns.sumOf { it.pending }
+                                                    Column(
+                                                        Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        Text(
+                                                            if (isViewMode) "All ${dayBreakdowns.size} Weeks" else "All ${dayBreakdowns.size} ${if (targetDayOfWeek == Calendar.FRIDAY) "Fridays" else "Saturdays"}",
+                                                            style = MaterialTheme.typography.titleMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                        Spacer(Modifier.height(8.dp))
+                                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                                Text("Total Given", style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                Text("₹$totalG", style = MaterialTheme.typography.titleMedium,
+                                                                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                            }
+                                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                                Text("Total Returned", style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                Text("₹$totalR", style = MaterialTheme.typography.titleMedium,
+                                                                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+                                                            }
+                                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                                Text("Total Pending", style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                Text("₹$totalP", style = MaterialTheme.typography.titleMedium,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = if (totalP > 0) MaterialTheme.colorScheme.error
+                                                                    else MaterialTheme.colorScheme.primary)
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
+                                            Spacer(Modifier.height(6.dp))
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                                repeat(dayBreakdowns.size + 1) { i ->
+                                                    Box(Modifier.padding(horizontal = 3.dp).size(if (daySummaryPager.currentPage == i) 8.dp else 5.dp).background(
+                                                        if (daySummaryPager.currentPage == i) MaterialTheme.colorScheme.primary
+                                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), CircleShape))
+                                                }
+                                            }
+                                            Spacer(Modifier.height(2.dp))
+                                            Text(
+                                                if (daySummaryPager.currentPage < dayBreakdowns.size)
+                                                    "← swipe → (${daySummaryPager.currentPage + 1}/${dayBreakdowns.size + 1})"
+                                                else "← swipe for individual days",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                                            )
                                         }
-                                        Spacer(Modifier.height(6.dp))
-                                        // Page dots: one per day + one for total
-                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                                            repeat(dayBreakdowns.size + 1) { i ->
-                                                Box(Modifier.padding(horizontal = 3.dp).size(if (daySummaryPager.currentPage == i) 8.dp else 5.dp).background(
-                                                    if (daySummaryPager.currentPage == i) MaterialTheme.colorScheme.primary
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), CircleShape))
+                                    } else {
+                                        Column(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Text(
+                                                "Total Balance",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                "₹$balance",
+                                                style = MaterialTheme.typography.headlineLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (balance > 0) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.error
+                                            )
+
+                                            if (lastWeekDayLabel != null && lastWeekGiven != null && lastWeekReceived != null) {
+                                                Spacer(Modifier.height(12.dp))
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                Spacer(Modifier.height(8.dp))
+                                                Text(
+                                                    lastWeekDayLabel,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Spacer(Modifier.height(6.dp))
+                                                Row(
+                                                    Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                                ) {
+                                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                        Text("Given", style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        Text(
+                                                            if (lastWeekGiven == 0.0) "Nil" else "₹$lastWeekGiven",
+                                                            style = MaterialTheme.typography.titleMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                        Text("Received", style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        Text(
+                                                            if (lastWeekReceived == 0.0) "Nil" else "₹$lastWeekReceived",
+                                                            style = MaterialTheme.typography.titleMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.tertiary
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
-                                        Spacer(Modifier.height(2.dp))
+                                    }
+                                    if (totalsRevealed) {
                                         Text(
-                                            if (daySummaryPager.currentPage < dayBreakdowns.size)
-                                                "← swipe → (${daySummaryPager.currentPage + 1}/${dayBreakdowns.size + 1})"
-                                            else "← swipe for individual days",
+                                            "Tap card to hide",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                                             modifier = Modifier.align(Alignment.CenterHorizontally)
                                         )
                                     }
-                                } else {
-                                    // ── New layout: Balance big + last-week breakdown ──────────
-                                    Column(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        // BIG balance number
-                                        Text(
-                                            "Total Balance",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(
-                                            "₹$balance",
-                                            style = MaterialTheme.typography.headlineLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (balance > 0) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.error
-                                        )
+                                }
+                            }
+                        }
+                    }
 
-                                        // Last Friday/Saturday row — only for NLR files
-                                        if (lastWeekDayLabel != null && lastWeekGiven != null && lastWeekReceived != null) {
-                                            Spacer(Modifier.height(12.dp))
-                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                            Spacer(Modifier.height(8.dp))
+                    if (filteredPersons.isEmpty() && pendingNewLoanPersons.isEmpty() && completedPersons.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(if (persons.isEmpty()) "No persons yet. Tap + to add." else "No results match your filters.",
+                                style = MaterialTheme.typography.bodyLarge)
+                        }
+                    } else {
+                        val listPager = rememberPagerState(initialPage = 0, pageCount = { totalPages })
+                        LaunchedEffect(listPager.currentPage) { personViewModel.filterCurrentPage.value = listPager.currentPage }
+                        LaunchedEffect(currentPage) { if (listPager.currentPage != currentPage) listPager.scrollToPage(currentPage) }
+
+                        val dateColPager = daySummaryPager
+
+                        Column(Modifier.fillMaxSize()) {
+                            if (!isSelecting && !showTrash) {
+                                OutlinedButton(
+                                    onClick = { showAddDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Add New Person")
+                                }
+                            }
+
+                            if (totalPages > 1) {
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { if (currentPage > 0) personViewModel.filterCurrentPage.value = currentPage - 1 }, enabled = currentPage > 0) { Icon(Icons.Default.ChevronLeft, null) }
+                                    Text("Page ${currentPage + 1} of $totalPages  •  ${filteredPersons.size} total", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    IconButton(onClick = { if (currentPage < totalPages - 1) personViewModel.filterCurrentPage.value = currentPage + 1 }, enabled = currentPage < totalPages - 1) { Icon(Icons.Default.ChevronRight, null) }
+                                }
+                            }
+
+                            if (dateColPager != null) {
+                                val currentColPage = dateColPager.currentPage
+                                val colLabel = if (currentColPage < dayBreakdowns.size)
+                                    dayBreakdowns[currentColPage].label
+                                else "Total"
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                                ) {
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(
+                                            onClick = { if (currentColPage > 0) coroutineScope.launch { dateColPager.animateScrollToPage(currentColPage - 1) } },
+                                            enabled = currentColPage > 0
+                                        ) { Icon(Icons.Default.ChevronLeft, null, Modifier.size(18.dp)) }
+
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Text(
-                                                lastWeekDayLabel,
-                                                style = MaterialTheme.typography.labelSmall,
+                                                colLabel,
+                                                style = MaterialTheme.typography.labelLarge,
                                                 fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer
                                             )
-                                            Spacer(Modifier.height(6.dp))
-                                            Row(
-                                                Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceEvenly
-                                            ) {
-                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                    Text("Given", style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                    Text(
-                                                        if (lastWeekGiven == 0.0) "Nil" else "₹$lastWeekGiven",
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.primary
+                                            Text(
+                                                "${currentColPage + 1} / ${dayBreakdowns.size + 1}  •  swipe cards ←→",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = { if (currentColPage < dayBreakdowns.size) coroutineScope.launch { dateColPager.animateScrollToPage(currentColPage + 1) } },
+                                            enabled = currentColPage < dayBreakdowns.size
+                                        ) { Icon(Icons.Default.ChevronRight, null, Modifier.size(18.dp)) }
+                                    }
+                                }
+                            }
+
+                            val mergedPersons = remember(filteredPersons, pendingNewLoanPersons) {
+                                (filteredPersons + pendingNewLoanPersons).sortedBy { it.sortOrder }
+                            }
+
+                            HorizontalPager(state = listPager, Modifier.fillMaxSize()) { page ->
+                                val pageItems   = mergedPersons.drop(page * PAGE_SIZE).take(PAGE_SIZE)
+                                val globalStart = page * PAGE_SIZE
+                                val pageListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                                LazyColumn(
+                                    state = pageListState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    itemsIndexed(pageItems, key = { _, p -> p.id }) { idx, person ->
+                                        val serial = globalStart + idx + 1
+
+                                        if (person.isPendingNewLoan) {
+                                            PendingNewLoanCard(
+                                                person = person, dateFormat = dateFormat,
+                                                onActivate = { personToActivate = person; activateAmount = "" },
+                                                onDelete   = { personToDelete = person },
+                                                onTap      = { personToActivate = person; activateAmount = "" }
+                                            )
+                                        } else {
+                                            val isDragging = reorderState.draggingItemKey == person.id
+                                            val elevation  = if (isDragging) 8.dp else 2.dp
+                                            val isSelected = person.id in selectedIds
+                                            val paid       = paidByPerson[person.id] ?: 0.0
+                                            val pending    = person.amountGiven - paid
+                                            SwipeablePersonCard(
+                                                person = person, serialNumber = serial,
+                                                totalPaid = paid, pending = pending,
+                                                isSelected = isSelected, isSelecting = isSelecting,
+                                                elevation = elevation, reorderState = reorderState,
+                                                showWeeksColumns = filterWeeks.isNotBlank() || isViewMode,
+                                                dateFormat = dateFormat,
+                                                dayBreakdowns = dayBreakdowns,
+                                                personPayments = paymentsByPerson[person.id] ?: emptyList(),
+                                                dateColPager = dateColPager,
+                                                onClick = {
+                                                    if (isSelecting) selectedIds = if (isSelected) selectedIds - person.id else selectedIds + person.id
+                                                    else navController.navigate(Screen.PersonDetail.createRoute(person.id))
+                                                },
+                                                onLongClick = { selectedIds = selectedIds + person.id },
+                                                onDelete = { personToDelete = person },
+                                                onEdit   = { personToEdit   = person },
+                                                onMarkComplete = { personToMarkComplete = person },
+                                                onView = { viewPersonFilter = person; showViewDatePicker2 = true },
+                                                onQuickPayment = { amount, mode ->
+                                                    paymentViewModel.insertPayment(
+                                                        Payment(
+                                                            personId = person.id,
+                                                            amount   = amount,
+                                                            mode     = mode,
+                                                            date     = System.currentTimeMillis()
+                                                        )
                                                     )
                                                 }
-                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                    Text("Received", style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                    Text(
-                                                        if (lastWeekReceived == 0.0) "Nil" else "₹$lastWeekReceived",
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.tertiary
-                                                    )
-                                                }
-                                            }
+                                            )
                                         }
                                     }
                                 }
-                                if (totalsRevealed) {
-                                    Text(
-                                        "Tap card to hide",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                                    )
-                                }
                             }
                         }
                     }
                 }
+            }
+        }
 
-                if (filteredPersons.isEmpty() && pendingNewLoanPersons.isEmpty() && completedPersons.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(if (persons.isEmpty()) "No persons yet. Tap + to add." else "No results match your filters.",
-                            style = MaterialTheme.typography.bodyLarge)
+        // ── Fix 2: Dustbin overlay (shown on completed-person long press) ────────
+        if (showDustbin) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.15f))
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+                    .onGloballyPositioned { coords ->
+                        dustbinPosition = coords.positionInWindow()
                     }
-                } else {
-                    val listPager = rememberPagerState(initialPage = 0, pageCount = { totalPages })
-                    LaunchedEffect(listPager.currentPage) { personViewModel.filterCurrentPage.value = listPager.currentPage }
-                    LaunchedEffect(currentPage) { if (listPager.currentPage != currentPage) listPager.scrollToPage(currentPage) }
+                    .scale(dustbinScale)
+                    .background(
+                        if (isOverDustbin) MaterialTheme.colorScheme.errorContainer
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = CircleShape
+                    )
+                    .padding(20.dp)
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Drop to delete",
+                    tint = if (isOverDustbin) MaterialTheme.colorScheme.onErrorContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+            Text(
+                "Drop here to delete",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp)
+            )
+        }
 
-                    val dateColPager = daySummaryPager
-
-                    Column(Modifier.fillMaxSize()) {
-                        if (!isSelecting && !showTrash) {
-                            OutlinedButton(
-                                onClick = { showAddDialog = true },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Add New Person")
-                            }
-                        }
-
-                        if (totalPages > 1) {
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { if (currentPage > 0) personViewModel.filterCurrentPage.value = currentPage - 1 }, enabled = currentPage > 0) { Icon(Icons.Default.ChevronLeft, null) }
-                                Text("Page ${currentPage + 1} of $totalPages  •  ${filteredPersons.size} total", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                IconButton(onClick = { if (currentPage < totalPages - 1) personViewModel.filterCurrentPage.value = currentPage + 1 }, enabled = currentPage < totalPages - 1) { Icon(Icons.Default.ChevronRight, null) }
-                            }
-                        }
-
-                        // ── Date-column header when weeks filter is active ───────────────
-                        if (dateColPager != null) {
-                            val currentColPage = dateColPager.currentPage
-                            val colLabel = if (currentColPage < dayBreakdowns.size)
-                                dayBreakdowns[currentColPage].label
-                            else "Total"
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                            ) {
-                                Row(
-                                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    IconButton(
-                                        onClick = { if (currentColPage > 0) coroutineScope.launch { dateColPager.animateScrollToPage(currentColPage - 1) } },
-                                        enabled = currentColPage > 0
-                                    ) { Icon(Icons.Default.ChevronLeft, null, Modifier.size(18.dp)) }
-
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            colLabel,
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                        Text(
-                                            "${currentColPage + 1} / ${dayBreakdowns.size + 1}  •  swipe cards ←→",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                                        )
-                                    }
-
-                                    IconButton(
-                                        onClick = { if (currentColPage < dayBreakdowns.size) coroutineScope.launch { dateColPager.animateScrollToPage(currentColPage + 1) } },
-                                        enabled = currentColPage < dayBreakdowns.size
-                                    ) { Icon(Icons.Default.ChevronRight, null, Modifier.size(18.dp)) }
-                                }
-                            }
-                        }
-
-                        // Merge active + pending-new-loan persons sorted by sortOrder
-                        // so placeholders appear inline at their original position
-                        val mergedPersons = remember(filteredPersons, pendingNewLoanPersons) {
-                            (filteredPersons + pendingNewLoanPersons).sortedBy { it.sortOrder }
-                        }
-
-                        HorizontalPager(state = listPager, Modifier.fillMaxSize()) { page ->
-                            val pageItems   = mergedPersons.drop(page * PAGE_SIZE).take(PAGE_SIZE)
-                            val globalStart = page * PAGE_SIZE
-                            val pageListState = androidx.compose.foundation.lazy.rememberLazyListState()
-                            LazyColumn(
-                                state = pageListState,
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                itemsIndexed(pageItems, key = { _, p -> p.id }) { idx, person ->
-                                    val serial = globalStart + idx + 1
-
-                                    if (person.isPendingNewLoan) {
-                                        // Inline pending card — tap asks for new loan amount
-                                        PendingNewLoanCard(
-                                            person = person, dateFormat = dateFormat,
-                                            onActivate = { personToActivate = person; activateAmount = "" },
-                                            onDelete   = { personToDelete = person },
-                                            onTap      = { personToActivate = person; activateAmount = "" }
-                                        )
-                                    } else {
-                                        val isDragging = reorderState.draggingItemKey == person.id
-                                        val elevation  = if (isDragging) 8.dp else 2.dp
-                                        val isSelected = person.id in selectedIds
-                                        val paid       = paidByPerson[person.id] ?: 0.0
-                                        val pending    = person.amountGiven - paid
-                                        SwipeablePersonCard(
-                                            person = person, serialNumber = serial,
-                                            totalPaid = paid, pending = pending,
-                                            isSelected = isSelected, isSelecting = isSelecting,
-                                            elevation = elevation, reorderState = reorderState,
-                                            showWeeksColumns = filterWeeks.isNotBlank() || isViewMode,
-                                            dateFormat = dateFormat,
-                                            dayBreakdowns = dayBreakdowns,
-                                            personPayments = paymentsByPerson[person.id] ?: emptyList(),
-                                            dateColPager = dateColPager,
-                                            onClick = {
-                                                if (isSelecting) selectedIds = if (isSelected) selectedIds - person.id else selectedIds + person.id
-                                                else navController.navigate(Screen.PersonDetail.createRoute(person.id))
-                                            },
-                                            onLongClick = { selectedIds = selectedIds + person.id },
-                                            onDelete = { personToDelete = person },
-                                            onEdit   = { personToEdit   = person },
-                                            onMarkComplete = { personToMarkComplete = person },
-                                            onView = { viewPersonFilter = person; showViewDatePicker2 = true },
-                                            onQuickPayment = { amount, mode ->
-                                                paymentViewModel.insertPayment(
-                                                    Payment(
-                                                        personId = person.id,
-                                                        amount   = amount,
-                                                        mode     = mode,
-                                                        date     = System.currentTimeMillis()
-                                                    )
-                                                )
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+        // ── Fix 2: Floating drag ghost ──────────────────────────────────────────
+        if (draggingCompletedPerson != null) {
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(dragOffset.x.roundToInt() - 80, dragOffset.y.roundToInt() - 40) }
+                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    draggingCompletedPerson!!.name,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
     }
@@ -1137,7 +1190,7 @@ fun FileDetailScreen(
                         }
                     }
                     Text("This will:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                    Text("Move ${p.name} to the Completed section (visible for 30 days)", style = MaterialTheme.typography.bodySmall)
+                    Text("Move ${p.name} to the Completed section (visible for 180 days)", style = MaterialTheme.typography.bodySmall)
                     Text("Create a Rs.0 placeholder in the main list (Pending New Loan)", style = MaterialTheme.typography.bodySmall)
                     Text("Retain all name, place, and mobile details on the placeholder", style = MaterialTheme.typography.bodySmall)
                 }
@@ -1151,20 +1204,18 @@ fun FileDetailScreen(
         )
     }
 
-    // ── Completed persons bottom sheet ────────────────────────────────────────
+    // ── Fix 2/3: Completed persons bottom sheet with drag-to-delete ───────────
     if (showCompletedDialog) {
         ModalBottomSheet(
             onDismissRequest = { showCompletedDialog = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
-            // Pre-compute payments per completed person once, not on every frame
             val completedPaymentsMap = remember(completedPersons, filePaymentsAll) {
                 completedPersons.associate { comp ->
                     comp.id to filePaymentsAll.filter { it.personId == comp.id }
                 }
             }
             Column(Modifier.fillMaxWidth()) {
-                // Fixed header
                 Column(
                     Modifier
                         .fillMaxWidth()
@@ -1184,13 +1235,12 @@ fun FileDetailScreen(
                         }
                     }
                     Text(
-                        "Auto-deletes 30 days after completion",
+                        "Long press a card to drag and drop onto the bin to delete  •  Auto-purges after 180 days",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     HorizontalDivider(Modifier.padding(top = 8.dp))
                 }
-                // Scrollable list — all cards visible, no one-at-a-time restriction
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1200,15 +1250,36 @@ fun FileDetailScreen(
                 ) {
                     itemsIndexed(completedPersons, key = { _, c -> c.id }) { _, comp ->
                         val compPayments = completedPaymentsMap[comp.id] ?: emptyList()
-                        val daysLeft = 30 - ((System.currentTimeMillis() - (comp.completedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
-                        CompletedPersonCard(
+                        val daysLeft = 180 - ((System.currentTimeMillis() - (comp.completedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
+                        // Fix 2: CompletedPersonCard now uses drag-to-delete; no direct delete button
+                        DraggableCompletedPersonCard(
                             person = comp,
                             daysLeft = daysLeft,
                             dateFormat = dateFormat,
                             payments = compPayments,
-                            onHardDelete = {
-                                personViewModel.hardDeletePerson(comp.id)
-                                if (completedPersons.size <= 1) showCompletedDialog = false
+                            onDragStarted = {
+                                draggingCompletedPerson = comp
+                                showDustbin = true
+                            },
+                            onDragMoved = { offset ->
+                                dragOffset = offset
+                                // Check if over dustbin
+                                val dustbinCenterX = dustbinPosition.x + 38f
+                                val dustbinCenterY = dustbinPosition.y + 38f
+                                isOverDustbin = (offset.x - dustbinCenterX).let { dx ->
+                                    (offset.y - dustbinCenterY).let { dy ->
+                                        dx * dx + dy * dy < 100f * 100f
+                                    }
+                                }
+                            },
+                            onDragEnded = {
+                                if (isOverDustbin && draggingCompletedPerson != null) {
+                                    completedPersonToConfirmDelete = draggingCompletedPerson
+                                }
+                                draggingCompletedPerson = null
+                                dragOffset = Offset.Zero
+                                showDustbin = false
+                                isOverDustbin = false
                             }
                         )
                     }
@@ -1216,6 +1287,31 @@ fun FileDetailScreen(
                 }
             }
         }
+    }
+
+    // ── Fix 2: Confirmation dialog after drag-drop onto dustbin ──────────────
+    completedPersonToConfirmDelete?.let { comp ->
+        AlertDialog(
+            onDismissRequest = { completedPersonToConfirmDelete = null },
+            title = { Text("Delete ${comp.name}?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("This will move ${comp.name} to Recently Deleted.", style = MaterialTheme.typography.bodyMedium)
+                    Text("They can be restored within 180 days.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    personViewModel.softDeleteCompletedPerson(comp.id)
+                    completedPersonToConfirmDelete = null
+                    if (completedPersons.size <= 1) showCompletedDialog = false
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { completedPersonToConfirmDelete = null }) { Text("Cancel") } }
+        )
     }
 
     // ── Activate pending-new-loan dialog ──────────────────────────────────────
@@ -1278,12 +1374,10 @@ fun FileDetailScreen(
                     }
                 }
                 HorizontalDivider()
-                // ── VIEW: forward from a start date ──────────────────────────
                 Text("View", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Pick a start date and number of weeks. Each column shows that week's date and amount received.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                // Start date picker
                 var showViewDatePicker by remember { mutableStateOf(false) }
                 val viewDateFmt = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
                 OutlinedButton(
@@ -1310,7 +1404,6 @@ fun FileDetailScreen(
                     ) { DatePicker(state = dpState) }
                 }
 
-                // Number of weeks
                 OutlinedTextField(
                     value = filterViewNumWeeks,
                     onValueChange = { personViewModel.filterViewNumWeeks.value = it.filter { c -> c.isDigit() } },
@@ -1356,7 +1449,6 @@ fun FileDetailScreen(
             title = { Text("Add Person") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Lending / Borrowing
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = newType == LoanType.LENDING,   onClick = { newType = LoanType.LENDING },   label = { Text("Lending (I gave)")   })
                         FilterChip(selected = newType == LoanType.BORROWING, onClick = { newType = LoanType.BORROWING }, label = { Text("Borrowing (I owe)") })
@@ -1374,7 +1466,6 @@ fun FileDetailScreen(
                         FilterChip(selected = newMode == PaymentMode.CASH, onClick = { newMode = PaymentMode.CASH }, label = { Text("Cash") })
                         FilterChip(selected = newMode == PaymentMode.UPI,  onClick = { newMode = PaymentMode.UPI  }, label = { Text("UPI")  })
                     }
-                    // Date — defaults to last Friday/Saturday based on file
                     OutlinedButton(onClick = { showNewDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp))
@@ -1405,7 +1496,7 @@ fun FileDetailScreen(
         ) { DatePicker(state = state) }
     }
 
-    // Edit Person dialog
+    // Edit Person dialog — Fix 6: long-press on Edit button triggers scale animation then opens
     personToEdit?.let { orig ->
         var editName   by remember { mutableStateOf(orig.name) }
         var editPlace  by remember { mutableStateOf(orig.place ?: "") }
@@ -1418,7 +1509,6 @@ fun FileDetailScreen(
         var editMoveAfterSerial by remember { mutableStateOf("") }
         var showEditDatePicker by remember { mutableStateOf(false) }
 
-        // Resolve move target sort order from name or serial
         fun resolveMoveAfterSortOrder(): Int? {
             val serial = editMoveAfterSerial.trim().toIntOrNull()
             if (serial != null) {
@@ -1506,7 +1596,6 @@ fun FileDetailScreen(
                         )
                         val moveAfter = resolveMoveAfterSortOrder()
                         if (moveAfter != null) {
-                            // Move: shift others, set new sortOrder
                             coroutineScope.launch {
                                 personViewModel.shiftSortOrdersAfterSync(fileId, moveAfter)
                                 personViewModel.updatePerson(updatedPerson.copy(sortOrder = moveAfter + 1))
@@ -1541,8 +1630,6 @@ fun FileDetailScreen(
             title = { Text("Upload to Firebase") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-
-                    // Stats row
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                             Text("$activeCount", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -1556,7 +1643,6 @@ fun FileDetailScreen(
                         }
                     }
 
-                    // Completion notes
                     val completedCount = completedPersons.size
                     val pendingCount   = pendingNewLoanPersons.size
                     if (completedCount > 0 || pendingCount > 0) {
@@ -1607,11 +1693,8 @@ fun FileDetailScreen(
                     }
 
                     HorizontalDivider()
-
-                    // What upload does — explained clearly
                     Text("What this does:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
 
-                    // helper: icon + text row
                     listOf(
                         Triple(Icons.Default.CloudUpload, "Sends all $activeCount active names, amounts, modes, and dates in \"${file?.name}\" to Firebase Firestore (cloud).", MaterialTheme.colorScheme.onSurface),
                         Triple(Icons.Default.Receipt, "Also sends every payment recorded against each person — amounts returned, UPI / Cash, dates.", MaterialTheme.colorScheme.onSurface),
@@ -1715,9 +1798,9 @@ fun FileDetailScreen(
     }
 
     // ── View by Date — result sheet ───────────────────────────────────────────
+    // Fix 1: always show received, include completed persons in the list
     if (showViewSheet) {
         val viewDateFmt = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
-        // Day boundaries of the selected date
         val dayStart = remember(viewDate) {
             val c = Calendar.getInstance().also {
                 it.timeInMillis = viewDate
@@ -1728,30 +1811,29 @@ fun FileDetailScreen(
         }
         val dayEnd = dayStart + 86_399_999L
 
-        // Persons to show — filtered if a specific person was requested
+        // Fix 1: include completed persons — so received amounts from completed persons still appear
         val viewPersons = if (viewPersonFilter != null) {
-            persons.filter { it.id == viewPersonFilter!!.id }
+            (persons + completedPersons).filter { it.id == viewPersonFilter!!.id }
         } else {
-            persons.filter { !it.isDeleted }
+            (persons.filter { !it.isDeleted }) + completedPersons
         }
 
-        // Group payments by person for the selected date
-        val viewPaymentsOnDate = remember(filePayments, dayStart, dayEnd) {
-            filePayments.filter { it.date in dayStart..dayEnd }
+        // Fix 1: use filePaymentsAll (includes completed persons' payments)
+        val viewPaymentsOnDate = remember(filePaymentsAll, dayStart, dayEnd) {
+            filePaymentsAll.filter { it.date in dayStart..dayEnd }
         }
         val viewPaymentsByPerson = remember(viewPaymentsOnDate) {
             viewPaymentsOnDate.groupBy { it.personId }
         }
 
         val totalGivenOnDate = viewPersons.filter { p ->
-            val gDate = Calendar.getInstance().also { it.timeInMillis = p.dateGiven }
-            val normDay = Calendar.getInstance().also {
-                it.timeInMillis = viewDate
+            val gDay = Calendar.getInstance().also {
+                it.timeInMillis = p.dateGiven
                 it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
                 it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
             }
-            val gDay = Calendar.getInstance().also {
-                it.timeInMillis = p.dateGiven
+            val normDay = Calendar.getInstance().also {
+                it.timeInMillis = viewDate
                 it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
                 it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
             }
@@ -1765,7 +1847,6 @@ fun FileDetailScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             Column(Modifier.fillMaxWidth()) {
-                // Header
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1787,7 +1868,6 @@ fun FileDetailScreen(
                     }
                 }
                 HorizontalDivider()
-                // Table header
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1803,13 +1883,11 @@ fun FileDetailScreen(
                     Spacer(Modifier.width(32.dp))
                 }
                 HorizontalDivider()
-                // Rows
                 LazyColumn(
                     Modifier.fillMaxWidth().fillMaxHeight(0.75f),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     itemsIndexed(viewPersons, key = { _, p -> p.id }) { idx, person ->
-                        // Given on this date
                         val givenDayCal = Calendar.getInstance().also {
                             it.timeInMillis = person.dateGiven
                             it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
@@ -1821,6 +1899,7 @@ fun FileDetailScreen(
                             it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
                         }
                         val givenAmt = if (givenDayCal.timeInMillis == viewDayCal.timeInMillis) person.amountGiven else 0.0
+                        // Fix 1: always show received regardless of isCompleted or linkedNewPersonId
                         val receivedAmt = viewPaymentsByPerson[person.id]?.sumOf { it.amount } ?: 0.0
                         val hasActivity = givenAmt > 0 || receivedAmt > 0
                         Row(
@@ -1832,7 +1911,17 @@ fun FileDetailScreen(
                             Text("${idx + 1}", style = MaterialTheme.typography.labelSmall,
                                 modifier = Modifier.width(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Column(Modifier.weight(1f)) {
-                                Text(person.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(person.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    // Tag completed persons so it's clear in the list
+                                    if (person.isCompleted) {
+                                        AssistChip(
+                                            onClick = {},
+                                            label = { Text("✓", style = MaterialTheme.typography.labelSmall) },
+                                            colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                        )
+                                    }
+                                }
                                 if (!person.place.isNullOrEmpty())
                                     Text(person.place, style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1851,24 +1940,27 @@ fun FileDetailScreen(
                                 color = if (receivedAmt > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.width(70.dp)
                             )
-                            // Add payment button
-                            IconButton(
-                                onClick = {
-                                    viewAddPaymentPerson = person
-                                    viewAddPaymentAmount = ""
-                                    viewAddPaymentMode = PaymentMode.CASH
-                                    viewAddPaymentType = "RECEIVED"
-                                },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(Icons.Default.Add, "Add Payment",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.primary)
+                            // Don't show add-payment button for completed persons
+                            if (!person.isCompleted) {
+                                IconButton(
+                                    onClick = {
+                                        viewAddPaymentPerson = person
+                                        viewAddPaymentAmount = ""
+                                        viewAddPaymentMode = PaymentMode.CASH
+                                        viewAddPaymentType = "RECEIVED"
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, "Add Payment",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }
+                            } else {
+                                Spacer(Modifier.width(32.dp))
                             }
                         }
                         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                    // Total row
                     item {
                         Spacer(Modifier.height(4.dp))
                         HorizontalDivider(thickness = 1.dp)
@@ -1899,19 +1991,18 @@ fun FileDetailScreen(
             }
         }
 
-        // Add payment dialog (Given or Received)
         viewAddPaymentPerson?.let { p ->
+            val viewDateFmtInner = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
             AlertDialog(
                 onDismissRequest = { viewAddPaymentPerson = null; viewAddPaymentAmount = "" },
                 title = { Text("Add Entry for ${p.name}") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            "Date: ${viewDateFmt.format(Date(viewDate))}",
+                            "Date: ${viewDateFmtInner.format(Date(viewDate))}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        // Given / Received toggle
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1987,12 +2078,10 @@ fun FileDetailScreen(
                         if (amt != null && amt > 0) {
                             coroutineScope.launch {
                                 if (viewAddPaymentType == "GIVEN") {
-                                    // Add to person's amountGiven
                                     personViewModel.updatePerson(
                                         p.copy(amountGiven = p.amountGiven + amt)
                                     )
                                 } else {
-                                    // Insert a payment record
                                     paymentViewModel.insertPayment(
                                         Payment(
                                             personId = p.id,
@@ -2016,57 +2105,122 @@ fun FileDetailScreen(
             )
         }
     }
-
 }
 
-// -- PendingNewLoanCard -------------------------------------------------------
+// ── Fix 2: DraggableCompletedPersonCard — long-press triggers drag-to-dustbin ──
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PendingNewLoanCard(
+fun DraggableCompletedPersonCard(
     person: Person,
+    daysLeft: Int,
     dateFormat: SimpleDateFormat,
-    onActivate: () -> Unit,
-    onDelete: () -> Unit,
-    onTap: () -> Unit
+    payments: List<Payment>,
+    onDragStarted: () -> Unit,
+    onDragMoved: (Offset) -> Unit,
+    onDragEnded: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
+    var cardPosition by remember { mutableStateOf(Offset.Zero) }
+
     Card(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onTap),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
-        )
+        modifier = Modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { coords ->
+                cardPosition = coords.positionInWindow()
+            }
+            .combinedClickable(onClick = { expanded = !expanded })
+            .pointerInput(Unit) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { offset ->
+                        onDragStarted()
+                        onDragMoved(Offset(cardPosition.x + offset.x, cardPosition.y + offset.y))
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        onDragMoved(Offset(change.position.x + cardPosition.x, change.position.y + cardPosition.y))
+                    },
+                    onDragEnd = { onDragEnded() },
+                    onDragCancel = { onDragEnded() }
+                )
+            },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                if (!person.place.isNullOrEmpty())
-                    Text(person.place, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (!person.mobileNumber.isNullOrEmpty())
-                    Text(person.mobileNumber!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(2.dp))
-                Text("Pending New Loan", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    if (!person.place.isNullOrEmpty())
+                        Text(person.place, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!person.mobileNumber.isNullOrEmpty())
+                        Text(person.mobileNumber!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(2.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("₹${person.amountGiven} fully repaid",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium)
+                        Text(if (daysLeft > 0) "$daysLeft days left" else "expires soon",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (daysLeft <= 5) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                // Fix 6: Edit button hint label
+                Text(
+                    "Hold & drag to delete",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    null, tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            TextButton(onClick = onActivate) {
-                Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Set Amount")
-            }
-            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(6.dp))
+                if (payments.isEmpty()) {
+                    Text("No payments recorded.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("Payments (${payments.size})", style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    payments.forEachIndexed { i, payment ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("${i + 1}. ${dateFormat.format(java.util.Date(payment.date))}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(payment.mode.name, style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("₹${payment.amount}", style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(4.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Total Paid", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text("₹${payments.sumOf { it.amount }}", style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
     }
 }
 
-// -- CompletedPersonCard ------------------------------------------------------
+// Keep original CompletedPersonCard for backwards compatibility if referenced elsewhere
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CompletedPersonCard(
@@ -2153,8 +2307,52 @@ fun CompletedPersonCard(
     }
 }
 
-// -- Completed section in LazyColumn ------------------------------------------
-// (called inline from the LazyColumn items block, injected at call-site)
+// ── PendingNewLoanCard -------------------------------------------------------
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun PendingNewLoanCard(
+    person: Person,
+    dateFormat: SimpleDateFormat,
+    onActivate: () -> Unit,
+    onDelete: () -> Unit,
+    onTap: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onTap),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                if (!person.place.isNullOrEmpty())
+                    Text(person.place, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (!person.mobileNumber.isNullOrEmpty())
+                    Text(person.mobileNumber!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(2.dp))
+                Text("Pending New Loan", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
+            }
+            TextButton(onClick = onActivate) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Set Amount")
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
 
 // ── TrashContent ──────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
@@ -2184,7 +2382,14 @@ fun TrashContent(
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (isSelectingTrash) { Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect(person.id) }); Spacer(Modifier.width(8.dp)) }
                         Column(Modifier.weight(1f)) {
-                            Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                // Tag if this was a completed person moved to trash
+                                if (person.isCompleted) {
+                                    AssistChip(onClick = {}, label = { Text("Completed", style = MaterialTheme.typography.labelSmall) },
+                                        colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer))
+                                }
+                            }
                             Text("₹${person.amountGiven} • ${person.mode.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(if (daysLeft > 0) "$daysLeft days left" else "Expires soon", style = MaterialTheme.typography.bodySmall,
                                 color = if (daysLeft <= 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2223,9 +2428,8 @@ fun PersonCard(
     reorderState: ReorderableLazyListState,
     showWeeksColumns: Boolean,
     dateFormat: SimpleDateFormat,
-    // Per-day columns (null when no weeks filter)
     dayBreakdowns: List<DayBreakdown> = emptyList(),
-    personPayments: List<Payment> = emptyList(),   // pre-filtered for this person only
+    personPayments: List<Payment> = emptyList(),
     dateColPager: PagerState? = null,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -2247,7 +2451,6 @@ fun PersonCard(
         })
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Serial number
             Text("$serialNumber.", style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(28.dp))
 
@@ -2258,7 +2461,6 @@ fun PersonCard(
                 Spacer(Modifier.width(4.dp))
             }
 
-            // ── LEFT: fixed name block ────────────────────────────────────────
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(person.name, fontWeight = FontWeight.Bold,
@@ -2280,7 +2482,6 @@ fun PersonCard(
                     Text("📞 ${person.mobileNumber}", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!showWeeksColumns || dateColPager == null) {
-                    // Normal view: show date + amount
                     Text(dateFormat.format(Date(person.dateGiven)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2292,7 +2493,6 @@ fun PersonCard(
                 }
             }
 
-            // ── RIGHT: swipeable date-amount column (weeks filter only) ───────
             if (showWeeksColumns && dateColPager != null && dayBreakdowns.isNotEmpty()) {
                 val colPage = dateColPager.currentPage
                 Spacer(Modifier.width(8.dp))
@@ -2300,12 +2500,7 @@ fun PersonCard(
                 val totalPaidAllTime = personPayments.sumOf { it.amount }
 
                 if (colPage < dayBreakdowns.size) {
-                    // ── Individual week column ────────────────────────────────
                     val dayBreak = dayBreakdowns[colPage]
-
-                    // Parse the week's date range from the dayBreakdowns index
-                    // We need start/end of that specific week — recompute from label index
-                    // Payments received exactly during this week's date range
                     val weekStart = dayBreak.weekStart
                     val weekEnd   = dayBreak.weekEnd
                     val thisWeekReturn = personPayments
@@ -2313,14 +2508,12 @@ fun PersonCard(
                         .sumOf { it.amount }
 
                     Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(110.dp)) {
-                        // Given = total loan amount
                         AmountCell(
                             label = "Given",
                             value = "₹${person.amountGiven}",
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(Modifier.height(4.dp))
-                        // This week's return only
                         AmountCell(
                             label = "This Week",
                             value = if (thisWeekReturn == 0.0) "-" else "₹$thisWeekReturn",
@@ -2328,7 +2521,6 @@ fun PersonCard(
                             else MaterialTheme.colorScheme.tertiary
                         )
                         Spacer(Modifier.height(4.dp))
-                        // Total paid so far across all weeks
                         AmountCell(
                             label = "Total Paid",
                             value = if (totalPaidAllTime == 0.0) "₹0" else "₹$totalPaidAllTime",
@@ -2338,7 +2530,6 @@ fun PersonCard(
                         )
                     }
                 } else {
-                    // ── Total / summary column ────────────────────────────────
                     val pendingTotal = person.amountGiven - totalPaidAllTime
                     Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(110.dp)) {
                         AmountCell(
@@ -2368,16 +2559,42 @@ fun PersonCard(
             if (!isSelecting) {
                 Spacer(Modifier.width(4.dp))
                 var showPersonMenu by remember { mutableStateOf(false) }
+                // Fix 6: Edit button with long-press scale animation
+                var editButtonPressed by remember { mutableStateOf(false) }
+                val editButtonScale by animateFloatAsState(
+                    targetValue = if (editButtonPressed) 1.6f else 1f,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "editScale",
+                    finishedListener = { scale ->
+                        if (scale >= 1.55f) {
+                            editButtonPressed = false
+                            onEdit()
+                        }
+                    }
+                )
                 Box {
-                    IconButton(onClick = { showPersonMenu = true }, modifier = Modifier.size(36.dp)) {
+                    IconButton(
+                        onClick = { showPersonMenu = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
                         Icon(Icons.Default.MoreVert, null, modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     DropdownMenu(expanded = showPersonMenu, onDismissRequest = { showPersonMenu = false }) {
                         DropdownMenuItem(
                             text = { Text("Edit") },
-                            leadingIcon = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary) },
-                            onClick = { showPersonMenu = false; onEdit() }
+                            leadingIcon = {
+                                // Fix 6: scale-animated edit icon inside dropdown
+                                Icon(
+                                    Icons.Default.Edit, null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.scale(editButtonScale)
+                                )
+                            },
+                            onClick = {
+                                showPersonMenu = false
+                                editButtonPressed = true
+                            }
                         )
                         DropdownMenuItem(
                             text = { Text("View by Date") },

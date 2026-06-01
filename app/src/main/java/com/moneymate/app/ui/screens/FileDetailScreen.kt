@@ -1811,11 +1811,26 @@ fun FileDetailScreen(
         }
         val dayEnd = dayStart + 86_399_999L
 
-        // Fix 1: include completed persons — so received amounts from completed persons still appear
+        // Fix 1 + Fix 2: include pendingNewLoanPersons and their linked completed records so that
+        // both "given" on the new-loan date AND "received" from the old completed loan are always shown.
         val viewPersons = if (viewPersonFilter != null) {
-            (persons + completedPersons).filter { it.id == viewPersonFilter!!.id }
+            // Build the candidate pool: active + completed + pending-new-loan placeholders
+            val pool = persons + completedPersons + pendingNewLoanPersons
+            val directMatch = pool.filter { it.id == viewPersonFilter!!.id }
+            // If the filter target is a pending-new-loan placeholder, also pull in the
+            // linked completed record (previousPersonId) so its received payments appear.
+            val linkedCompleted = directMatch
+                .filter { it.isPendingNewLoan && it.previousPersonId != null }
+                .mapNotNull { placeholder -> completedPersons.find { it.id == placeholder.previousPersonId } }
+            // If the filter target is a completed person, also pull in its linked placeholder
+            // so any new given amount on the selected date is visible.
+            val linkedPlaceholder = directMatch
+                .filter { it.isCompleted && it.linkedNewPersonId != null }
+                .mapNotNull { comp -> pendingNewLoanPersons.find { it.id == comp.linkedNewPersonId } }
+            (directMatch + linkedCompleted + linkedPlaceholder).distinctBy { it.id }
         } else {
-            (persons.filter { !it.isDeleted }) + completedPersons
+            // All-persons view: include active + completed + pending-new-loan
+            (persons.filter { !it.isDeleted }) + completedPersons + pendingNewLoanPersons
         }
 
         // Fix 1: use filePaymentsAll (includes completed persons' payments)

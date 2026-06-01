@@ -28,8 +28,6 @@
   <component name="ChangeListManager">
     <list default="true" id="fb06efd4-786f-470c-893b-138f47af15ff" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/PersonDetailScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/PersonDetailScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/TrashScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/TrashScreen.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

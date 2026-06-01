@@ -1830,7 +1830,10 @@ fun FileDetailScreen(
             (directMatch + linkedCompleted + linkedPlaceholder).distinctBy { it.id }
         } else {
             // All-persons view: include active + completed + pending-new-loan
-            (persons.filter { !it.isDeleted }) + completedPersons + pendingNewLoanPersons
+            // Sort by sortOrder so completed persons appear near their original position
+            // in the list (not dumped at the end after all active entries).
+            ((persons.filter { !it.isDeleted }) + completedPersons + pendingNewLoanPersons)
+                .sortedBy { it.sortOrder }
         }
 
         // Fix 1: use filePaymentsAll (includes completed persons' payments)

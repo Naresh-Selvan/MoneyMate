@@ -16,10 +16,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.moneymate.app.data.local.entity.LoanFile
+import com.moneymate.app.data.local.entity.Payment
 import com.moneymate.app.data.local.entity.Person
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel
+import com.moneymate.app.ui.viewmodel.PaymentViewModel
 import com.moneymate.app.ui.viewmodel.PersonViewModel
 import com.moneymate.app.ui.viewmodel.SettingsViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -27,33 +31,41 @@ fun TrashScreen(
     navController: NavHostController,
     loanFileViewModel: LoanFileViewModel = hiltViewModel(),
     personViewModel: PersonViewModel = hiltViewModel(),
+    paymentViewModel: PaymentViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel
 ) {
-    val trashedFiles by loanFileViewModel.trashedFiles.collectAsState()
-    val deletedCompletedPersons by personViewModel.deletedCompletedPersons.collectAsState()
-    val autoDeleteDays by settingsViewModel.autoDeleteDays.collectAsState()
-    var fileToDelete by remember { mutableStateOf<LoanFile?>(null) }
-    var personToDelete by remember { mutableStateOf<Person?>(null) }
-    var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var showMultiDeleteDialog by remember { mutableStateOf(false) }
-    var showMultiRestoreDialog by remember { mutableStateOf(false) }
-    val isSelecting = selectedIds.isNotEmpty()
+    val dtFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
+
+    val trashedFiles              by loanFileViewModel.trashedFiles.collectAsState()
+    val deletedCompletedPersons   by personViewModel.deletedCompletedPersons.collectAsState()
+    val deletedPayments           by paymentViewModel.deletedPayments.collectAsState()
+    val autoDeleteDays            by settingsViewModel.autoDeleteDays.collectAsState()
+
+    var fileToDelete              by remember { mutableStateOf<LoanFile?>(null) }
+    var personToDelete            by remember { mutableStateOf<Person?>(null) }
+    var paymentToDelete           by remember { mutableStateOf<Payment?>(null) }
+
+    var selectedFileIds           by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var showMultiFileDeleteDialog  by remember { mutableStateOf(false) }
+    var showMultiFileRestoreDialog by remember { mutableStateOf(false) }
+    val isSelecting = selectedFileIds.isNotEmpty()
+
+    val isEmpty = trashedFiles.isEmpty() && deletedCompletedPersons.isEmpty() && deletedPayments.isEmpty()
 
     Scaffold(
         topBar = {
             if (isSelecting) {
                 TopAppBar(
-                    title = { Text("${selectedIds.size} selected", fontWeight = FontWeight.Bold) },
+                    title = { Text("${selectedFileIds.size} selected", fontWeight = FontWeight.Bold) },
                     navigationIcon = {
-                        IconButton(onClick = { selectedIds = emptySet() }) {
+                        IconButton(onClick = { selectedFileIds = emptySet() }) {
                             Icon(Icons.Default.Close, contentDescription = "Cancel")
                         }
                     },
                     actions = {
-                        // Select All / Deselect All toggle
-                        val allSelected = selectedIds.size == trashedFiles.size
+                        val allSelected = selectedFileIds.size == trashedFiles.size
                         IconButton(onClick = {
-                            selectedIds = if (allSelected) emptySet()
+                            selectedFileIds = if (allSelected) emptySet()
                             else trashedFiles.map { it.id }.toSet()
                         }) {
                             Icon(
@@ -62,11 +74,11 @@ fun TrashScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
-                        IconButton(onClick = { showMultiRestoreDialog = true }) {
+                        IconButton(onClick = { showMultiFileRestoreDialog = true }) {
                             Icon(Icons.Default.Restore, contentDescription = "Restore Selected",
                                 tint = MaterialTheme.colorScheme.primary)
                         }
-                        IconButton(onClick = { showMultiDeleteDialog = true }) {
+                        IconButton(onClick = { showMultiFileDeleteDialog = true }) {
                             Icon(Icons.Default.DeleteForever, contentDescription = "Delete Selected",
                                 tint = MaterialTheme.colorScheme.error)
                         }
@@ -82,15 +94,12 @@ fun TrashScreen(
                     },
                     actions = {
                         if (trashedFiles.isNotEmpty()) {
-                            // Select All shortcut when not in multi-select mode
                             IconButton(onClick = {
-                                selectedIds = trashedFiles.map { it.id }.toSet()
+                                selectedFileIds = trashedFiles.map { it.id }.toSet()
                             }) {
                                 Icon(Icons.Default.DoneAll, contentDescription = "Select All")
                             }
-                            IconButton(onClick = {
-                                loanFileViewModel.purgeExpiredFiles()
-                            }) {
+                            IconButton(onClick = { loanFileViewModel.purgeExpiredFiles() }) {
                                 Icon(Icons.Default.DeleteForever, contentDescription = "Empty Trash")
                             }
                         }
@@ -99,7 +108,6 @@ fun TrashScreen(
             }
         }
     ) { padding ->
-        val isEmpty = trashedFiles.isEmpty() && deletedCompletedPersons.isEmpty()
         if (isEmpty) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
@@ -122,31 +130,26 @@ fun TrashScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // ── Deleted Files section ─────────────────────────────────────
+
+                // ── Deleted Files ─────────────────────────────────────────────
                 if (trashedFiles.isNotEmpty()) {
                     item {
-                        Text(
-                            "Deleted Files",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
+                        SectionHeader("Deleted Files")
                     }
                     items(trashedFiles, key = { it.id }) { file ->
-                        val isSelected = selectedIds.contains(file.id)
+                        val isSelected = selectedFileIds.contains(file.id)
                         TrashedFileCard(
                             file = file,
                             autoDeleteDays = autoDeleteDays,
                             isSelected = isSelected,
                             isSelecting = isSelecting,
-                            onLongClick = { selectedIds = selectedIds + file.id },
+                            onLongClick = { selectedFileIds = selectedFileIds + file.id },
                             onClick = {
                                 if (isSelecting) {
-                                    selectedIds = if (isSelected)
-                                        selectedIds - file.id
+                                    selectedFileIds = if (isSelected)
+                                        selectedFileIds - file.id
                                     else
-                                        selectedIds + file.id
+                                        selectedFileIds + file.id
                                 }
                             },
                             onRestore = { loanFileViewModel.restoreFile(file.id) },
@@ -155,18 +158,15 @@ fun TrashScreen(
                     }
                 }
 
-                // ── Deleted Completed Persons section ─────────────────────────
+                // ── Deleted Completed Persons ─────────────────────────────────
                 if (deletedCompletedPersons.isNotEmpty()) {
                     item {
-                        Text(
+                        SectionHeader(
                             "Deleted Completed Persons",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = if (trashedFiles.isNotEmpty()) 12.dp else 0.dp, bottom = 4.dp)
+                            topPadding = if (trashedFiles.isNotEmpty()) 12.dp else 0.dp
                         )
                     }
-                    items(deletedCompletedPersons, key = { it.id }) { person ->
+                    items(deletedCompletedPersons, key = { "cp_${it.id}" }) { person ->
                         DeletedCompletedPersonCard(
                             person = person,
                             onRestore = { personViewModel.restorePerson(person.id) },
@@ -174,9 +174,29 @@ fun TrashScreen(
                         )
                     }
                 }
+
+                // ── Fix 5: Deleted Payments ──────────────────────────────────
+                if (deletedPayments.isNotEmpty()) {
+                    item {
+                        SectionHeader(
+                            "Deleted Payments",
+                            topPadding = if (trashedFiles.isNotEmpty() || deletedCompletedPersons.isNotEmpty()) 12.dp else 0.dp
+                        )
+                    }
+                    items(deletedPayments, key = { "pay_${it.id}" }) { payment ->
+                        DeletedPaymentCard(
+                            payment = payment,
+                            dtFormat = dtFormat,
+                            onRestore = { paymentViewModel.restorePayment(payment.id) },
+                            onDelete = { paymentToDelete = payment }
+                        )
+                    }
+                }
             }
         }
     }
+
+    // ── Dialogs ───────────────────────────────────────────────────────────────
 
     fileToDelete?.let { file ->
         AlertDialog(
@@ -189,9 +209,7 @@ fun TrashScreen(
                     fileToDelete = null
                 }) { Text("Delete Forever", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = {
-                TextButton(onClick = { fileToDelete = null }) { Text("Cancel") }
-            }
+            dismissButton = { TextButton(onClick = { fileToDelete = null }) { Text("Cancel") } }
         )
     }
 
@@ -206,97 +224,71 @@ fun TrashScreen(
                     personToDelete = null
                 }) { Text("Delete Forever", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = {
-                TextButton(onClick = { personToDelete = null }) { Text("Cancel") }
-            }
+            dismissButton = { TextButton(onClick = { personToDelete = null }) { Text("Cancel") } }
         )
     }
 
-    if (showMultiDeleteDialog) {
+    paymentToDelete?.let { payment ->
         AlertDialog(
-            onDismissRequest = { showMultiDeleteDialog = false },
-            title = { Text("Permanently Delete ${selectedIds.size} files?") },
+            onDismissRequest = { paymentToDelete = null },
+            title = { Text("Permanently Delete Payment?") },
+            text = { Text("₹${payment.amount} will be permanently deleted and cannot be recovered.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    paymentViewModel.hardDeletePayment(payment.id)
+                    paymentToDelete = null
+                }) { Text("Delete Forever", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { paymentToDelete = null }) { Text("Cancel") } }
+        )
+    }
+
+    if (showMultiFileDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showMultiFileDeleteDialog = false },
+            title = { Text("Permanently Delete ${selectedFileIds.size} files?") },
             text = { Text("These files will be permanently deleted and cannot be recovered.") },
             confirmButton = {
                 TextButton(onClick = {
-                    selectedIds.forEach { id -> loanFileViewModel.hardDeleteFile(id) }
-                    selectedIds = emptySet()
-                    showMultiDeleteDialog = false
+                    selectedFileIds.forEach { id -> loanFileViewModel.hardDeleteFile(id) }
+                    selectedFileIds = emptySet()
+                    showMultiFileDeleteDialog = false
                 }) { Text("Delete Forever", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = {
-                TextButton(onClick = { showMultiDeleteDialog = false }) { Text("Cancel") }
-            }
+            dismissButton = { TextButton(onClick = { showMultiFileDeleteDialog = false }) { Text("Cancel") } }
         )
     }
 
-    if (showMultiRestoreDialog) {
+    if (showMultiFileRestoreDialog) {
         AlertDialog(
-            onDismissRequest = { showMultiRestoreDialog = false },
-            title = { Text("Restore ${selectedIds.size} files?") },
+            onDismissRequest = { showMultiFileRestoreDialog = false },
+            title = { Text("Restore ${selectedFileIds.size} files?") },
             text = { Text("These files will be restored to your main list.") },
             confirmButton = {
                 TextButton(onClick = {
-                    selectedIds.forEach { id -> loanFileViewModel.restoreFile(id) }
-                    selectedIds = emptySet()
-                    showMultiRestoreDialog = false
+                    selectedFileIds.forEach { id -> loanFileViewModel.restoreFile(id) }
+                    selectedFileIds = emptySet()
+                    showMultiFileRestoreDialog = false
                 }) { Text("Restore All") }
             },
-            dismissButton = {
-                TextButton(onClick = { showMultiRestoreDialog = false }) { Text("Cancel") }
-            }
+            dismissButton = { TextButton(onClick = { showMultiFileRestoreDialog = false }) { Text("Cancel") } }
         )
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+// ── Section header ─────────────────────────────────────────────────────────────
 @Composable
-fun DeletedCompletedPersonCard(
-    person: Person,
-    onRestore: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val deletedAt = person.deletedAt ?: 0L
-    val daysLeft = 180 - ((System.currentTimeMillis() - deletedAt) / (1000 * 60 * 60 * 24)).toInt()
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.Person, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(40.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(person.name, fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium)
-                if (!person.place.isNullOrBlank()) {
-                    Text(person.place, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Text(
-                    if (daysLeft > 0) "Deleted • $daysLeft days left" else "Expires soon",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (daysLeft <= 3) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onRestore) {
-                Icon(Icons.Default.Restore, contentDescription = "Restore",
-                    tint = MaterialTheme.colorScheme.primary)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteForever, contentDescription = "Delete Forever",
-                    tint = MaterialTheme.colorScheme.error)
-            }
-        }
-    }
+private fun SectionHeader(title: String, topPadding: androidx.compose.ui.unit.Dp = 0.dp) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = topPadding, bottom = 4.dp)
+    )
 }
 
+// ── TrashedFileCard (existing, unchanged) ──────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrashedFileCard(
@@ -315,10 +307,7 @@ fun TrashedFileCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
                 MaterialTheme.colorScheme.primaryContainer
@@ -359,4 +348,117 @@ fun TrashedFileCard(
                 }
             }
         }
-    }}
+    }
+}
+
+// ── DeletedCompletedPersonCard (Fix 3) ────────────────────────────────────────
+@Composable
+fun DeletedCompletedPersonCard(
+    person: Person,
+    onRestore: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val deletedAt = person.deletedAt ?: 0L
+    val daysLeft = 180 - ((System.currentTimeMillis() - deletedAt) / (1000 * 60 * 60 * 24)).toInt()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Person, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(40.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(person.name, fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium)
+                    AssistChip(
+                        onClick = {},
+                        label = { Text("Completed", style = MaterialTheme.typography.labelSmall) },
+                        colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    )
+                }
+                if (!person.place.isNullOrBlank()) {
+                    Text(person.place, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("₹${person.amountGiven} • ${person.mode.name}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (daysLeft > 0) "Deleted • $daysLeft days left" else "Expires soon",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (daysLeft <= 3) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onRestore) {
+                Icon(Icons.Default.Restore, contentDescription = "Restore",
+                    tint = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.DeleteForever, contentDescription = "Delete Forever",
+                    tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+// ── Fix 5: DeletedPaymentCard ─────────────────────────────────────────────────
+@Composable
+fun DeletedPaymentCard(
+    payment: Payment,
+    dtFormat: SimpleDateFormat,
+    onRestore: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val deletedAt = payment.deletedAt ?: 0L
+    val daysLeft = 180 - ((System.currentTimeMillis() - deletedAt) / (1000 * 60 * 60 * 24)).toInt()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Receipt, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(40.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "₹${payment.amount}",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "${payment.mode.name} • ${dtFormat.format(Date(payment.date))}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    if (daysLeft > 0) "Deleted • $daysLeft days left" else "Expires soon",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (daysLeft <= 3) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onRestore) {
+                Icon(Icons.Default.Restore, contentDescription = "Restore",
+                    tint = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.DeleteForever, contentDescription = "Delete Forever",
+                    tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}

@@ -1251,7 +1251,6 @@ fun FileDetailScreen(
                     itemsIndexed(completedPersons, key = { _, c -> c.id }) { _, comp ->
                         val compPayments = completedPaymentsMap[comp.id] ?: emptyList()
                         val daysLeft = 180 - ((System.currentTimeMillis() - (comp.completedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
-                        // Fix 2: CompletedPersonCard now uses drag-to-delete; no direct delete button
                         DraggableCompletedPersonCard(
                             person = comp,
                             daysLeft = daysLeft,
@@ -1263,7 +1262,6 @@ fun FileDetailScreen(
                             },
                             onDragMoved = { offset ->
                                 dragOffset = offset
-                                // Check if over dustbin
                                 val dustbinCenterX = dustbinPosition.x + 38f
                                 val dustbinCenterY = dustbinPosition.y + 38f
                                 isOverDustbin = (offset.x - dustbinCenterX).let { dx ->
@@ -1496,7 +1494,7 @@ fun FileDetailScreen(
         ) { DatePicker(state = state) }
     }
 
-    // Edit Person dialog — Fix 6: long-press on Edit button triggers scale animation then opens
+    // Edit Person dialog
     personToEdit?.let { orig ->
         var editName   by remember { mutableStateOf(orig.name) }
         var editPlace  by remember { mutableStateOf(orig.place ?: "") }
@@ -1798,67 +1796,91 @@ fun FileDetailScreen(
     }
 
     // ── View by Date — result sheet ───────────────────────────────────────────
-    // Fix 1: always show received, include completed persons in the list
     if (showViewSheet) {
         val viewDateFmt = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
         val dayStart = remember(viewDate) {
-            val c = Calendar.getInstance().also {
+            Calendar.getInstance().also {
                 it.timeInMillis = viewDate
                 it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
                 it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
-            }
-            c.timeInMillis
+            }.timeInMillis
         }
         val dayEnd = dayStart + 86_399_999L
 
-        // Fix 1 + Fix 2: include pendingNewLoanPersons and their linked completed records so that
-        // both "given" on the new-loan date AND "received" from the old completed loan are always shown.
-        val viewPersons = if (viewPersonFilter != null) {
-            // Build the candidate pool: active + completed + pending-new-loan placeholders
-            val pool = persons + completedPersons + pendingNewLoanPersons
-            val directMatch = pool.filter { it.id == viewPersonFilter!!.id }
-            // If the filter target is a pending-new-loan placeholder, also pull in the
-            // linked completed record (previousPersonId) so its received payments appear.
-            val linkedCompleted = directMatch
-                .filter { it.isPendingNewLoan && it.previousPersonId != null }
-                .mapNotNull { placeholder -> completedPersons.find { it.id == placeholder.previousPersonId } }
-            // If the filter target is a completed person, also pull in its linked placeholder
-            // so any new given amount on the selected date is visible.
-            val linkedPlaceholder = directMatch
-                .filter { it.isCompleted && it.linkedNewPersonId != null }
-                .mapNotNull { comp -> pendingNewLoanPersons.find { it.id == comp.linkedNewPersonId } }
-            (directMatch + linkedCompleted + linkedPlaceholder).distinctBy { it.id }
-        } else {
-            // All-persons view: include active + completed + pending-new-loan
-            // Sort by sortOrder so completed persons appear near their original position
-            // in the list (not dumped at the end after all active entries).
-            ((persons.filter { !it.isDeleted }) + completedPersons + pendingNewLoanPersons)
-                .sortedBy { it.sortOrder }
+        // ── FIX: Build a map from completed-person ID → active/placeholder person ID
+        // so we can attribute completed-person payments to their active counterpart row.
+        //
+        // A completed person has a `linkedNewPersonId` pointing to the pending-new-loan
+        // placeholder. We collect those pairs so that when we sum received amounts for an
+        // active row we also include payments recorded under the old completed ID.
+        //
+        // We deliberately do NOT add completed persons as separate rows.
+        val completedIdToActiveId: Map<String, String> = remember(completedPersons, pendingNewLoanPersons) {
+            // pending-new-loan placeholder has previousPersonId = completed person's id
+            val result = mutableMapOf<String, String>()
+            pendingNewLoanPersons.forEach { placeholder ->
+                val prevId = placeholder.previousPersonId
+                if (prevId != null) result[prevId] = placeholder.id
+            }
+            // Also map via completedPerson.linkedNewPersonId for the reverse direction
+            completedPersons.forEach { comp ->
+                val linkedId = comp.linkedNewPersonId
+                if (linkedId != null && !result.containsKey(comp.id)) result[comp.id] = linkedId
+            }
+            result
         }
 
-        // Fix 1: use filePaymentsAll (includes completed persons' payments)
+        // Payments on selected date keyed by personId
         val viewPaymentsOnDate = remember(filePaymentsAll, dayStart, dayEnd) {
             filePaymentsAll.filter { it.date in dayStart..dayEnd }
         }
-        val viewPaymentsByPerson = remember(viewPaymentsOnDate) {
-            viewPaymentsOnDate.groupBy { it.personId }
+
+        // For each person ID we might render, how much was received on this date?
+        // This merges completed-person payments into their linked active/placeholder row.
+        val receivedOnDateById: Map<String, Double> = remember(viewPaymentsOnDate, completedIdToActiveId) {
+            val map = mutableMapOf<String, Double>()
+            viewPaymentsOnDate.forEach { payment ->
+                // If this payment belongs to a completed person, attribute it to the active row
+                val rowId = completedIdToActiveId[payment.personId] ?: payment.personId
+                map[rowId] = (map[rowId] ?: 0.0) + payment.amount
+            }
+            map
         }
 
-        val totalGivenOnDate = viewPersons.filter { p ->
-            val gDay = Calendar.getInstance().also {
-                it.timeInMillis = p.dateGiven
-                it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
-                it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
+        // Build the single deduplicated list of persons to show.
+        // Only active persons + pending-new-loan placeholders — NO completed persons.
+        val viewPersons: List<Person> = remember(
+            viewPersonFilter, persons, pendingNewLoanPersons, completedIdToActiveId
+        ) {
+            if (viewPersonFilter != null) {
+                // Single-person filter: show the exact person that was tapped.
+                // If it's a completed person, find its linked placeholder instead so we
+                // don't show a completed row and also don't lose the payments.
+                val targetId = completedIdToActiveId[viewPersonFilter!!.id] ?: viewPersonFilter!!.id
+                val pool = persons + pendingNewLoanPersons
+                pool.filter { it.id == targetId }
+            } else {
+                // All-persons view: active list + pending-new-loan placeholders only.
+                // Completed persons are excluded as rows; their payments are merged above.
+                (persons.filter { !it.isDeleted } + pendingNewLoanPersons)
+                    .sortedBy { it.sortOrder }
             }
-            val normDay = Calendar.getInstance().also {
-                it.timeInMillis = viewDate
-                it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
-                it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
-            }
-            gDay.timeInMillis == normDay.timeInMillis
-        }.sumOf { it.amountGiven }
+        }
 
-        val totalReceivedOnDate = viewPaymentsOnDate.sumOf { it.amount }
+        val totalGivenOnDate = remember(viewPersons, dayStart, dayEnd) {
+            viewPersons.filter { p ->
+                val gDay = Calendar.getInstance().also {
+                    it.timeInMillis = p.dateGiven
+                    it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
+                    it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                gDay == dayStart
+            }.sumOf { it.amountGiven }
+        }
+
+        val totalReceivedOnDate = remember(receivedOnDateById) {
+            receivedOnDateById.values.sum()
+        }
 
         ModalBottomSheet(
             onDismissRequest = { showViewSheet = false; viewPersonFilter = null },
@@ -1906,60 +1928,66 @@ fun FileDetailScreen(
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     itemsIndexed(viewPersons, key = { _, p -> p.id }) { idx, person ->
-                        val givenDayCal = Calendar.getInstance().also {
-                            it.timeInMillis = person.dateGiven
-                            it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
-                            it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
-                        }
-                        val viewDayCal = Calendar.getInstance().also {
-                            it.timeInMillis = viewDate
-                            it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
-                            it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
-                        }
-                        val givenAmt = if (givenDayCal.timeInMillis == viewDayCal.timeInMillis) person.amountGiven else 0.0
-                        // Fix 1: always show received regardless of isCompleted or linkedNewPersonId
-                        val receivedAmt = viewPaymentsByPerson[person.id]?.sumOf { it.amount } ?: 0.0
+                        val givenAmt = if (
+                            Calendar.getInstance().also {
+                                it.timeInMillis = person.dateGiven
+                                it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
+                                it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
+                            }.timeInMillis == dayStart
+                        ) person.amountGiven else 0.0
+
+                        // Received for this row = own payments + any merged completed-person payments
+                        val receivedAmt = receivedOnDateById[person.id] ?: 0.0
                         val hasActivity = givenAmt > 0 || receivedAmt > 0
+
                         Row(
-                            Modifier.fillMaxWidth()
-                                .background(if (hasActivity) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f) else androidx.compose.ui.graphics.Color.Transparent)
+                            Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (hasActivity) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
+                                    else androidx.compose.ui.graphics.Color.Transparent
+                                )
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("${idx + 1}", style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.width(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "${idx + 1}",
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.width(24.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Column(Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(person.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                    // Tag completed persons so it's clear in the list
-                                    if (person.isCompleted) {
-                                        AssistChip(
-                                            onClick = {},
-                                            label = { Text("✓", style = MaterialTheme.typography.labelSmall) },
-                                            colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                                        )
-                                    }
-                                }
+                                Text(
+                                    person.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
                                 if (!person.place.isNullOrEmpty())
-                                    Text(person.place, style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        person.place,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                             }
                             Text(
                                 if (givenAmt > 0) "₹${givenAmt}" else "Nil",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = if (givenAmt > 0) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (givenAmt > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (givenAmt > 0) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.width(70.dp)
                             )
                             Text(
                                 if (receivedAmt > 0) "₹${receivedAmt}" else "Nil",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = if (receivedAmt > 0) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (receivedAmt > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (receivedAmt > 0) MaterialTheme.colorScheme.tertiary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.width(70.dp)
                             )
-                            // Don't show add-payment button for completed persons
-                            if (!person.isCompleted) {
+                            // Add-payment button: shown for active persons and pending-new-loan
+                            // placeholders, but not for completed persons (none are shown as rows)
+                            if (!person.isPendingNewLoan || (receivedOnDateById[person.id] != null)) {
                                 IconButton(
                                     onClick = {
                                         viewAddPaymentPerson = person
@@ -1969,9 +1997,11 @@ fun FileDetailScreen(
                                     },
                                     modifier = Modifier.size(32.dp)
                                 ) {
-                                    Icon(Icons.Default.Add, "Add Payment",
+                                    Icon(
+                                        Icons.Default.Add, "Add Payment",
                                         modifier = Modifier.size(18.dp),
-                                        tint = MaterialTheme.colorScheme.primary)
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             } else {
                                 Spacer(Modifier.width(32.dp))
@@ -1987,19 +2017,26 @@ fun FileDetailScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Spacer(Modifier.width(24.dp))
-                            Text("TOTAL", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text(
+                                "TOTAL",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
                             Text(
                                 if (totalGivenOnDate > 0) "₹${totalGivenOnDate}" else "Nil",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (totalGivenOnDate > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (totalGivenOnDate > 0) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.width(70.dp)
                             )
                             Text(
                                 if (totalReceivedOnDate > 0) "₹${totalReceivedOnDate}" else "Nil",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (totalReceivedOnDate > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (totalReceivedOnDate > 0) MaterialTheme.colorScheme.tertiary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.width(70.dp)
                             )
                             Spacer(Modifier.width(32.dp))
@@ -2009,6 +2046,7 @@ fun FileDetailScreen(
             }
         }
 
+        // Add payment dialog inside view sheet — unchanged
         viewAddPaymentPerson?.let { p ->
             val viewDateFmtInner = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
             AlertDialog(
@@ -2096,9 +2134,7 @@ fun FileDetailScreen(
                         if (amt != null && amt > 0) {
                             coroutineScope.launch {
                                 if (viewAddPaymentType == "GIVEN") {
-                                    personViewModel.updatePerson(
-                                        p.copy(amountGiven = p.amountGiven + amt)
-                                    )
+                                    personViewModel.updatePerson(p.copy(amountGiven = p.amountGiven + amt))
                                 } else {
                                     paymentViewModel.insertPayment(
                                         Payment(
@@ -2125,7 +2161,7 @@ fun FileDetailScreen(
     }
 }
 
-// ── Fix 2: DraggableCompletedPersonCard — long-press triggers drag-to-dustbin ──
+// ── Fix 2: DraggableCompletedPersonCard ──────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DraggableCompletedPersonCard(
@@ -2185,7 +2221,6 @@ fun DraggableCompletedPersonCard(
                             else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                // Fix 6: Edit button hint label
                 Text(
                     "Hold & drag to delete",
                     style = MaterialTheme.typography.labelSmall,
@@ -2238,7 +2273,6 @@ fun DraggableCompletedPersonCard(
     }
 }
 
-// Keep original CompletedPersonCard for backwards compatibility if referenced elsewhere
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CompletedPersonCard(
@@ -2325,7 +2359,7 @@ fun CompletedPersonCard(
     }
 }
 
-// ── PendingNewLoanCard -------------------------------------------------------
+// ── PendingNewLoanCard ───────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PendingNewLoanCard(
@@ -2372,7 +2406,7 @@ fun PendingNewLoanCard(
     }
 }
 
-// ── TrashContent ──────────────────────────────────────────────────────────────
+// ── TrashContent ─────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrashContent(
@@ -2402,7 +2436,6 @@ fun TrashContent(
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                // Tag if this was a completed person moved to trash
                                 if (person.isCompleted) {
                                     AssistChip(onClick = {}, label = { Text("Completed", style = MaterialTheme.typography.labelSmall) },
                                         colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer))
@@ -2526,48 +2559,36 @@ fun PersonCard(
                         .sumOf { it.amount }
 
                     Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(110.dp)) {
-                        AmountCell(
-                            label = "Given",
-                            value = "₹${person.amountGiven}",
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        AmountCell(label = "Given", value = "₹${person.amountGiven}", color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(4.dp))
                         AmountCell(
                             label = "This Week",
                             value = if (thisWeekReturn == 0.0) "-" else "₹$thisWeekReturn",
-                            color = if (thisWeekReturn == 0.0) MaterialTheme.colorScheme.onSurfaceVariant
-                            else MaterialTheme.colorScheme.tertiary
+                            color = if (thisWeekReturn == 0.0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
                         )
                         Spacer(Modifier.height(4.dp))
                         AmountCell(
                             label = "Total Paid",
                             value = if (totalPaidAllTime == 0.0) "₹0" else "₹$totalPaidAllTime",
-                            color = if (totalPaidAllTime >= person.amountGiven) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error,
+                            color = if (totalPaidAllTime >= person.amountGiven) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             bold = true
                         )
                     }
                 } else {
                     val pendingTotal = person.amountGiven - totalPaidAllTime
                     Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(110.dp)) {
-                        AmountCell(
-                            label = "Given",
-                            value = "₹${person.amountGiven}",
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        AmountCell(label = "Given", value = "₹${person.amountGiven}", color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(4.dp))
                         AmountCell(
                             label = "Total Paid",
                             value = if (totalPaidAllTime == 0.0) "₹0" else "₹$totalPaidAllTime",
-                            color = if (totalPaidAllTime == 0.0) MaterialTheme.colorScheme.onSurfaceVariant
-                            else MaterialTheme.colorScheme.tertiary
+                            color = if (totalPaidAllTime == 0.0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
                         )
                         Spacer(Modifier.height(4.dp))
                         AmountCell(
                             label = "Pending",
                             value = if (pendingTotal <= 0.0) "✓ Clear" else "₹$pendingTotal",
-                            color = if (pendingTotal <= 0.0) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error,
+                            color = if (pendingTotal <= 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             bold = true
                         )
                     }
@@ -2577,7 +2598,6 @@ fun PersonCard(
             if (!isSelecting) {
                 Spacer(Modifier.width(4.dp))
                 var showPersonMenu by remember { mutableStateOf(false) }
-                // Fix 6: Edit button with long-press scale animation
                 var editButtonPressed by remember { mutableStateOf(false) }
                 val editButtonScale by animateFloatAsState(
                     targetValue = if (editButtonPressed) 1.6f else 1f,
@@ -2591,10 +2611,7 @@ fun PersonCard(
                     }
                 )
                 Box {
-                    IconButton(
-                        onClick = { showPersonMenu = true },
-                        modifier = Modifier.size(36.dp)
-                    ) {
+                    IconButton(onClick = { showPersonMenu = true }, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.MoreVert, null, modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -2602,17 +2619,11 @@ fun PersonCard(
                         DropdownMenuItem(
                             text = { Text("Edit") },
                             leadingIcon = {
-                                // Fix 6: scale-animated edit icon inside dropdown
-                                Icon(
-                                    Icons.Default.Edit, null,
+                                Icon(Icons.Default.Edit, null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.scale(editButtonScale)
-                                )
+                                    modifier = Modifier.scale(editButtonScale))
                             },
-                            onClick = {
-                                showPersonMenu = false
-                                editButtonPressed = true
-                            }
+                            onClick = { showPersonMenu = false; editButtonPressed = true }
                         )
                         DropdownMenuItem(
                             text = { Text("View by Date") },
@@ -2639,12 +2650,11 @@ fun PersonCard(
     }
 }
 
-// Helper: label on top, value below — compact amount display
+// ── AmountCell ────────────────────────────────────────────────────────────────
 @Composable
 fun AmountCell(label: String, value: String, color: androidx.compose.ui.graphics.Color, bold: Boolean = false) {
     Column(horizontalAlignment = Alignment.End) {
-        Text(label, style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold,
             color = color)

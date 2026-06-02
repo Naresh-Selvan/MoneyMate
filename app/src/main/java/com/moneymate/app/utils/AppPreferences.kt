@@ -26,6 +26,10 @@ class AppPreferences @Inject constructor(
         get() = prefs.getBoolean("notifications_enabled", true)
         set(value) = prefs.edit { putBoolean("notifications_enabled", value) }
 
+    var slideToCallEnabled: Boolean
+        get() = prefs.getBoolean("slide_to_call_enabled", true)
+        set(value) = prefs.edit { putBoolean("slide_to_call_enabled", value) }
+
     // ─── Existing: PIN / Auth ──────────────────────────────────────────────────
 
     var adminPinHash: String

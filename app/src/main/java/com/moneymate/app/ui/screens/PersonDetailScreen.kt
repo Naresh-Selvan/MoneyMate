@@ -1,33 +1,31 @@
-
 package com.moneymate.app.ui.screens
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.moneymate.app.data.local.entity.LoanType
@@ -63,28 +61,15 @@ fun PersonDetailScreen(
     var showAddDialog      by remember { mutableStateOf(false) }
     var paymentToEdit      by remember { mutableStateOf<Payment?>(null) }
 
-    // ── Multi-select (3-tap to enter) ─────────────────────────────────────────
     var selectedIds           by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showMultiDeleteDialog by remember { mutableStateOf(false) }
     val isSelecting = selectedIds.isNotEmpty()
 
-    // ── Drag-to-delete state ──────────────────────────────────────────────────
-    var draggingPayment        by remember { mutableStateOf<Payment?>(null) }
-    var dragOffset             by remember { mutableStateOf(Offset.Zero) }
-    var showPaymentDustbin     by remember { mutableStateOf(false) }
-    var dustbinPos             by remember { mutableStateOf(Offset.Zero) }
-    var isOverPaymentDustbin   by remember { mutableStateOf(false) }
-    var paymentToConfirmDelete by remember { mutableStateOf<Payment?>(null) }
-
-    val paymentDustbinScale by animateFloatAsState(
-        targetValue = if (showPaymentDustbin) (if (isOverPaymentDustbin) 1.3f else 1f) else 0f,
-        animationSpec = tween(200),
-        label = "paymentDustbinScale"
-    )
+    var sliderActionTarget by remember { mutableStateOf<Pair<String, Payment>?>(null) }
 
     var newAmount by remember { mutableStateOf("") }
     var newMode   by remember { mutableStateOf(PaymentMode.CASH) }
-    var newDate   by remember(defaultPaymentDate) { mutableStateOf(defaultPaymentDate) }
+    var newDate   by remember(defaultPaymentDate) { mutableLongStateOf(defaultPaymentDate) }
     var showNewDatePicker by remember { mutableStateOf(false) }
 
     val totalPaid     = payments.sumOf { it.amount }
@@ -92,20 +77,6 @@ fun PersonDetailScreen(
     val totalPaidUpi  = payments.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amount }
     val amountGiven   = person?.amountGiven ?: 0.0
     val balance       = amountGiven - totalPaid
-
-    // ── Edit button animation state ───────────────────────────────────────────
-    var pendingEditPayment by remember { mutableStateOf<Payment?>(null) }
-    val editButtonScale by animateFloatAsState(
-        targetValue = if (pendingEditPayment != null) 1.6f else 1f,
-        animationSpec = tween(durationMillis = 300),
-        label = "editScale",
-        finishedListener = { scale ->
-            if (scale >= 1.55f) {
-                paymentToEdit = pendingEditPayment
-                pendingEditPayment = null
-            }
-        }
-    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -139,7 +110,7 @@ fun PersonDetailScreen(
                         title = { Text(person?.name ?: "Person Detail", fontWeight = FontWeight.Bold) },
                         navigationIcon = {
                             IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(Icons.Default.ArrowBack, null)
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                             }
                         }
                     )
@@ -154,7 +125,6 @@ fun PersonDetailScreen(
             }
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
@@ -174,25 +144,16 @@ fun PersonDetailScreen(
                             Spacer(Modifier.height(12.dp))
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            SummaryItem(if (isBorrowing) "Borrowed" else "Given", "₹$amountGiven")
-                            SummaryItem(if (isBorrowing) "Paid Back" else "Received", "₹$totalPaid")
-                            SummaryItem("Pending", "₹$balance")
+                            LocalSummaryItem(if (isBorrowing) "Borrowed" else "Given", "₹$amountGiven")
+                            LocalSummaryItem(if (isBorrowing) "Paid Back" else "Received", "₹$totalPaid")
+                            LocalSummaryItem("Pending", "₹$balance")
                         }
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            SummaryItem("Cash", "₹$totalPaidCash")
-                            SummaryItem("UPI",  "₹$totalPaidUpi")
+                            LocalSummaryItem("Cash", "₹$totalPaidCash")
+                            LocalSummaryItem("UPI",  "₹$totalPaidUpi")
                         }
                     }
-                }
-
-                if (payments.isNotEmpty()) {
-                    Text(
-                        "Hold & drag to delete  •  Triple-tap to select  •  Long press ✏ to edit",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                    )
                 }
 
                 if (payments.isEmpty()) {
@@ -206,59 +167,18 @@ fun PersonDetailScreen(
                     ) {
                         items(payments, key = { it.id }) { payment ->
                             val isSelected = payment.id in selectedIds
-                            val isEditAnimating = pendingEditPayment?.id == payment.id
-                            DraggablePaymentCard(
+
+                            PaymentCardItem(
                                 payment = payment,
                                 isBorrowing = isBorrowing,
                                 dtFormat = dtFormat,
                                 isSelected = isSelected,
                                 isSelecting = isSelecting,
-                                editScale = if (isEditAnimating) editButtonScale else 1f,
-                                onTripleTap = {
-                                    // 3-tap enters multi-select and selects this card
-                                    selectedIds = selectedIds + payment.id
+                                onActionSelect = { actionType ->
+                                    sliderActionTarget = Pair(actionType, payment)
                                 },
-                                onTap = {
-                                    // Normal tap toggles selection only when already in multi-select
-                                    if (isSelecting) {
-                                        selectedIds = if (isSelected)
-                                            selectedIds - payment.id
-                                        else
-                                            selectedIds + payment.id
-                                    }
-                                },
-                                onDragStarted = {
-                                    // Drag only available when not in multi-select mode
-                                    if (!isSelecting) {
-                                        draggingPayment = payment
-                                        showPaymentDustbin = true
-                                    }
-                                },
-                                onDragMoved = { offset ->
-                                    if (!isSelecting) {
-                                        dragOffset = offset
-                                        val cx = dustbinPos.x + 38f
-                                        val cy = dustbinPos.y + 38f
-                                        val dx = offset.x - cx
-                                        val dy = offset.y - cy
-                                        isOverPaymentDustbin = dx * dx + dy * dy < 100f * 100f
-                                    }
-                                },
-                                onDragEnded = {
-                                    if (!isSelecting) {
-                                        if (isOverPaymentDustbin && draggingPayment != null) {
-                                            paymentToConfirmDelete = draggingPayment
-                                        }
-                                        draggingPayment = null
-                                        dragOffset = Offset.Zero
-                                        showPaymentDustbin = false
-                                        isOverPaymentDustbin = false
-                                    }
-                                },
-                                onEditLongPress = {
-                                    if (!isSelecting) {
-                                        pendingEditPayment = payment
-                                    }
+                                onToggleSelection = {
+                                    selectedIds = if (isSelected) selectedIds - payment.id else selectedIds + payment.id
                                 }
                             )
                         }
@@ -266,84 +186,56 @@ fun PersonDetailScreen(
                 }
             }
         }
+    }
 
-        // ── Dustbin overlay (hidden during multi-select) ───────────────────────
-        if (showPaymentDustbin) {
-            Box(
+    // ── Slide to Confirm Bottom Sheet ─────────────────────────────────────────
+    if (sliderActionTarget != null) {
+        val target = sliderActionTarget!!
+        ModalBottomSheet(
+            onDismissRequest = { sliderActionTarget = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.15f))
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp)
-                    .onGloballyPositioned { coords -> dustbinPos = coords.positionInWindow() }
-                    .scale(paymentDustbinScale)
-                    .background(
-                        if (isOverPaymentDustbin) MaterialTheme.colorScheme.errorContainer
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = CircleShape
-                    )
-                    .padding(20.dp)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Drop to delete",
-                    tint = if (isOverPaymentDustbin) MaterialTheme.colorScheme.onErrorContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-            Text(
-                "Drop here to delete",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp)
-            )
-        }
-
-        // ── Drag ghost ────────────────────────────────────────────────────────
-        if (draggingPayment != null) {
-            Box(
-                modifier = Modifier
-                    .offset { IntOffset(dragOffset.x.roundToInt() - 80, dragOffset.y.roundToInt() - 40) }
-                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(bottom = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "₹${draggingPayment!!.amount}",
+                    text = if (target.first == "DELETE") "Slide to Confirm Delete" else "Slide to Confirm Edit",
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Amount: ₹${target.second.amount} (${target.second.mode.name})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(24.dp))
+
+                NativeActionConfirmationSlider(
+                    accentColor = if (target.first == "DELETE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    icon = if (target.first == "DELETE") Icons.Default.Delete else Icons.Default.Edit,
+                    onConfirmed = {
+                        val targetedAction = target.first
+                        val targetedPayment = target.second
+                        sliderActionTarget = null
+
+                        if (targetedAction == "DELETE") {
+                            paymentViewModel.softDeletePayment(targetedPayment.id)
+                        } else {
+                            paymentToEdit = targetedPayment
+                        }
+                    }
                 )
             }
         }
     }
 
-    // ── Confirm single delete ─────────────────────────────────────────────────
-    paymentToConfirmDelete?.let { p ->
-        AlertDialog(
-            onDismissRequest = { paymentToConfirmDelete = null },
-            title = { Text("Delete ₹${p.amount} payment?") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("This payment will be moved to Recently Deleted.", style = MaterialTheme.typography.bodyMedium)
-                    Text("It can be restored within 180 days.", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    paymentViewModel.softDeletePayment(p.id)
-                    paymentToConfirmDelete = null
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { paymentToConfirmDelete = null }) { Text("Cancel") } }
-        )
-    }
-
-    // ── Confirm multi delete ──────────────────────────────────────────────────
+    // ── Dialog Windows ────────────────────────────────────────────────────────
     if (showMultiDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showMultiDeleteDialog = false },
@@ -360,7 +252,6 @@ fun PersonDetailScreen(
         )
     }
 
-    // ── Add Payment dialog ────────────────────────────────────────────────────
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false; newAmount = ""; newMode = PaymentMode.CASH; newDate = defaultPaymentDate },
@@ -406,11 +297,10 @@ fun PersonDetailScreen(
         ) { DatePicker(state = state) }
     }
 
-    // ── Edit Payment dialog ───────────────────────────────────────────────────
     paymentToEdit?.let { orig ->
         var editAmount by remember { mutableStateOf(orig.amount.toBigDecimal().stripTrailingZeros().toPlainString()) }
         var editMode   by remember { mutableStateOf(orig.mode) }
-        var editDate   by remember { mutableStateOf(orig.date) }
+        var editDate   by remember { mutableLongStateOf(orig.date) }
         var showEditDatePicker by remember { mutableStateOf(false) }
 
         AlertDialog(
@@ -458,91 +348,33 @@ fun PersonDetailScreen(
     }
 }
 
-// ── DraggablePaymentCard ───────────────────────────────────────────────────────
-// Gestures (mutually exclusive):
-//   Single tap      → toggle selection (only when already in multi-select mode)
-//   Triple tap      → enter multi-select and select this card
-//   Long press+drag → drag to dustbin (only when NOT in multi-select mode)
-//   Long press ✏   → scale animation → open edit dialog (consumes event, no drag)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun DraggablePaymentCard(
+fun PaymentCardItem(
     payment: Payment,
     isBorrowing: Boolean,
     dtFormat: SimpleDateFormat,
     isSelected: Boolean,
     isSelecting: Boolean,
-    editScale: Float,
-    onTripleTap: () -> Unit,
-    onTap: () -> Unit,
-    onDragStarted: () -> Unit,
-    onDragMoved: (Offset) -> Unit,
-    onDragEnded: () -> Unit,
-    onEditLongPress: () -> Unit
+    onActionSelect: (String) -> Unit,
+    onToggleSelection: () -> Unit
 ) {
-    var cardPosition by remember { mutableStateOf(Offset.Zero) }
+    var contextualMenuExpanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .onGloballyPositioned { coords -> cardPosition = coords.positionInWindow() }
-            // Triple-tap detection runs first (declared first = higher priority).
-            // detectTapGestures handles onTap and triple tap via onPress counting;
-            // we use the requireUnconsumed=false path so it coexists with the drag
-            // gesture below without consuming single taps that the drag needs to
-            // ignore during its long-press threshold wait.
-            .pointerInput(isSelecting) {
-                detectTapGestures(
-                    onTap = { onTap() }
-                )
-            }
-            // Triple-tap: count rapid successive taps with a 400 ms window.
-            .pointerInput(Unit) {
-                var tapCount = 0
-                var lastTapTime = 0L
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val pressed = event.changes.any { it.pressed }
-                        if (!pressed) {
-                            val now = System.currentTimeMillis()
-                            if (now - lastTapTime < 400L) {
-                                tapCount++
-                            } else {
-                                tapCount = 1
-                            }
-                            lastTapTime = now
-                            if (tapCount >= 3) {
-                                tapCount = 0
-                                onTripleTap()
-                            }
-                        }
-                    }
-                }
-            }
-            // Long press + drag = delete. Only fires when not in multi-select mode
-            // (guarded inside onDragStarted/onDragMoved/onDragEnded callbacks above).
-            .pointerInput(Unit) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { offset ->
-                        onDragStarted()
-                        onDragMoved(Offset(cardPosition.x + offset.x, cardPosition.y + offset.y))
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        onDragMoved(Offset(change.position.x + cardPosition.x, change.position.y + cardPosition.y))
-                    },
-                    onDragEnd    = { onDragEnded() },
-                    onDragCancel = { onDragEnded() }
-                )
-            },
+            .combinedClickable(
+                onClick = { if (isSelecting) onToggleSelection() },
+                onLongClick = { onActionSelect("DELETE") }
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
         )
     ) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             if (isSelecting) {
-                Checkbox(checked = isSelected, onCheckedChange = { onTap() })
+                Checkbox(checked = isSelected, onCheckedChange = { onToggleSelection() })
                 Spacer(Modifier.width(8.dp))
             }
             Column(Modifier.weight(1f)) {
@@ -559,37 +391,112 @@ fun DraggablePaymentCard(
                         Text(if (isBorrowing) "Repayment" else "Received", style = MaterialTheme.typography.labelSmall)
                     })
                 }
-                Text(dtFormat.format(Date(payment.date)), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(dtFormat.format(Date(payment.date)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!isSelecting) {
                     Text(
-                        "Hold & drag to delete  •  Triple-tap to select",
+                        "Long press row to trash entry quickly",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                     )
                 }
             }
 
             if (!isSelecting) {
-                // Long press on edit icon → scale animation → open edit dialog.
-                // detectTapGestures(onLongPress) consumes the event internally so
-                // it never bubbles up to the card's drag gesture handler.
-                IconButton(
-                    onClick = { /* intentionally empty — edit is long-press only */ },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .scale(editScale)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onLongPress = { onEditLongPress() }
-                            )
-                        }
-                ) {
-                    Icon(Icons.Default.Edit, null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp))
+                Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
+                    IconButton(onClick = { contextualMenuExpanded = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                    }
+                    DropdownMenu(
+                        expanded = contextualMenuExpanded,
+                        onDismissRequest = { contextualMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Edit Entry") },
+                            leadingIcon = { Icon(Icons.Default.Edit, null) },
+                            onClick = {
+                                contextualMenuExpanded = false
+                                onActionSelect("EDIT")
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete Entry", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                contextualMenuExpanded = false
+                                onActionSelect("DELETE")
+                            }
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun NativeActionConfirmationSlider(
+    accentColor: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onConfirmed: () -> Unit
+) {
+    val trackWidth = 280.dp
+    val thumbSize = 56.dp
+
+    val density = LocalDensity.current
+    val totalSwipeDistancePx = with(density) { (trackWidth - thumbSize).toPx() }
+
+    var thumbPositionX by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        modifier = Modifier
+            .width(trackWidth)
+            .height(thumbSize)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Text(
+            text = "Swipe right to execute",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(thumbPositionX.roundToInt(), 0) }
+                .size(thumbSize)
+                .padding(4.dp)
+                .background(accentColor, CircleShape)
+                .pointerInput(totalSwipeDistancePx) {
+                    detectTapGestures(onTap = {})
+                    this.detectDragGesturesAfterLongPress(
+                        onDragStart = {},
+                        onDragEnd = {
+                            if (thumbPositionX >= totalSwipeDistancePx * 0.82f) {
+                                thumbPositionX = totalSwipeDistancePx
+                                onConfirmed()
+                            } else {
+                                thumbPositionX = 0f
+                            }
+                        },
+                        onDragCancel = { thumbPositionX = 0f },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            thumbPositionX = (thumbPositionX + dragAmount.x).coerceIn(0f, totalSwipeDistancePx)
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+        }
+    }
+}
+
+@Composable
+fun LocalSummaryItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+        Text(value, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }

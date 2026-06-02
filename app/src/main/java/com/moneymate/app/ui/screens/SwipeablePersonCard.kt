@@ -29,6 +29,7 @@ fun SwipeablePersonCard(
     onEdit: () -> Unit,
     onMarkComplete: () -> Unit = {},
     onView: () -> Unit = {},
+    onCallNow: () -> Unit = {},
     onQuickPayment: (amount: Double, mode: PaymentMode) -> Unit
 ) {
     PersonCard(
@@ -50,6 +51,7 @@ fun SwipeablePersonCard(
         onDelete = onDelete,
         onEdit = onEdit,
         onMarkComplete = onMarkComplete,
-        onView = onView
+        onView = onView,
+        onCallNow = onCallNow
     )
 }

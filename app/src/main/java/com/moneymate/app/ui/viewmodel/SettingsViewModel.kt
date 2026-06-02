@@ -21,6 +21,9 @@ class SettingsViewModel @Inject constructor(
     private val _notificationsEnabled = MutableStateFlow(prefs.notificationsEnabled)
     val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled
 
+    private val _isSlideToCallEnabled = MutableStateFlow(prefs.slideToCallEnabled)
+    val isSlideToCallEnabled: StateFlow<Boolean> = _isSlideToCallEnabled
+
     fun setDarkMode(enabled: Boolean) {
         prefs.darkMode = enabled
         _darkMode.value = enabled
@@ -34,5 +37,10 @@ class SettingsViewModel @Inject constructor(
     fun setNotificationsEnabled(enabled: Boolean) {
         prefs.notificationsEnabled = enabled
         _notificationsEnabled.value = enabled
+    }
+
+    fun setSlideToCallEnabled(enabled: Boolean) {
+        prefs.slideToCallEnabled = enabled
+        _isSlideToCallEnabled.value = enabled
     }
 }

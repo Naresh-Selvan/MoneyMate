@@ -1,6 +1,13 @@
 package com.moneymate.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import android.content.Intent
+import android.net.Uri
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -96,6 +103,90 @@ fun lastOccurrenceOf(dayOfWeek: Int): Long {
 
 data class DayBreakdown(val label: String, val given: Double, val received: Double, val pending: Double, val weekStart: Long = 0L, val weekEnd: Long = 0L)
 
+enum class CallNoNumberMode { NONE, ENTER_NUMBER, SELECT_CONTACT }
+enum class ContactPickerTarget { NONE, ADD_DIALOG, EDIT_DIALOG, NO_NUMBER_DIALOG }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SlideToCallSheet(
+    phoneNumber: String,
+    personName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(Icons.Default.Phone, null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            Text("Call $personName?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(phoneNumber, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // Slide button
+            val offsetX = remember { androidx.compose.animation.core.Animatable(0f) }
+            val trackWidth = 280.dp
+            val thumbSize = 56.dp
+            val maxSlide = with(androidx.compose.ui.platform.LocalDensity.current) { (trackWidth - thumbSize).toPx() }
+            val coroutineScope = rememberCoroutineScope()
+            var triggered by remember { mutableStateOf(false) }
+
+            Box(
+                modifier = Modifier
+                    .width(trackWidth)
+                    .height(thumbSize)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Text(
+                    "Slide to call →",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                        .size(thumbSize)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .pointerInput(Unit) {
+                            detectDragGesturesAfterLongPress(
+                                onDragEnd = {
+                                    if (offsetX.value >= maxSlide * 0.85f && !triggered) {
+                                        triggered = true
+                                        onConfirm()
+                                    } else {
+                                        coroutineScope.launch { offsetX.animateTo(0f, tween(300)) }
+                                    }
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    coroutineScope.launch {
+                                        offsetX.snapTo((offsetX.value + dragAmount.x).coerceIn(0f, maxSlide))
+                                    }
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Phone, null, tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FileDetailScreen(
@@ -153,6 +244,13 @@ fun FileDetailScreen(
     var personToMarkComplete   by remember { mutableStateOf<Person?>(null) }
     // 3-dot menu
     var showThreeDotMenu       by remember { mutableStateOf(false) }
+    // Call Now
+    var personToCall           by remember { mutableStateOf<Person?>(null) }
+    var showSlideToCall        by remember { mutableStateOf(false) }
+    var showNoNumberDialog     by remember { mutableStateOf(false) }
+    var noNumberEnterText      by remember { mutableStateOf("") }
+    var noNumberMode           by remember { mutableStateOf<CallNoNumberMode>(CallNoNumberMode.NONE) }
+    val slideToCallEnabled     by settingsViewModel.isSlideToCallEnabled.collectAsState()
     // View-by-date dialog
     var showViewDatePicker2    by remember { mutableStateOf(false) }
     var viewDate               by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -192,6 +290,58 @@ fun FileDetailScreen(
     )
 
     // ── Add-dialog fields ───────────────────────────────────────────────────
+    val context = LocalContext.current
+
+    // Contact picker for Add/Edit dialog mobile field
+    var contactPickerTarget by remember { mutableStateOf<ContactPickerTarget>(ContactPickerTarget.NONE) }
+    val contactPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        if (uri != null) {
+            val phones = context.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null,
+                "${ContactsContract.CommonDataKinds.Phone.CONTACT_URI} = ?", arrayOf(uri.toString()), null
+            )
+            // Fallback to direct phone query via contact id
+            val contactId = uri.lastPathSegment
+            val cursor = context.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                arrayOf(contactId), null
+            )
+            val number = cursor?.use { c -> if (c.moveToFirst()) c.getString(0)?.filter { ch -> ch.isDigit() || ch == '+' } else null } ?: ""
+            phones?.close()
+            when (contactPickerTarget) {
+                ContactPickerTarget.ADD_DIALOG -> newMobile = number
+                ContactPickerTarget.EDIT_DIALOG -> { editMobileFromContact = number }
+                ContactPickerTarget.NO_NUMBER_DIALOG -> {
+                    if (number.isNotBlank() && personToCall != null) {
+                        personViewModel.updatePerson(personToCall!!.copy(mobileNumber = number))
+                        personToCall = personToCall!!.copy(mobileNumber = number)
+                        showNoNumberDialog = false
+                        if (slideToCallEnabled) showSlideToCall = true
+                        else context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+                    }
+                }
+                ContactPickerTarget.NONE -> {}
+            }
+            contactPickerTarget = ContactPickerTarget.NONE
+        }
+    }
+
+    // Per-edit-dialog mobile from contact picker — communicated via a side channel
+    var editMobileFromContact by remember { mutableStateOf<String?>(null) }
+
+    fun launchCall(person: Person) {
+        val number = person.mobileNumber
+        if (number.isNullOrBlank()) {
+            personToCall = person; noNumberEnterText = ""; noNumberMode = CallNoNumberMode.NONE; showNoNumberDialog = true
+        } else if (slideToCallEnabled) {
+            personToCall = person; showSlideToCall = true
+        } else {
+            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+        }
+    }
+
     var newName   by remember { mutableStateOf("") }
     var newPlace  by remember { mutableStateOf("") }
     var newMobile by remember { mutableStateOf("") }
@@ -1097,6 +1247,7 @@ fun FileDetailScreen(
                                                 onEdit   = { personToEdit   = person },
                                                 onMarkComplete = { personToMarkComplete = person },
                                                 onView = { viewPersonFilter = person; showViewDatePicker2 = true },
+                                                onCallNow = { launchCall(person) },
                                                 onQuickPayment = { amount, mode ->
                                                     paymentViewModel.insertPayment(
                                                         Payment(
@@ -1495,7 +1646,12 @@ fun FileDetailScreen(
                     OutlinedTextField(value = newPlace, onValueChange = { newPlace = it }, label = { Text("Place (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = newMobile, onValueChange = { newMobile = it.filter { c -> c.isDigit() || c == '+' || c == '-' || c == ' ' } },
                         label = { Text("Mobile (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        trailingIcon = {
+                            IconButton(onClick = { contactPickerTarget = ContactPickerTarget.ADD_DIALOG; contactPickerLauncher.launch(null) }) {
+                                Icon(Icons.Default.Contacts, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            }
+                        })
                     OutlinedTextField(value = newAmount, onValueChange = { newAmount = it.filter { c -> c.isDigit() || c == '.' } },
                         label = { Text(if (newType == LoanType.LENDING) "Amount Given*" else "Amount Borrowed*") },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -1539,6 +1695,10 @@ fun FileDetailScreen(
         var editName   by remember { mutableStateOf(orig.name) }
         var editPlace  by remember { mutableStateOf(orig.place ?: "") }
         var editMobile by remember { mutableStateOf(orig.mobileNumber ?: "") }
+        // Sync contact picker result
+        LaunchedEffect(editMobileFromContact) {
+            editMobileFromContact?.let { editMobile = it; editMobileFromContact = null }
+        }
         var editAmount by remember { mutableStateOf(orig.amountGiven.toBigDecimal().stripTrailingZeros().toPlainString()) }
         var editMode   by remember { mutableStateOf(orig.mode) }
         var editType   by remember { mutableStateOf(orig.recordType) }
@@ -1571,7 +1731,12 @@ fun FileDetailScreen(
                     OutlinedTextField(value = editPlace, onValueChange = { editPlace = it }, label = { Text("Place") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = editMobile, onValueChange = { editMobile = it.filter { c -> c.isDigit() || c == '+' || c == '-' || c == ' ' } },
                         label = { Text("Mobile") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        trailingIcon = {
+                            IconButton(onClick = { contactPickerTarget = ContactPickerTarget.EDIT_DIALOG; contactPickerLauncher.launch(null) }) {
+                                Icon(Icons.Default.Contacts, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            }
+                        })
                     OutlinedTextField(value = editAmount, onValueChange = { editAmount = it.filter { c -> c.isDigit() || c == '.' } },
                         label = { Text(if (editType == LoanType.LENDING) "Amount Given" else "Amount Borrowed") },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -2199,6 +2364,140 @@ fun FileDetailScreen(
             )
         }
     }
+
+    // ── Slide-to-Call bottom sheet ─────────────────────────────────────────────
+    if (showSlideToCall && personToCall != null) {
+        val callPerson = personToCall!!
+        val callNumber = callPerson.mobileNumber ?: ""
+        BackHandler { showSlideToCall = false }
+        SlideToCallSheet(
+            phoneNumber = callNumber,
+            personName  = callPerson.name,
+            onConfirm   = {
+                showSlideToCall = false
+                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$callNumber")))
+            },
+            onDismiss   = { showSlideToCall = false }
+        )
+    }
+
+    // ── No-Number dialog ───────────────────────────────────────────────────────
+    if (showNoNumberDialog && personToCall != null) {
+        val callPerson = personToCall!!
+        BackHandler { showNoNumberDialog = false; noNumberMode = CallNoNumberMode.NONE; noNumberEnterText = "" }
+        AlertDialog(
+            onDismissRequest = { showNoNumberDialog = false; noNumberMode = CallNoNumberMode.NONE; noNumberEnterText = "" },
+            icon = {
+                Icon(Icons.Default.PhoneDisabled, null,
+                    modifier = Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.error)
+            },
+            title = { Text("No Number for ${callPerson.name}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    when (noNumberMode) {
+                        CallNoNumberMode.NONE -> {
+                            Text(
+                                "No mobile number is saved for this person. What would you like to do?",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        CallNoNumberMode.ENTER_NUMBER -> {
+                            Text(
+                                "Enter a number to save and call:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedTextField(
+                                value = noNumberEnterText,
+                                onValueChange = { noNumberEnterText = it.filter { c -> c.isDigit() || c == '+' || c == '-' || c == ' ' } },
+                                label = { Text("Mobile Number") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                leadingIcon = { Icon(Icons.Default.Phone, null, modifier = Modifier.size(18.dp)) }
+                            )
+                        }
+                        CallNoNumberMode.SELECT_CONTACT -> {
+                            // Contact picker launched immediately; this state is transient
+                            Text(
+                                "Opening contact picker…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                when (noNumberMode) {
+                    CallNoNumberMode.NONE -> {
+                        // No confirm in NONE mode — actions are offered as separate buttons below
+                    }
+                    CallNoNumberMode.ENTER_NUMBER -> {
+                        TextButton(
+                            onClick = {
+                                val number = noNumberEnterText.trim()
+                                if (number.isNotBlank()) {
+                                    personViewModel.updatePerson(callPerson.copy(mobileNumber = number))
+                                    personToCall = callPerson.copy(mobileNumber = number)
+                                    showNoNumberDialog = false
+                                    noNumberMode = CallNoNumberMode.NONE
+                                    noNumberEnterText = ""
+                                    if (slideToCallEnabled) showSlideToCall = true
+                                    else context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+                                }
+                            },
+                            enabled = noNumberEnterText.trim().isNotBlank()
+                        ) { Text("Save & Call") }
+                    }
+                    CallNoNumberMode.SELECT_CONTACT -> {}
+                }
+            },
+            dismissButton = {
+                when (noNumberMode) {
+                    CallNoNumberMode.NONE -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = { noNumberMode = CallNoNumberMode.ENTER_NUMBER },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Enter Number")
+                            }
+                            TextButton(
+                                onClick = {
+                                    noNumberMode = CallNoNumberMode.SELECT_CONTACT
+                                    contactPickerTarget = ContactPickerTarget.NO_NUMBER_DIALOG
+                                    contactPickerLauncher.launch(null)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Contacts, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Select Contact")
+                            }
+                            TextButton(
+                                onClick = { showNoNumberDialog = false; noNumberMode = CallNoNumberMode.NONE; noNumberEnterText = "" },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Go Back") }
+                        }
+                    }
+                    CallNoNumberMode.ENTER_NUMBER -> {
+                        TextButton(
+                            onClick = { noNumberMode = CallNoNumberMode.NONE; noNumberEnterText = "" }
+                        ) { Text("Back") }
+                    }
+                    CallNoNumberMode.SELECT_CONTACT -> {
+                        TextButton(
+                            onClick = { showNoNumberDialog = false; noNumberMode = CallNoNumberMode.NONE; noNumberEnterText = "" }
+                        ) { Text("Cancel") }
+                    }
+                }
+            }
+        )
+    }
 }
 
 // ── Fix 2: DraggableCompletedPersonCard ──────────────────────────────────────
@@ -2534,7 +2833,8 @@ fun PersonCard(
     onDelete: () -> Unit,
     onEdit: () -> Unit,
     onMarkComplete: () -> Unit = {},
-    onView: () -> Unit = {}
+    onView: () -> Unit = {},
+    onCallNow: () -> Unit = {}
 ) {
     val isBorrowing = person.recordType == LoanType.BORROWING
     val isFullyPaid  = pending <= 0 && totalPaid > 0
@@ -2663,6 +2963,11 @@ fun PersonCard(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     DropdownMenu(expanded = showPersonMenu, onDismissRequest = { showPersonMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Call Now") },
+                            leadingIcon = { Icon(Icons.Default.Phone, null, tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { showPersonMenu = false; onCallNow() }
+                        )
                         DropdownMenuItem(
                             text = { Text("Edit") },
                             leadingIcon = {

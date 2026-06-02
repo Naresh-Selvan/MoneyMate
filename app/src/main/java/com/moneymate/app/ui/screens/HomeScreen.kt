@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -53,7 +54,7 @@ fun HomeScreen(
     var newFileName by remember { mutableStateOf("") }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    // ── Fix 1: Drag-to-dustbin state ─────────────────────────────────────────
+    // ── Drag-to-dustbin state ─────────────────────────────────────────
     var draggingFile       by remember { mutableStateOf<LoanFile?>(null) }
     var dragOffset         by remember { mutableStateOf(Offset.Zero) }
     var showDustbin        by remember { mutableStateOf(false) }
@@ -159,15 +160,13 @@ fun HomeScreen(
             }
         }
 
-        // ── Fix 1: Dustbin overlay — visible only during a long-press drag ────
+        // ── Dustbin overlay — visible only during a long-press drag ────
         if (showDustbin) {
-            // Dim background
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.15f))
             )
-            // Dustbin circle
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -201,14 +200,14 @@ fun HomeScreen(
             )
         }
 
-        // ── Fix 1: Ghost card following the finger while dragging ─────────────
+        // ── Ghost card following the finger while dragging ─────────────
         if (draggingFile != null) {
             Box(
                 modifier = Modifier
                     .offset { IntOffset(dragOffset.x.roundToInt() - 80, dragOffset.y.roundToInt() - 40) }
                     .background(
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp)
                     )
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
@@ -242,85 +241,52 @@ fun HomeScreen(
         )
     }
 
-    // ── Add File Dialog — 4 predefined NLR + custom ───────────────────────────
+    // ── Add File Dialog — Clean Direct Input UI ───────────────────────────
     if (showAddDialog) {
         var customName by remember { mutableStateOf("") }
-        var showCustomField by remember { mutableStateOf(false) }
-        val nlrOptions = listOf(
-            "NLR 1" to "Friday Morning",
-            "NLR 2" to "Friday Evening",
-            "NLR 3" to "Saturday Morning",
-            "NLR 4" to "Saturday Evening"
-        )
+
         AlertDialog(
-            onDismissRequest = { showAddDialog = false; customName = ""; showCustomField = false },
+            onDismissRequest = { showAddDialog = false; customName = "" },
             title = { Text("New Loan File") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "Pick a preset or create a custom file.",
+                        "Enter a clean distinct name identifier for your tracking file configuration below.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    nlrOptions.forEach { (name, schedule) ->
-                        val alreadyExists = files.any { it.name.equals(name, ignoreCase = true) }
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.insertFile(LoanFile(name = name, sortOrder = files.size))
-                                showAddDialog = false
-                            },
-                            enabled = !alreadyExists,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(name, fontWeight = FontWeight.Bold)
-                                Text(
-                                    if (alreadyExists) "Already created" else schedule,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (alreadyExists) MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                    HorizontalDivider()
-                    if (showCustomField) {
-                        OutlinedTextField(
-                            value = customName,
-                            onValueChange = { customName = it },
-                            label = { Text("Custom file name") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        TextButton(
-                            onClick = {
-                                if (customName.isNotBlank()) {
-                                    viewModel.insertFile(LoanFile(name = customName.trim(), sortOrder = files.size))
-                                    customName = ""; showCustomField = false; showAddDialog = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Create Custom File") }
-                    } else {
-                        OutlinedButton(
-                            onClick = { showCustomField = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Add, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Custom File…")
-                        }
-                    }
+                    OutlinedTextField(
+                        value = customName,
+                        onValueChange = { customName = it },
+                        label = { Text("File Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
-            confirmButton = {},
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (customName.isNotBlank()) {
+                            viewModel.insertFile(LoanFile(name = customName.trim(), sortOrder = files.size))
+                            customName = ""
+                            showAddDialog = false
+                        }
+                    },
+                    enabled = customName.isNotBlank()
+                ) {
+                    Text("Create File")
+                }
+            },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false; customName = ""; showCustomField = false }) { Text("Cancel") }
+                TextButton(onClick = { showAddDialog = false; customName = "" }) {
+                    Text("Cancel")
+                }
             }
         )
     }
 
-    // ── Fix 1: Confirmation dialog after drag-drop onto dustbin ──────────────
+    // ── Confirmation dialog after drag-drop onto dustbin ──────────────
     fileToDelete?.let { file ->
         AlertDialog(
             onDismissRequest = { fileToDelete = null },
@@ -341,7 +307,7 @@ fun HomeScreen(
     }
 }
 
-// ── Fix 1: DraggableFileCard — long press enters drag mode, no delete button ──
+// ── DraggableFileCard — long press enters drag mode, no delete button ──
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DraggableFileCard(
@@ -358,12 +324,7 @@ fun DraggableFileCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            // Normal tap → open file
             .combinedClickable(onClick = onClick)
-            // Long press → drag to dustbin.
-            // This is on the card body; the drag-handle icon uses detectReorder
-            // (a separate gesture) so the two gestures target different touch areas
-            // and cannot conflict.
             .onGloballyPositioned { coords ->
                 cardPosition = coords.positionInWindow()
             }
@@ -388,8 +349,6 @@ fun DraggableFileCard(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Drag-handle for reorder — uses detectReorder which is a distinct gesture
-            // registered on this icon only, not on the card body. No conflict.
             Icon(
                 Icons.Default.DragHandle,
                 contentDescription = "Drag to reorder",
@@ -424,7 +383,6 @@ fun DraggableFileCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
-            // ── No delete button — deleted via drag-to-dustbin only ──────────
         }
     }
 }

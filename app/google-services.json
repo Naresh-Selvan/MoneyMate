@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "172139607552-8oabu47u5q4cd3ela2t5f8bl4kh86psf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moneymate.app",
+            "certificate_hash": "f7ab3c3eba30e63415285b037bec24c828965e90"
+          }
+        },
+        {
           "client_id": "172139607552-vsocr50i0nhf9j485sp3t2jvfe4rtkrm.apps.googleusercontent.com",
           "client_type": 3
         }

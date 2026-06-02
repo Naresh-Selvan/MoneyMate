@@ -12,10 +12,23 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+// ─── Data models moved outside the function to fix the scoping errors ───────
+data class MigrationFile(
+    val id: String,
+    val data: Map<String, Any>,
+    val persons: List<MigrationPerson>
+)
+
+data class MigrationPerson(
+    val id: String,
+    val data: Map<String, Any>,
+    val payments: List<Pair<String, Map<String, Any>>>
+)
+
 sealed class MigrationState {
     object Idle : MigrationState()
     object Checking : MigrationState()
-    object NotNeeded : MigrationState()        // old path is empty or migration already done
+    object NotNeeded : MigrationState()
     object InProgress : MigrationState()
     data class Progress(val message: String) : MigrationState()
     object Success : MigrationState()
@@ -35,11 +48,6 @@ class MigrationViewModel @Inject constructor(
 
     // ─── Public entry point ────────────────────────────────────────────────────
 
-    /**
-     * Call this once after a successful Google Sign-In.
-     * If migration has already been done ([AppPreferences.isMigrationDone] == true),
-     * this is a no-op and emits [MigrationState.NotNeeded] immediately.
-     */
     fun runMigrationIfNeeded() {
         if (prefs.isMigrationDone) {
             _migrationState.value = MigrationState.NotNeeded
@@ -80,18 +88,7 @@ class MigrationViewModel @Inject constructor(
         _migrationState.value = MigrationState.InProgress
         emit("Found ${legacyFilesSnapshot.size()} file(s) to migrate…")
 
-        // Collect everything into memory before writing a single byte to the new path.
-        // This keeps the migration atomic: copy ALL → verify ALL → delete ALL.
-        data class MigrationFile(
-            val id: String,
-            val data: Map<String, Any>,
-            val persons: List<MigrationPerson>
-        )
-        data class MigrationPerson(
-            val id: String,
-            val data: Map<String, Any>,
-            val payments: List<Pair<String, Map<String, Any>>>
-        )
+        // NOTE: The data classes have been deleted from here to fix the errors!
 
         val allFiles = mutableListOf<MigrationFile>()
 
@@ -128,6 +125,7 @@ class MigrationViewModel @Inject constructor(
                     .set(person.data)
                     .await()
 
+                // Destructuring works flawlessly now because Kotlin knows 'person.payments' is a List of Pairs!
                 for ((paymentId, paymentData) in person.payments) {
                     db.collection(paths.paymentsCollection(file.id, person.id))
                         .document(paymentId)

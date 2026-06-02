@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.moneymate.app-mergeDebugResources-73:/values-en-rIN/values-en-rIN.xml",
+            "outputFile": "com.moneymate.app-mergeDebugResources-71:/values-en-rIN/values-en-rIN.xml",
             "map": [
                 {
                     "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\2229b9c3eca54ffc248587cca2587bf6\\workspace\\transformed\\ui-release\\res\\values-en-rIN\\values-en-rIN.xml",

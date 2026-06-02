@@ -3,6 +3,7 @@ package com.moneymate.app.ui.viewmodel;
 import com.moneymate.app.data.repository.LoanFileRepository;
 import com.moneymate.app.data.repository.PaymentRepository;
 import com.moneymate.app.data.repository.PersonRepository;
+import com.moneymate.app.utils.FirestorePathProvider;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
@@ -31,28 +32,34 @@ public final class RestoreViewModel_Factory implements Factory<RestoreViewModel>
 
   private final Provider<PaymentRepository> paymentRepositoryProvider;
 
+  private final Provider<FirestorePathProvider> pathsProvider;
+
   public RestoreViewModel_Factory(Provider<LoanFileRepository> loanFileRepositoryProvider,
       Provider<PersonRepository> personRepositoryProvider,
-      Provider<PaymentRepository> paymentRepositoryProvider) {
+      Provider<PaymentRepository> paymentRepositoryProvider,
+      Provider<FirestorePathProvider> pathsProvider) {
     this.loanFileRepositoryProvider = loanFileRepositoryProvider;
     this.personRepositoryProvider = personRepositoryProvider;
     this.paymentRepositoryProvider = paymentRepositoryProvider;
+    this.pathsProvider = pathsProvider;
   }
 
   @Override
   public RestoreViewModel get() {
-    return newInstance(loanFileRepositoryProvider.get(), personRepositoryProvider.get(), paymentRepositoryProvider.get());
+    return newInstance(loanFileRepositoryProvider.get(), personRepositoryProvider.get(), paymentRepositoryProvider.get(), pathsProvider.get());
   }
 
   public static RestoreViewModel_Factory create(
       Provider<LoanFileRepository> loanFileRepositoryProvider,
       Provider<PersonRepository> personRepositoryProvider,
-      Provider<PaymentRepository> paymentRepositoryProvider) {
-    return new RestoreViewModel_Factory(loanFileRepositoryProvider, personRepositoryProvider, paymentRepositoryProvider);
+      Provider<PaymentRepository> paymentRepositoryProvider,
+      Provider<FirestorePathProvider> pathsProvider) {
+    return new RestoreViewModel_Factory(loanFileRepositoryProvider, personRepositoryProvider, paymentRepositoryProvider, pathsProvider);
   }
 
   public static RestoreViewModel newInstance(LoanFileRepository loanFileRepository,
-      PersonRepository personRepository, PaymentRepository paymentRepository) {
-    return new RestoreViewModel(loanFileRepository, personRepository, paymentRepository);
+      PersonRepository personRepository, PaymentRepository paymentRepository,
+      FirestorePathProvider paths) {
+    return new RestoreViewModel(loanFileRepository, personRepository, paymentRepository, paths);
   }
 }

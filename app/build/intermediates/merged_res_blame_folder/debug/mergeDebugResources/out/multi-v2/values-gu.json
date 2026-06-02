@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.moneymate.app-mergeDebugResources-73:/values-gu/values-gu.xml",
+            "outputFile": "com.moneymate.app-mergeDebugResources-71:/values-gu/values-gu.xml",
             "map": [
                 {
                     "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\8f59ca6999ef729d780e31a69180411f\\workspace\\transformed\\material3-release\\res\\values-gu\\values-gu.xml",
@@ -106,23 +106,6 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\68157f27c4c78fb2a0caf6f4158f3471\\workspace\\transformed\\play-services-base-18.0.1\\res\\values-gu\\values.xml",
-                    "from": {
-                        "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
-                        "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
-                        "startOffsets": "193,297,459,580,688,822,940,1047,1143,1287,1391,1551,1672,1811,1957,2014,2076",
-                        "endColumns": "103,161,120,107,133,117,106,95,143,103,159,120,138,145,56,61,77",
-                        "endOffsets": "296,458,579,687,821,939,1046,1142,1286,1390,1550,1671,1810,1956,2013,2075,2153"
-                    },
-                    "to": {
-                        "startLines": "42,43,44,45,46,47,48,49,51,52,53,54,55,56,57,58,59",
-                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
-                        "startOffsets": "4183,4291,4457,4582,4694,4832,4954,5065,5312,5460,5568,5732,5857,6000,6150,6211,6277",
-                        "endColumns": "107,165,124,111,137,121,110,99,147,107,163,124,142,149,60,65,81",
-                        "endOffsets": "4286,4452,4577,4689,4827,4949,5060,5160,5455,5563,5727,5852,5995,6145,6206,6272,6354"
-                    }
-                },
-                {
                     "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\db1cbe03f16ab2f7cc0dc2791607e261\\workspace\\transformed\\core-1.15.0\\res\\values-gu\\values-gu.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
@@ -137,6 +120,23 @@
                         "startOffsets": "3291,3385,3488,3585,3687,3789,3887,16486",
                         "endColumns": "93,102,96,101,101,97,121,100",
                         "endOffsets": "3380,3483,3580,3682,3784,3882,4004,16582"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\5a32a467b90b04feaa89903d919fe0a2\\workspace\\transformed\\play-services-base-18.3.0\\res\\values-gu\\values.xml",
+                    "from": {
+                        "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
+                        "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
+                        "startOffsets": "193,297,459,580,688,822,940,1047,1143,1287,1391,1551,1672,1811,1957,2014,2076",
+                        "endColumns": "103,161,120,107,133,117,106,95,143,103,159,120,138,145,56,61,77",
+                        "endOffsets": "296,458,579,687,821,939,1046,1142,1286,1390,1550,1671,1810,1956,2013,2075,2153"
+                    },
+                    "to": {
+                        "startLines": "42,43,44,45,46,47,48,49,51,52,53,54,55,56,57,58,59",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "4183,4291,4457,4582,4694,4832,4954,5065,5312,5460,5568,5732,5857,6000,6150,6211,6277",
+                        "endColumns": "107,165,124,111,137,121,110,99,147,107,163,124,142,149,60,65,81",
+                        "endOffsets": "4286,4452,4577,4689,4827,4949,5060,5160,5455,5563,5727,5852,5995,6145,6206,6272,6354"
                     }
                 },
                 {

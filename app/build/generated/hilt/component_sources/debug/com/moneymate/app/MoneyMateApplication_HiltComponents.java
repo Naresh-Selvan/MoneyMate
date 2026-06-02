@@ -4,6 +4,7 @@ import com.moneymate.app.di.AppModule;
 import com.moneymate.app.ui.viewmodel.AuthViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.EditRequestViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.MigrationViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.PaymentViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.PersonViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.RestoreViewModel_HiltModules;
@@ -167,6 +168,7 @@ public final class MoneyMateApplication_HiltComponents {
           HiltWrapper_ActivityRetainedComponentManager_LifecycleModule.class,
           HiltWrapper_SavedStateHandleModule.class,
           LoanFileViewModel_HiltModules.KeyModule.class,
+          MigrationViewModel_HiltModules.KeyModule.class,
           ActivityCBuilderModule.class,
           ViewModelCBuilderModule.class,
           PaymentViewModel_HiltModules.KeyModule.class,
@@ -215,6 +217,7 @@ public final class MoneyMateApplication_HiltComponents {
           EditRequestViewModel_HiltModules.BindsModule.class,
           HiltWrapper_HiltViewModelFactory_ViewModelModule.class,
           LoanFileViewModel_HiltModules.BindsModule.class,
+          MigrationViewModel_HiltModules.BindsModule.class,
           PaymentViewModel_HiltModules.BindsModule.class,
           PersonViewModel_HiltModules.BindsModule.class,
           RestoreViewModel_HiltModules.BindsModule.class,

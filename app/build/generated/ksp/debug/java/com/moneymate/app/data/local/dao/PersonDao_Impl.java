@@ -60,7 +60,11 @@ public final class PersonDao_Impl implements PersonDao {
 
   private final SharedSQLiteStatement __preparedStmtOfPurgeExpiredPersons;
 
+  private final SharedSQLiteStatement __preparedStmtOfSoftDeleteCompletedPerson;
+
   private final SharedSQLiteStatement __preparedStmtOfPurgeExpiredCompletedPersons;
+
+  private final SharedSQLiteStatement __preparedStmtOfPurgeExpiredDeletedCompletedPersons;
 
   private final SharedSQLiteStatement __preparedStmtOfMarkAllUploadedInFile;
 
@@ -265,11 +269,27 @@ public final class PersonDao_Impl implements PersonDao {
         return _query;
       }
     };
+    this.__preparedStmtOfSoftDeleteCompletedPerson = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "UPDATE persons SET isDeleted = 1, deletedAt = ? WHERE id = ? AND isCompleted = 1";
+        return _query;
+      }
+    };
     this.__preparedStmtOfPurgeExpiredCompletedPersons = new SharedSQLiteStatement(__db) {
       @Override
       @NonNull
       public String createQuery() {
-        final String _query = "DELETE FROM persons WHERE isCompleted = 1 AND completedAt < ?";
+        final String _query = "DELETE FROM persons WHERE isCompleted = 1 AND isDeleted = 0 AND completedAt < ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfPurgeExpiredDeletedCompletedPersons = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "DELETE FROM persons WHERE isCompleted = 1 AND isDeleted = 1 AND deletedAt < ?";
         return _query;
       }
     };
@@ -570,6 +590,34 @@ public final class PersonDao_Impl implements PersonDao {
   }
 
   @Override
+  public Object softDeleteCompletedPerson(final String id, final long deletedAt,
+      final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfSoftDeleteCompletedPerson.acquire();
+        int _argIndex = 1;
+        _stmt.bindLong(_argIndex, deletedAt);
+        _argIndex = 2;
+        _stmt.bindString(_argIndex, id);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfSoftDeleteCompletedPerson.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
   public Object purgeExpiredCompletedPersons(final long cutoff,
       final Continuation<? super Unit> $completion) {
     return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
@@ -590,6 +638,32 @@ public final class PersonDao_Impl implements PersonDao {
           }
         } finally {
           __preparedStmtOfPurgeExpiredCompletedPersons.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object purgeExpiredDeletedCompletedPersons(final long cutoff,
+      final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfPurgeExpiredDeletedCompletedPersons.acquire();
+        int _argIndex = 1;
+        _stmt.bindLong(_argIndex, cutoff);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfPurgeExpiredDeletedCompletedPersons.release(_stmt);
         }
       }
     }, $completion);
@@ -2013,6 +2087,131 @@ public final class PersonDao_Impl implements PersonDao {
   @Override
   public Flow<List<Person>> getDeletedPersons() {
     final String _sql = "SELECT * FROM persons WHERE isDeleted = 1 ORDER BY deletedAt DESC";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    return CoroutinesRoom.createFlow(__db, false, new String[] {"persons"}, new Callable<List<Person>>() {
+      @Override
+      @NonNull
+      public List<Person> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfFileId = CursorUtil.getColumnIndexOrThrow(_cursor, "fileId");
+          final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
+          final int _cursorIndexOfPlace = CursorUtil.getColumnIndexOrThrow(_cursor, "place");
+          final int _cursorIndexOfMobileNumber = CursorUtil.getColumnIndexOrThrow(_cursor, "mobileNumber");
+          final int _cursorIndexOfAmountGiven = CursorUtil.getColumnIndexOrThrow(_cursor, "amountGiven");
+          final int _cursorIndexOfMode = CursorUtil.getColumnIndexOrThrow(_cursor, "mode");
+          final int _cursorIndexOfDateGiven = CursorUtil.getColumnIndexOrThrow(_cursor, "dateGiven");
+          final int _cursorIndexOfSortOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "sortOrder");
+          final int _cursorIndexOfIsDeleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isDeleted");
+          final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
+          final int _cursorIndexOfUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "uploadedAt");
+          final int _cursorIndexOfEditPermissionGranted = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionGranted");
+          final int _cursorIndexOfEditPermissionScope = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionScope");
+          final int _cursorIndexOfRecordType = CursorUtil.getColumnIndexOrThrow(_cursor, "recordType");
+          final int _cursorIndexOfIsCompleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isCompleted");
+          final int _cursorIndexOfCompletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "completedAt");
+          final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
+          final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
+          final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final Person _item;
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final String _tmpFileId;
+            _tmpFileId = _cursor.getString(_cursorIndexOfFileId);
+            final String _tmpName;
+            _tmpName = _cursor.getString(_cursorIndexOfName);
+            final String _tmpPlace;
+            if (_cursor.isNull(_cursorIndexOfPlace)) {
+              _tmpPlace = null;
+            } else {
+              _tmpPlace = _cursor.getString(_cursorIndexOfPlace);
+            }
+            final String _tmpMobileNumber;
+            if (_cursor.isNull(_cursorIndexOfMobileNumber)) {
+              _tmpMobileNumber = null;
+            } else {
+              _tmpMobileNumber = _cursor.getString(_cursorIndexOfMobileNumber);
+            }
+            final double _tmpAmountGiven;
+            _tmpAmountGiven = _cursor.getDouble(_cursorIndexOfAmountGiven);
+            final PaymentMode _tmpMode;
+            _tmpMode = __PaymentMode_stringToEnum(_cursor.getString(_cursorIndexOfMode));
+            final long _tmpDateGiven;
+            _tmpDateGiven = _cursor.getLong(_cursorIndexOfDateGiven);
+            final int _tmpSortOrder;
+            _tmpSortOrder = _cursor.getInt(_cursorIndexOfSortOrder);
+            final boolean _tmpIsDeleted;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsDeleted);
+            _tmpIsDeleted = _tmp != 0;
+            final Long _tmpDeletedAt;
+            if (_cursor.isNull(_cursorIndexOfDeletedAt)) {
+              _tmpDeletedAt = null;
+            } else {
+              _tmpDeletedAt = _cursor.getLong(_cursorIndexOfDeletedAt);
+            }
+            final Long _tmpUploadedAt;
+            if (_cursor.isNull(_cursorIndexOfUploadedAt)) {
+              _tmpUploadedAt = null;
+            } else {
+              _tmpUploadedAt = _cursor.getLong(_cursorIndexOfUploadedAt);
+            }
+            final boolean _tmpEditPermissionGranted;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfEditPermissionGranted);
+            _tmpEditPermissionGranted = _tmp_1 != 0;
+            final EditPermissionScope _tmpEditPermissionScope;
+            _tmpEditPermissionScope = __EditPermissionScope_stringToEnum(_cursor.getString(_cursorIndexOfEditPermissionScope));
+            final LoanType _tmpRecordType;
+            _tmpRecordType = __LoanType_stringToEnum(_cursor.getString(_cursorIndexOfRecordType));
+            final boolean _tmpIsCompleted;
+            final int _tmp_2;
+            _tmp_2 = _cursor.getInt(_cursorIndexOfIsCompleted);
+            _tmpIsCompleted = _tmp_2 != 0;
+            final Long _tmpCompletedAt;
+            if (_cursor.isNull(_cursorIndexOfCompletedAt)) {
+              _tmpCompletedAt = null;
+            } else {
+              _tmpCompletedAt = _cursor.getLong(_cursorIndexOfCompletedAt);
+            }
+            final String _tmpLinkedNewPersonId;
+            if (_cursor.isNull(_cursorIndexOfLinkedNewPersonId)) {
+              _tmpLinkedNewPersonId = null;
+            } else {
+              _tmpLinkedNewPersonId = _cursor.getString(_cursorIndexOfLinkedNewPersonId);
+            }
+            final boolean _tmpIsPendingNewLoan;
+            final int _tmp_3;
+            _tmp_3 = _cursor.getInt(_cursorIndexOfIsPendingNewLoan);
+            _tmpIsPendingNewLoan = _tmp_3 != 0;
+            final String _tmpPreviousPersonId;
+            if (_cursor.isNull(_cursorIndexOfPreviousPersonId)) {
+              _tmpPreviousPersonId = null;
+            } else {
+              _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+        }
+      }
+
+      @Override
+      protected void finalize() {
+        _statement.release();
+      }
+    });
+  }
+
+  @Override
+  public Flow<List<Person>> getDeletedCompletedPersons() {
+    final String _sql = "SELECT * FROM persons WHERE isCompleted = 1 AND isDeleted = 1 ORDER BY deletedAt DESC";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     return CoroutinesRoom.createFlow(__db, false, new String[] {"persons"}, new Callable<List<Person>>() {
       @Override

@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.moneymate.app-mergeDebugResources-73:/values-pt/values-pt.xml",
+            "outputFile": "com.moneymate.app-mergeDebugResources-71:/values-pt/values-pt.xml",
             "map": [
                 {
                     "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\ab3e299ce1309f1d00f4f0948a18fbae\\workspace\\transformed\\biometric-1.2.0-alpha05\\res\\values-pt\\values-pt.xml",

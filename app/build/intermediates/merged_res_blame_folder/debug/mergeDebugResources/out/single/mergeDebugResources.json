@@ -1,94 +1,98 @@
 [
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-hdpi_ic_launcher_round.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-hdpi\\ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xxhdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\xml_backup_rules.xml.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\xml\\backup_rules.xml"
+        "merged": "com.moneymate.app-debug-73:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-hdpi/ic_launcher_round.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-anydpi_ic_launcher_round.xml.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-anydpi\\ic_launcher_round.xml"
+        "merged": "com.moneymate.app-debug-73:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xxxhdpi/ic_launcher_round.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-anydpi_ic_launcher.xml.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-anydpi\\ic_launcher.xml"
+        "merged": "com.moneymate.app-debug-73:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xxxhdpi/ic_launcher.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-mdpi_ic_launcher_foreground.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-mdpi\\ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xxhdpi/ic_launcher.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-mdpi_ic_launcher_round.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-mdpi\\ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-73:/xml_update_file_paths.xml.flat",
+        "source": "com.moneymate.app-main-75:/xml/update_file_paths.xml"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xxxhdpi_ic_launcher.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xxxhdpi\\ic_launcher.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-mdpi/ic_launcher.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\drawable_ic_launcher_foreground.xml.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\drawable\\ic_launcher_foreground.xml"
+        "merged": "com.moneymate.app-debug-73:/xml_data_extraction_rules.xml.flat",
+        "source": "com.moneymate.app-main-75:/xml/data_extraction_rules.xml"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xxhdpi_ic_launcher.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xxhdpi\\ic_launcher.png"
+        "merged": "com.moneymate.app-debug-73:/drawable_ic_google.xml.flat",
+        "source": "com.moneymate.app-main-75:/drawable/ic_google.xml"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xxhdpi_ic_launcher_foreground.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xxhdpi\\ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xxxhdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\drawable_ic_launcher_background.xml.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\drawable\\ic_launcher_background.xml"
+        "merged": "com.moneymate.app-debug-73:/mipmap-hdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-hdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xhdpi_ic_launcher_foreground.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xhdpi\\ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-73:/drawable_logo.png.flat",
+        "source": "com.moneymate.app-main-75:/drawable/logo.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xhdpi_ic_launcher_round.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xhdpi\\ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-anydpi_ic_launcher_round.xml.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-anydpi/ic_launcher_round.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-75:/xml_update_file_paths.xml.flat",
-        "source": "com.moneymate.app-main-77:/xml/update_file_paths.xml"
+        "merged": "com.moneymate.app-debug-73:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xxhdpi/ic_launcher_round.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xhdpi_ic_launcher.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xhdpi\\ic_launcher.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-hdpi/ic_launcher.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\xml_data_extraction_rules.xml.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\xml\\data_extraction_rules.xml"
+        "merged": "com.moneymate.app-debug-73:/mipmap-anydpi_ic_launcher.xml.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-anydpi/ic_launcher.xml"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xxxhdpi_ic_launcher_round.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xxxhdpi\\ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-mdpi/ic_launcher_round.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-hdpi_ic_launcher.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-hdpi\\ic_launcher.png"
+        "merged": "com.moneymate.app-debug-73:/xml_backup_rules.xml.flat",
+        "source": "com.moneymate.app-main-75:/xml/backup_rules.xml"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-hdpi_ic_launcher_foreground.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-hdpi\\ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-73:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.moneymate.app-main-75:/drawable/ic_launcher_background.xml"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xxxhdpi\\ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xhdpi/ic_launcher.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-mdpi_ic_launcher.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-mdpi\\ic_launcher.png"
+        "merged": "com.moneymate.app-debug-73:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.moneymate.app-main-75:/drawable/ic_launcher_foreground.xml"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\mipmap-xxhdpi_ic_launcher_round.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\mipmap-xxhdpi\\ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xhdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-debug-75:\\drawable_logo.png.flat",
-        "source": "C:\\Users\\Naresh\\.gradle\\daemon\\9.3.1\\com.moneymate.app-main-77:\\drawable\\logo.png"
+        "merged": "com.moneymate.app-debug-73:/mipmap-mdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-mdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.moneymate.app-debug-73:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-75:/mipmap-xhdpi/ic_launcher_round.png"
     }
 ]

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
@@ -1241,45 +1242,84 @@ fun FileDetailScreen(
                     )
                     HorizontalDivider(Modifier.padding(top = 8.dp))
                 }
+                // ── Fix 7: Group completed persons by completion date (newest first) ──
+                val completedGroupFmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+
+                // Build an ordered list of (dateLabel, List<Person>) pairs.
+                // completedPersons is already sorted completedAt DESC from the DAO,
+                // so we preserve that order while grouping by calendar day.
+                val completedByDate: List<Pair<String, List<Person>>> = remember(completedPersons) {
+                    val cal = Calendar.getInstance()
+                    // Group preserving existing DESC order — LinkedHashMap keeps insertion order.
+                    val map = linkedMapOf<String, MutableList<Person>>()
+                    completedPersons.forEach { comp ->
+                        cal.timeInMillis = comp.completedAt ?: comp.dateGiven
+                        cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
+                        cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+                        val label = completedGroupFmt.format(cal.time)
+                        map.getOrPut(label) { mutableListOf() }.add(comp)
+                    }
+                    map.entries.map { (label, persons) -> label to persons }
+                }
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
                         .fillMaxHeight(0.85f),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
-                    itemsIndexed(completedPersons, key = { _, c -> c.id }) { _, comp ->
-                        val compPayments = completedPaymentsMap[comp.id] ?: emptyList()
-                        val daysLeft = 180 - ((System.currentTimeMillis() - (comp.completedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
-                        DraggableCompletedPersonCard(
-                            person = comp,
-                            daysLeft = daysLeft,
-                            dateFormat = dateFormat,
-                            payments = compPayments,
-                            onDragStarted = {
-                                draggingCompletedPerson = comp
-                                showDustbin = true
-                            },
-                            onDragMoved = { offset ->
-                                dragOffset = offset
-                                val dustbinCenterX = dustbinPosition.x + 38f
-                                val dustbinCenterY = dustbinPosition.y + 38f
-                                isOverDustbin = (offset.x - dustbinCenterX).let { dx ->
-                                    (offset.y - dustbinCenterY).let { dy ->
-                                        dx * dx + dy * dy < 100f * 100f
-                                    }
-                                }
-                            },
-                            onDragEnded = {
-                                if (isOverDustbin && draggingCompletedPerson != null) {
-                                    completedPersonToConfirmDelete = draggingCompletedPerson
-                                }
-                                draggingCompletedPerson = null
-                                dragOffset = Offset.Zero
-                                showDustbin = false
-                                isOverDustbin = false
+                    completedByDate.forEach { (dateLabel, personsOnDate) ->
+                        // ── Date header ───────────────────────────────────────
+                        stickyHeader(key = "header_$dateLabel") {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = dateLabel,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                                )
                             }
-                        )
+                        }
+                        // ── Cards under this date ─────────────────────────────
+                        itemsIndexed(personsOnDate, key = { _, c -> c.id }) { _, comp ->
+                            val compPayments = completedPaymentsMap[comp.id] ?: emptyList()
+                            val daysLeft = 180 - ((System.currentTimeMillis() - (comp.completedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
+                            Box(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
+                                DraggableCompletedPersonCard(
+                                    person = comp,
+                                    daysLeft = daysLeft,
+                                    dateFormat = dateFormat,
+                                    payments = compPayments,
+                                    onDragStarted = {
+                                        draggingCompletedPerson = comp
+                                        showDustbin = true
+                                    },
+                                    onDragMoved = { offset ->
+                                        dragOffset = offset
+                                        val dustbinCenterX = dustbinPosition.x + 38f
+                                        val dustbinCenterY = dustbinPosition.y + 38f
+                                        isOverDustbin = (offset.x - dustbinCenterX).let { dx ->
+                                            (offset.y - dustbinCenterY).let { dy ->
+                                                dx * dx + dy * dy < 100f * 100f
+                                            }
+                                        }
+                                    },
+                                    onDragEnded = {
+                                        if (isOverDustbin && draggingCompletedPerson != null) {
+                                            completedPersonToConfirmDelete = draggingCompletedPerson
+                                        }
+                                        draggingCompletedPerson = null
+                                        dragOffset = Offset.Zero
+                                        showDustbin = false
+                                        isOverDustbin = false
+                                    }
+                                )
+                            }
+                        }
                     }
                     item { Spacer(Modifier.height(16.dp)) }
                 }
@@ -2182,7 +2222,11 @@ fun DraggableCompletedPersonCard(
             .onGloballyPositioned { coords ->
                 cardPosition = coords.positionInWindow()
             }
-            .combinedClickable(onClick = { expanded = !expanded })
+            // detectDragGesturesAfterLongPress MUST come before clickable in the
+            // modifier chain. Compose resolves pointer events in declaration order —
+            // whichever pointerInput is listed first gets priority. The original bug
+            // was combinedClickable appearing first: it consumed the long-press so
+            // detectDragGesturesAfterLongPress never saw it and drag never started.
             .pointerInput(Unit) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
@@ -2196,7 +2240,10 @@ fun DraggableCompletedPersonCard(
                     onDragEnd = { onDragEnded() },
                     onDragCancel = { onDragEnded() }
                 )
-            },
+            }
+            // Plain clickable (no onLongClick) handles expand/collapse.
+            // Long press is fully owned by the pointerInput above.
+            .clickable { expanded = !expanded },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {

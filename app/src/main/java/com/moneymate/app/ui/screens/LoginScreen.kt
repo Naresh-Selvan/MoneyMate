@@ -52,7 +52,7 @@ fun LoginScreen(
     val googleSignInResult by viewModel.googleSignInResult.collectAsState()
     val migrationState by migrationViewModel.migrationState.collectAsState()
 
-    // ── Google Sign-In launcher (With Visible Error Patches) ───────────────────
+    // ── Google Sign-In launcher (With System Cancellation Safety) ──────────────
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -63,11 +63,11 @@ fun LoginScreen(
                 val credential = GoogleAuthProvider.getCredential(account.idToken, null)
                 viewModel.handleGoogleCredential(credential)
             } catch (e: ApiException) {
-                // Modified: Now passes the actual code string to be printed in the UI card
                 viewModel.setGoogleSignInFailure("Google Sign-In Error Code: ${e.statusCode}")
             }
         } else {
-            viewModel.clearGoogleSignInResult()
+            // UPDATED: Catching system rejections (like missing SHA-1 configuration or missing ProGuard rules)
+            viewModel.setGoogleSignInFailure("System Cancelled Build. Code: ${result.resultCode}")
         }
     }
 

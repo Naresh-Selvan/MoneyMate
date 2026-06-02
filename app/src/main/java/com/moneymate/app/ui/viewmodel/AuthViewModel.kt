@@ -19,13 +19,12 @@ enum class UserRole { USER, ADMIN }
 
 enum class AuthState {
     LOADING,
-    GOOGLE_SIGN_IN,   // Show Google Sign-In screen (first launch)
+    GOOGLE_SIGN_IN,
     LOGIN,
     ADMIN_LOGIN,
     AUTHENTICATED
 }
 
-// Result emitted after Google Sign-In credential is processed
 sealed class GoogleSignInResult {
     object Idle : GoogleSignInResult()
     object Loading : GoogleSignInResult()
@@ -58,18 +57,13 @@ class AuthViewModel @Inject constructor(
     private val _lockCountdown = MutableStateFlow(0L)
     val lockCountdown: StateFlow<Long> = _lockCountdown
 
-    // ─── Google Sign-In result ────────────────────────────────────────────
+    // ─── Google Sign-In state ────────────────────────────────────────────
 
     private val _googleSignInResult = MutableStateFlow<GoogleSignInResult>(GoogleSignInResult.Idle)
     val googleSignInResult: StateFlow<GoogleSignInResult> = _googleSignInResult
 
-    /** True if user has already completed Google Sign-In in a previous session. */
     val isGoogleSignedIn: Boolean get() = prefs.isGoogleSignedIn
-
-    /** Stored Firebase UID (available after first successful Google Sign-In). */
     val firebaseUid: String get() = prefs.firebaseUid
-
-    // ─── Existing internals ────────────────────────────────────────────────────
 
     private var countdownJob: Job? = null
     private var inactivityJob: Job? = null
@@ -157,9 +151,6 @@ class AuthViewModel @Inject constructor(
 
     // ─── Google Sign-In Logic ───────────────────────────────────────────────────
 
-    /**
-     * Call this with the [AuthCredential] obtained from the Google Sign-In result.
-     */
     fun handleGoogleCredential(credential: AuthCredential) {
         _googleSignInResult.value = GoogleSignInResult.Loading
         viewModelScope.launch {
@@ -182,16 +173,10 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Exposes a way for the UI to set a custom Google registration failure.
-     */
     fun setGoogleSignInFailure(message: String) {
         _googleSignInResult.value = GoogleSignInResult.Failure(message)
     }
 
-    /**
-     * Called after [GoogleSignInResult.Success] has been handled by the UI.
-     */
     fun onGoogleSignInHandled() {
         _googleSignInResult.value = GoogleSignInResult.Idle
         _authState.value = AuthState.ADMIN_LOGIN
@@ -201,7 +186,7 @@ class AuthViewModel @Inject constructor(
         _googleSignInResult.value = GoogleSignInResult.Idle
     }
 
-    // ─── Existing: background / foreground ────────────────────────────────────
+    // ─── App Backgrounding ───────────────────────────────────────────────────
 
     fun onAppBackground() {
         wentToBackground = true
@@ -264,7 +249,7 @@ class AuthViewModel @Inject constructor(
         _authState.value = AuthState.ADMIN_LOGIN
     }
 
-    // ─── Existing: login helpers ───────────────────────────────────────────────
+    // ─── Login Helpers ─────────────────────────────────────────────────────────
 
     fun loginAsUser() {
         prefs.isLoggedOut = false
@@ -327,7 +312,7 @@ class AuthViewModel @Inject constructor(
         _error.value = null
     }
 
-    // ─── Existing: lockout ─────────────────────────────────────────────────────
+    // ─── Lockout System ────────────────────────────────────────────────────────
 
     private fun handleWrongAttempt() {
         val attempts = _wrongAttempts.value + 1
@@ -382,7 +367,7 @@ class AuthViewModel @Inject constructor(
         prefs.wrongAttempts = 0
     }
 
-    // ─── Existing: utils ───────────────────────────────────────────────────────
+    // ─── Utility Hashing ───────────────────────────────────────────────────────
 
     fun isPalindrome(pin: String): Boolean = pin == pin.reversed()
 

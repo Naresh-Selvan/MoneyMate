@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -53,7 +52,7 @@ fun LoginScreen(
     val googleSignInResult by viewModel.googleSignInResult.collectAsState()
     val migrationState by migrationViewModel.migrationState.collectAsState()
 
-    // ── Google Sign-In launcher ────────────────────────────────────────────────
+    // ── Google Sign-In launcher (With Visible Error Patches) ───────────────────
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -64,9 +63,11 @@ fun LoginScreen(
                 val credential = GoogleAuthProvider.getCredential(account.idToken, null)
                 viewModel.handleGoogleCredential(credential)
             } catch (e: ApiException) {
-                // Surface error via ViewModel so it shows in the UI
-                viewModel.clearGoogleSignInResult()
+                // Modified: Now passes the actual code string to be printed in the UI card
+                viewModel.setGoogleSignInFailure("Google Sign-In Error Code: ${e.statusCode}")
             }
+        } else {
+            viewModel.clearGoogleSignInResult()
         }
     }
 
@@ -102,7 +103,6 @@ fun LoginScreen(
     ) { state ->
         when (state) {
             AuthState.GOOGLE_SIGN_IN -> {
-                // Show migration progress if it is running, otherwise show sign-in UI
                 if (migrationState is MigrationState.InProgress ||
                     migrationState is MigrationState.Progress ||
                     migrationState is MigrationState.Checking
@@ -127,7 +127,7 @@ fun LoginScreen(
             }
 
             else -> {
-                // LOADING / AUTHENTICATED — handled by NavGraph, nothing to show here
+                // LOADING / AUTHENTICATED
             }
         }
     }
@@ -326,7 +326,7 @@ private fun MigrationErrorScreen(error: String, onRetry: () -> Unit) {
     }
 }
 
-// ─── PIN Login Screen (unchanged logic) ───────────────────────────────────────
+// ─── PIN Login Screen ─────────────────────────────────────────────────────────
 
 @Composable
 private fun PinLoginScreen(viewModel: AuthViewModel) {

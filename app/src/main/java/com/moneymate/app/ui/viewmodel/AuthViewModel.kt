@@ -19,7 +19,7 @@ enum class UserRole { USER, ADMIN }
 
 enum class AuthState {
     LOADING,
-    GOOGLE_SIGN_IN,   // NEW — show Google Sign-In screen (first launch)
+    GOOGLE_SIGN_IN,   // Show Google Sign-In screen (first launch)
     LOGIN,
     ADMIN_LOGIN,
     AUTHENTICATED
@@ -58,7 +58,7 @@ class AuthViewModel @Inject constructor(
     private val _lockCountdown = MutableStateFlow(0L)
     val lockCountdown: StateFlow<Long> = _lockCountdown
 
-    // ─── NEW: Google Sign-In result ────────────────────────────────────────────
+    // ─── Google Sign-In result ────────────────────────────────────────────
 
     private val _googleSignInResult = MutableStateFlow<GoogleSignInResult>(GoogleSignInResult.Idle)
     val googleSignInResult: StateFlow<GoogleSignInResult> = _googleSignInResult
@@ -105,20 +105,17 @@ class AuthViewModel @Inject constructor(
     fun checkSessionTimeout() {
         isInitialized = true
 
-        // First-ever launch AND Google Sign-In not yet done → show Google Sign-In
         if (prefs.isFirstLaunch && !prefs.isGoogleSignedIn) {
             prefs.isFirstLaunch = false
             _authState.value = AuthState.GOOGLE_SIGN_IN
             return
         }
 
-        // If Google Sign-In has never been completed → show it
         if (!prefs.isGoogleSignedIn) {
             _authState.value = AuthState.GOOGLE_SIGN_IN
             return
         }
 
-        // Google Sign-In is done — proceed with existing PIN/session logic
         if (prefs.isFirstLaunch) {
             prefs.isFirstLaunch = false
         }
@@ -158,13 +155,10 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // ─── NEW: Google Sign-In ───────────────────────────────────────────────────
+    // ─── Google Sign-In Logic ───────────────────────────────────────────────────
 
     /**
-     * Call this with the [AuthCredential] obtained from the Google Sign-In result
-     * (via GoogleSignIn / Credential Manager).
-     * On success, stores UID in prefs and emits [GoogleSignInResult.Success].
-     * The caller (LoginScreen) should then navigate to PIN screen and trigger migration.
+     * Call this with the [AuthCredential] obtained from the Google Sign-In result.
      */
     fun handleGoogleCredential(credential: AuthCredential) {
         _googleSignInResult.value = GoogleSignInResult.Loading
@@ -174,7 +168,6 @@ class AuthViewModel @Inject constructor(
                 val uid = result.user?.uid
                     ?: throw Exception("Sign-in succeeded but UID is null")
 
-                // Persist Google Sign-In state
                 prefs.isGoogleSignedIn = true
                 prefs.firebaseUid = uid
                 prefs.googleDisplayName = result.user?.displayName ?: ""
@@ -190,13 +183,17 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
+     * Exposes a way for the UI to set a custom Google registration failure.
+     */
+    fun setGoogleSignInFailure(message: String) {
+        _googleSignInResult.value = GoogleSignInResult.Failure(message)
+    }
+
+    /**
      * Called after [GoogleSignInResult.Success] has been handled by the UI.
-     * Moves auth state forward to PIN screen.
      */
     fun onGoogleSignInHandled() {
         _googleSignInResult.value = GoogleSignInResult.Idle
-        // If PIN is already set, go to ADMIN_LOGIN; otherwise ADMIN_LOGIN will
-        // show the "set PIN" flow (your existing behaviour on first launch).
         _authState.value = AuthState.ADMIN_LOGIN
     }
 

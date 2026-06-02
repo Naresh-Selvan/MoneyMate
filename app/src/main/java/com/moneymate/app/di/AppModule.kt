@@ -5,6 +5,8 @@ import androidx.room.Room
 import com.moneymate.app.data.local.AppDatabase
 import com.moneymate.app.data.local.dao.*
 import com.moneymate.app.data.repository.DefaultPersonRepository
+import com.moneymate.app.utils.AppPreferences
+import com.moneymate.app.utils.FirestorePathProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -57,7 +59,6 @@ object AppModule {
                     """.trimIndent())
                 }
             },
-            // v7: completion / rollover columns on persons
             object : androidx.room.migration.Migration(6, 7) {
                 override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                     database.execSQL("ALTER TABLE persons ADD COLUMN isCompleted INTEGER NOT NULL DEFAULT 0")
@@ -80,4 +81,16 @@ object AppModule {
     @Singleton
     fun provideDefaultPersonRepository(dao: DefaultPersonDao): DefaultPersonRepository =
         DefaultPersonRepository(dao)
+
+    // ─── NEW ───────────────────────────────────────────────────────────────────
+
+    /**
+     * Provides [FirestorePathProvider] — the single source of truth for all
+     * Firestore collection paths in the app. Inject this into any ViewModel
+     * that reads from or writes to Firestore instead of hard-coding paths.
+     */
+    @Provides
+    @Singleton
+    fun provideFirestorePathProvider(prefs: AppPreferences): FirestorePathProvider =
+        FirestorePathProvider(prefs)
 }

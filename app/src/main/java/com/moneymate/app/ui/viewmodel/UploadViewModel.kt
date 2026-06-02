@@ -8,10 +8,10 @@ import com.moneymate.app.data.repository.DefaultPersonRepository
 import com.moneymate.app.data.repository.LoanFileRepository
 import com.moneymate.app.data.repository.PersonRepository
 import com.moneymate.app.data.repository.PaymentRepository
+import com.moneymate.app.utils.FirestorePathProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -28,7 +28,8 @@ class UploadViewModel @Inject constructor(
     private val loanFileRepository: LoanFileRepository,
     private val personRepository: PersonRepository,
     private val paymentRepository: PaymentRepository,
-    private val defaultPersonRepository: DefaultPersonRepository
+    private val defaultPersonRepository: DefaultPersonRepository,
+    private val paths: FirestorePathProvider          // ← injected
 ) : ViewModel() {
 
     private val _uploadState = MutableStateFlow<UploadState>(UploadState.Idle)
@@ -37,7 +38,6 @@ class UploadViewModel @Inject constructor(
     private val db = FirebaseFirestore.getInstance()
 
     private val nlrKeys = listOf("NLR 1", "NLR 2", "NLR 3", "NLR 4")
-
     private val dateFmt = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
 
     /**
@@ -60,22 +60,18 @@ class UploadViewModel @Inject constructor(
                     "syncedToFirebase" to file.syncedToFirebase,
                     "lastUploadedAt"   to file.lastUploadedAt
                 )
-                db.collection("boss_data")
-                    .document("files")
-                    .collection("loan_files")
+                db.collection(paths.loanFilesCollection)
                     .document(file.id)
                     .set(fileDoc)
                     .await()
 
                 // ── Persons — ALL of them, no status filter ───────────────────
-                // This includes: active, completed, pending-new-loan, and soft-deleted
                 val persons = personRepository.getAllPersonsInFile(file.id)
 
                 var personCount = 0
                 var paymentCount = 0
 
                 for (person in persons) {
-                    // ── Person — every field ──────────────────────────────────
                     val payments = paymentRepository.getAllPaymentsForPerson(person.id)
                     val activePaymentTotal = payments.filter { !it.isDeleted }.sumOf { it.amount }
 
@@ -91,28 +87,21 @@ class UploadViewModel @Inject constructor(
                         "dateGivenFormatted"    to dateFmt.format(java.util.Date(person.dateGiven)),
                         "sortOrder"             to person.sortOrder,
                         "recordType"            to person.recordType.name,
-                        // status flags
                         "isDeleted"             to person.isDeleted,
                         "deletedAt"             to person.deletedAt,
                         "uploadedAt"            to person.uploadedAt,
                         "editPermissionGranted" to person.editPermissionGranted,
                         "editPermissionScope"   to person.editPermissionScope.name,
-                        // completion / rollover
                         "isCompleted"           to person.isCompleted,
                         "completedAt"           to person.completedAt,
                         "linkedNewPersonId"     to person.linkedNewPersonId,
                         "isPendingNewLoan"      to person.isPendingNewLoan,
                         "previousPersonId"      to person.previousPersonId,
-                        // computed helpers (for quick display without re-querying)
                         "totalReceived"         to activePaymentTotal,
                         "balance"               to (person.amountGiven - activePaymentTotal)
                     )
 
-                    db.collection("boss_data")
-                        .document("files")
-                        .collection("loan_files")
-                        .document(file.id)
-                        .collection("persons")
+                    db.collection(paths.personsCollection(file.id))
                         .document(person.id)
                         .set(personDoc)
                         .await()
@@ -135,13 +124,7 @@ class UploadViewModel @Inject constructor(
                             "editPermissionGranted" to payment.editPermissionGranted,
                             "editPermissionScope"   to payment.editPermissionScope.name
                         )
-                        db.collection("boss_data")
-                            .document("files")
-                            .collection("loan_files")
-                            .document(file.id)
-                            .collection("persons")
-                            .document(person.id)
-                            .collection("payments")
+                        db.collection(paths.paymentsCollection(file.id, person.id))
                             .document(payment.id)
                             .set(paymentDoc)
                             .await()
@@ -149,10 +132,8 @@ class UploadViewModel @Inject constructor(
                     }
                 }
 
-                // Mark uploaded timestamp locally (only on active, non-deleted persons)
                 personRepository.markAllUploadedInFile(file.id, System.currentTimeMillis())
 
-                // ── Snapshot active persons as new template for this NLR ──────
                 val nlrKey = nlrKeys.firstOrNull { file.name.equals(it, ignoreCase = true) }
                 if (nlrKey != null) {
                     val activePersons = persons.filter { !it.isDeleted && !it.isCompleted && !it.isPendingNewLoan }
@@ -171,17 +152,13 @@ class UploadViewModel @Inject constructor(
         }
     }
 
-    /** Verify the last upload by checking Firestore has the expected total person count */
+    /** Verify the last upload by checking Firestore has the expected total person count. */
     fun verifyUpload(file: LoanFile) {
         _uploadState.value = UploadState.Uploading
         viewModelScope.launch {
             try {
                 val localCount = personRepository.getAllPersonsInFile(file.id).size
-                val snapshot = db.collection("boss_data")
-                    .document("files")
-                    .collection("loan_files")
-                    .document(file.id)
-                    .collection("persons")
+                val snapshot = db.collection(paths.personsCollection(file.id))
                     .get()
                     .await()
                 val remoteCount = snapshot.size()

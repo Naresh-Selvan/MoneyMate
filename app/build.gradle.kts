@@ -15,7 +15,7 @@ android {
         applicationId = "com.moneymate.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
+        versionCode = 24
         versionName = "1.1"
     }
 
@@ -63,6 +63,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")

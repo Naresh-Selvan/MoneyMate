@@ -33,7 +33,6 @@ class MainActivity : FragmentActivity() {
 
         if (savedInstanceState == null) {
             authViewModel.checkSessionTimeout()
-            // Check for updates on every fresh launch
             val currentVersionCode = packageManager
                 .getPackageInfo(packageName, 0).versionCode
             updateViewModel.checkForUpdate(currentVersionCode)
@@ -54,7 +53,9 @@ class MainActivity : FragmentActivity() {
             MoneyMateTheme(darkTheme = darkMode, dynamicColor = false) {
                 when (authState) {
                     AuthState.LOADING -> {}
-                    AuthState.LOGIN, AuthState.ADMIN_LOGIN -> {
+                    AuthState.GOOGLE_SIGN_IN,           // ← NEW
+                    AuthState.LOGIN,
+                    AuthState.ADMIN_LOGIN -> {
                         LoginScreen(viewModel = authViewModel, authState = authState)
                     }
                     AuthState.AUTHENTICATED -> {
@@ -65,7 +66,6 @@ class MainActivity : FragmentActivity() {
                         )
                     }
                 }
-                // Update dialog floats on top of everything
                 UpdateDialog(updateState = updateState, viewModel = updateViewModel)
             }
         }

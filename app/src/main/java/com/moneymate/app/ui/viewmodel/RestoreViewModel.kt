@@ -13,6 +13,7 @@ import com.moneymate.app.data.local.entity.Payment
 import com.moneymate.app.data.repository.LoanFileRepository
 import com.moneymate.app.data.repository.PersonRepository
 import com.moneymate.app.data.repository.PaymentRepository
+import com.moneymate.app.utils.FirestorePathProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +29,7 @@ sealed class RestoreState {
     data class Preview(
         val fileCount: Int,
         val personCount: Int,
-        val paymentCount: Int   // now includes payment count so user can verify
+        val paymentCount: Int
     ) : RestoreState()
     object Restoring : RestoreState()
     data class Success(val message: String) : RestoreState()
@@ -39,7 +40,8 @@ sealed class RestoreState {
 class RestoreViewModel @Inject constructor(
     private val loanFileRepository: LoanFileRepository,
     private val personRepository: PersonRepository,
-    private val paymentRepository: PaymentRepository
+    private val paymentRepository: PaymentRepository,
+    private val paths: FirestorePathProvider          // ← injected
 ) : ViewModel() {
 
     private val _restoreState = MutableStateFlow<RestoreState>(RestoreState.Idle)
@@ -55,9 +57,7 @@ class RestoreViewModel @Inject constructor(
         _restoreState.value = RestoreState.Checking
         viewModelScope.launch {
             try {
-                val filesSnapshot = db.collection("boss_data")
-                    .document("files")
-                    .collection("loan_files")
+                val filesSnapshot = db.collection(paths.loanFilesCollection)
                     .get()
                     .await()
 
@@ -70,26 +70,16 @@ class RestoreViewModel @Inject constructor(
                 var totalPayments = 0
 
                 for (fileDoc in filesSnapshot.documents) {
-                    val personsSnapshot = db.collection("boss_data")
-                        .document("files")
-                        .collection("loan_files")
-                        .document(fileDoc.id)
-                        .collection("persons")
+                    val personsSnapshot = db.collection(paths.personsCollection(fileDoc.id))
                         .get()
                         .await()
 
                     totalPersons += personsSnapshot.size()
 
                     for (personDoc in personsSnapshot.documents) {
-                        val paymentsSnapshot = db.collection("boss_data")
-                            .document("files")
-                            .collection("loan_files")
-                            .document(fileDoc.id)
-                            .collection("persons")
-                            .document(personDoc.id)
-                            .collection("payments")
-                            .get()
-                            .await()
+                        val paymentsSnapshot = db.collection(
+                            paths.paymentsCollection(fileDoc.id, personDoc.id)
+                        ).get().await()
                         totalPayments += paymentsSnapshot.size()
                     }
                 }
@@ -112,16 +102,13 @@ class RestoreViewModel @Inject constructor(
      * - Every field of every entity is restored exactly as uploaded.
      * - Includes active, completed, deleted, and pending-new-loan persons.
      * - Includes all payments for every person, including soft-deleted ones.
-     * - Per-record errors are logged and skipped rather than aborting the whole restore,
-     *   so one bad document can't block everything else.
+     * - Per-record errors are logged and skipped rather than aborting the whole restore.
      */
     fun restoreFromFirestore() {
         _restoreState.value = RestoreState.Restoring
         viewModelScope.launch {
             try {
-                val filesSnapshot = db.collection("boss_data")
-                    .document("files")
-                    .collection("loan_files")
+                val filesSnapshot = db.collection(paths.loanFilesCollection)
                     .get()
                     .await()
 
@@ -149,12 +136,8 @@ class RestoreViewModel @Inject constructor(
                         loanFileRepository.insertFile(file)
                         restoredFiles++
 
-                        // ── Persons — ALL: active, completed, deleted, pending ─
-                        val personsSnapshot = db.collection("boss_data")
-                            .document("files")
-                            .collection("loan_files")
-                            .document(fileDoc.id)
-                            .collection("persons")
+                        // ── Persons ───────────────────────────────────────────
+                        val personsSnapshot = db.collection(paths.personsCollection(fileDoc.id))
                             .get()
                             .await()
 
@@ -188,16 +171,10 @@ class RestoreViewModel @Inject constructor(
                                 personRepository.insertPerson(person)
                                 restoredPersons++
 
-                                // ── Payments — ALL: active + deleted ──────────
-                                val paymentsSnapshot = db.collection("boss_data")
-                                    .document("files")
-                                    .collection("loan_files")
-                                    .document(fileDoc.id)
-                                    .collection("persons")
-                                    .document(personDoc.id)
-                                    .collection("payments")
-                                    .get()
-                                    .await()
+                                // ── Payments ──────────────────────────────────
+                                val paymentsSnapshot = db.collection(
+                                    paths.paymentsCollection(fileDoc.id, personDoc.id)
+                                ).get().await()
 
                                 for (payDoc in paymentsSnapshot.documents) {
                                     val pay = payDoc.data

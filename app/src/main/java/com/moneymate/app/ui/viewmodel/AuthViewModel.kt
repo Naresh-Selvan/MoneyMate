@@ -2,6 +2,8 @@ package com.moneymate.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.AuthCredential
+import com.google.firebase.auth.FirebaseAuth
 import com.moneymate.app.utils.AppPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -9,19 +11,34 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.security.MessageDigest
 import javax.inject.Inject
 
 enum class UserRole { USER, ADMIN }
 
 enum class AuthState {
-    LOADING, LOGIN, ADMIN_LOGIN, AUTHENTICATED
+    LOADING,
+    GOOGLE_SIGN_IN,   // NEW — show Google Sign-In screen (first launch)
+    LOGIN,
+    ADMIN_LOGIN,
+    AUTHENTICATED
+}
+
+// Result emitted after Google Sign-In credential is processed
+sealed class GoogleSignInResult {
+    object Idle : GoogleSignInResult()
+    object Loading : GoogleSignInResult()
+    object Success : GoogleSignInResult()
+    data class Failure(val message: String) : GoogleSignInResult()
 }
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val prefs: AppPreferences
 ) : ViewModel() {
+
+    private val firebaseAuth = FirebaseAuth.getInstance()
 
     private val _authState = MutableStateFlow(AuthState.LOADING)
     val authState: StateFlow<AuthState> = _authState
@@ -41,9 +58,21 @@ class AuthViewModel @Inject constructor(
     private val _lockCountdown = MutableStateFlow(0L)
     val lockCountdown: StateFlow<Long> = _lockCountdown
 
+    // ─── NEW: Google Sign-In result ────────────────────────────────────────────
+
+    private val _googleSignInResult = MutableStateFlow<GoogleSignInResult>(GoogleSignInResult.Idle)
+    val googleSignInResult: StateFlow<GoogleSignInResult> = _googleSignInResult
+
+    /** True if user has already completed Google Sign-In in a previous session. */
+    val isGoogleSignedIn: Boolean get() = prefs.isGoogleSignedIn
+
+    /** Stored Firebase UID (available after first successful Google Sign-In). */
+    val firebaseUid: String get() = prefs.firebaseUid
+
+    // ─── Existing internals ────────────────────────────────────────────────────
+
     private var countdownJob: Job? = null
     private var inactivityJob: Job? = null
-
     private var wentToBackground = false
     private var isInitialized = false
 
@@ -71,13 +100,27 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // ─── Session / launch flow ─────────────────────────────────────────────────
+
     fun checkSessionTimeout() {
         isInitialized = true
 
+        // First-ever launch AND Google Sign-In not yet done → show Google Sign-In
+        if (prefs.isFirstLaunch && !prefs.isGoogleSignedIn) {
+            prefs.isFirstLaunch = false
+            _authState.value = AuthState.GOOGLE_SIGN_IN
+            return
+        }
+
+        // If Google Sign-In has never been completed → show it
+        if (!prefs.isGoogleSignedIn) {
+            _authState.value = AuthState.GOOGLE_SIGN_IN
+            return
+        }
+
+        // Google Sign-In is done — proceed with existing PIN/session logic
         if (prefs.isFirstLaunch) {
             prefs.isFirstLaunch = false
-            _authState.value = AuthState.ADMIN_LOGIN
-            return
         }
 
         if (prefs.appWasClosedLoggedIn) {
@@ -114,6 +157,54 @@ class AuthViewModel @Inject constructor(
             }
         }
     }
+
+    // ─── NEW: Google Sign-In ───────────────────────────────────────────────────
+
+    /**
+     * Call this with the [AuthCredential] obtained from the Google Sign-In result
+     * (via GoogleSignIn / Credential Manager).
+     * On success, stores UID in prefs and emits [GoogleSignInResult.Success].
+     * The caller (LoginScreen) should then navigate to PIN screen and trigger migration.
+     */
+    fun handleGoogleCredential(credential: AuthCredential) {
+        _googleSignInResult.value = GoogleSignInResult.Loading
+        viewModelScope.launch {
+            try {
+                val result = firebaseAuth.signInWithCredential(credential).await()
+                val uid = result.user?.uid
+                    ?: throw Exception("Sign-in succeeded but UID is null")
+
+                // Persist Google Sign-In state
+                prefs.isGoogleSignedIn = true
+                prefs.firebaseUid = uid
+                prefs.googleDisplayName = result.user?.displayName ?: ""
+                prefs.googleEmail = result.user?.email ?: ""
+
+                _googleSignInResult.value = GoogleSignInResult.Success
+            } catch (e: Exception) {
+                _googleSignInResult.value = GoogleSignInResult.Failure(
+                    e.message ?: "Google Sign-In failed"
+                )
+            }
+        }
+    }
+
+    /**
+     * Called after [GoogleSignInResult.Success] has been handled by the UI.
+     * Moves auth state forward to PIN screen.
+     */
+    fun onGoogleSignInHandled() {
+        _googleSignInResult.value = GoogleSignInResult.Idle
+        // If PIN is already set, go to ADMIN_LOGIN; otherwise ADMIN_LOGIN will
+        // show the "set PIN" flow (your existing behaviour on first launch).
+        _authState.value = AuthState.ADMIN_LOGIN
+    }
+
+    fun clearGoogleSignInResult() {
+        _googleSignInResult.value = GoogleSignInResult.Idle
+    }
+
+    // ─── Existing: background / foreground ────────────────────────────────────
 
     fun onAppBackground() {
         wentToBackground = true
@@ -176,6 +267,8 @@ class AuthViewModel @Inject constructor(
         _authState.value = AuthState.ADMIN_LOGIN
     }
 
+    // ─── Existing: login helpers ───────────────────────────────────────────────
+
     fun loginAsUser() {
         prefs.isLoggedOut = false
         _currentRole.value = UserRole.USER
@@ -237,6 +330,8 @@ class AuthViewModel @Inject constructor(
         _error.value = null
     }
 
+    // ─── Existing: lockout ─────────────────────────────────────────────────────
+
     private fun handleWrongAttempt() {
         val attempts = _wrongAttempts.value + 1
         _wrongAttempts.value = attempts
@@ -289,6 +384,8 @@ class AuthViewModel @Inject constructor(
         _wrongAttempts.value = 0
         prefs.wrongAttempts = 0
     }
+
+    // ─── Existing: utils ───────────────────────────────────────────────────────
 
     fun isPalindrome(pin: String): Boolean = pin == pin.reversed()
 

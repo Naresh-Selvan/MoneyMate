@@ -12,6 +12,8 @@ class AppPreferences @Inject constructor(
 ) {
     private val prefs = context.getSharedPreferences("moneymate_prefs", Context.MODE_PRIVATE)
 
+    // ─── Existing: Settings ────────────────────────────────────────────────────
+
     var autoDeleteDays: Int
         get() = prefs.getInt("auto_delete_days", 30)
         set(value) = prefs.edit { putInt("auto_delete_days", value) }
@@ -23,6 +25,8 @@ class AppPreferences @Inject constructor(
     var notificationsEnabled: Boolean
         get() = prefs.getBoolean("notifications_enabled", true)
         set(value) = prefs.edit { putBoolean("notifications_enabled", value) }
+
+    // ─── Existing: PIN / Auth ──────────────────────────────────────────────────
 
     var adminPinHash: String
         get() = prefs.getString("admin_pin_hash", "") ?: ""
@@ -63,6 +67,48 @@ class AppPreferences @Inject constructor(
     var biometricEnabled: Boolean
         get() = prefs.getBoolean("biometric_enabled", false)
         set(value) = prefs.edit { putBoolean("biometric_enabled", value) }
+
+    // ─── NEW: Google Sign-In / Firebase ───────────────────────────────────────
+
+    /**
+     * True once the user has completed Google Sign-In at least once.
+     * On subsequent launches we skip the Google Sign-In screen entirely.
+     */
+    var isGoogleSignedIn: Boolean
+        get() = prefs.getBoolean("google_signed_in", false)
+        set(value) = prefs.edit { putBoolean("google_signed_in", value) }
+
+    /**
+     * Firebase UID stored after the first successful Google Sign-In.
+     * Empty string means not yet signed in.
+     */
+    var firebaseUid: String
+        get() = prefs.getString("firebase_uid", "") ?: ""
+        set(value) = prefs.edit { putString("firebase_uid", value) }
+
+    /**
+     * Display name from the Google account (optional, UI use only).
+     */
+    var googleDisplayName: String
+        get() = prefs.getString("google_display_name", "") ?: ""
+        set(value) = prefs.edit { putString("google_display_name", value) }
+
+    /**
+     * Email from the Google account (optional, UI use only).
+     */
+    var googleEmail: String
+        get() = prefs.getString("google_email", "") ?: ""
+        set(value) = prefs.edit { putString("google_email", value) }
+
+    /**
+     * True once the one-time Firestore data migration has completed successfully.
+     * This flag is checked before attempting migration — if true, migration is skipped.
+     */
+    var isMigrationDone: Boolean
+        get() = prefs.getBoolean("migration_done", false)
+        set(value) = prefs.edit { putBoolean("migration_done", value) }
+
+    // ─── Existing: Init ───────────────────────────────────────────────────────
 
     fun initDefaultPinIfNeeded() {
         if (prefs.getString("admin_pin_hash", "").isNullOrEmpty()) {

@@ -296,6 +296,7 @@ fun FileDetailScreen(
     // Contact picker for Add/Edit dialog mobile field
     // Contact picker for Add/Edit dialog mobile field
     // Contact picker for Add/Edit dialog mobile field
+    // Contact picker for Add/Edit dialog mobile field
     var contactPickerTarget by remember { mutableStateOf<ContactPickerTarget>(ContactPickerTarget.NONE) }
     val contactPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
         if (uri != null) {
@@ -303,18 +304,18 @@ fun FileDetailScreen(
             try {
                 val contactId = uri.lastPathSegment
 
-                // Query using Data.CONTENT_URI to properly bridge the master Contact ID with the Phone number table
+                // Query via Unified Data URI to resolve the phone number correctly on modern Android versions
                 val cursor = context.contentResolver.query(
                     android.provider.ContactsContract.Data.CONTENT_URI,
-                    arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                    arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
                     "${android.provider.ContactsContract.Data.CONTACT_ID} = ? AND ${android.provider.ContactsContract.Data.MIMETYPE} = ?",
-                    arrayOf(contactId, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE),
+                    arrayOf(contactId, android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE),
                     null
                 )
 
                 cursor?.use { c ->
                     if (c.moveToFirst()) {
-                        val index = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                        val index = c.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER)
                         if (index >= 0) {
                             number = c.getString(index)?.filter { ch -> ch.isDigit() || ch == '+' } ?: ""
                         }
@@ -324,19 +325,25 @@ fun FileDetailScreen(
                 e.printStackTrace()
             }
 
-            // Execute the assignment based on the snapshot target before resetting it
-            val currentTarget = contactPickerTarget
-            if (number.isNotBlank() || currentTarget == ContactPickerTarget.ADD_DIALOG || currentTarget == ContactPickerTarget.EDIT_DIALOG) {
-                when (currentTarget) {
-                    ContactPickerTarget.ADD_DIALOG -> newMobile = number
-                    ContactPickerTarget.EDIT_DIALOG -> { editMobileFromContact = number }
+            // ONLY execute assignment if we actually successfully retrieved a number
+            if (number.isNotBlank()) {
+                when (contactPickerTarget) {
+                    ContactPickerTarget.ADD_DIALOG -> {
+                        newMobile = number
+                    }
+                    ContactPickerTarget.EDIT_DIALOG -> {
+                        editMobileFromContact = number
+                    }
                     ContactPickerTarget.NO_NUMBER_DIALOG -> {
-                        if (number.isNotBlank() && personToCall != null) {
+                        if (personToCall != null) {
                             personViewModel.updatePerson(personToCall!!.copy(mobileNumber = number))
                             personToCall = personToCall!!.copy(mobileNumber = number)
                             showNoNumberDialog = false
-                            if (slideToCallEnabled) showSlideToCall = true
-                            else context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+                            if (slideToCallEnabled) {
+                                showSlideToCall = true
+                            } else {
+                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+                            }
                         }
                     }
                     ContactPickerTarget.NONE -> {}
@@ -1263,14 +1270,21 @@ fun FileDetailScreen(
                                                 onView = { viewPersonFilter = person; showViewDatePicker2 = true },
                                                 onCallNow = { launchCall(person) },
                                                 onQuickPayment = { amount, mode ->
-                                                    paymentViewModel.insertPayment(
-                                                        Payment(
-                                                            personId = person.id,
-                                                            amount   = amount,
-                                                            mode     = mode,
-                                                            date     = System.currentTimeMillis()
+                                                    coroutineScope.launch {
+                                                        paymentViewModel.insertPayment(
+                                                            Payment(
+                                                                personId = person.id,
+                                                                amount   = amount,
+                                                                mode     = mode,
+                                                                date     = System.currentTimeMillis()
+                                                            )
                                                         )
-                                                    )
+                                                        // Auto-complete: if the new payment brings balance to zero, mark complete
+                                                        val paid = (paidByPerson[person.id] ?: 0.0) + amount
+                                                        if (paid >= person.amountGiven && person.amountGiven > 0) {
+                                                            personViewModel.markAsCompleted(person)
+                                                        }
+                                                    }
                                                 }
                                             )
                                         }
@@ -2363,6 +2377,11 @@ fun FileDetailScreen(
                                             date = viewDate
                                         )
                                     )
+                                    // Auto-complete: if balance reaches zero, mark complete
+                                    val paid = (paidByPerson[p.id] ?: 0.0) + amt
+                                    if (paid >= p.amountGiven && p.amountGiven > 0) {
+                                        personViewModel.markAsCompleted(p)
+                                    }
                                 }
                             }
                             viewAddPaymentPerson = null

@@ -1,20 +1,24 @@
 package com.moneymate.app.ui.screens
 
-import androidx.activity.compose.BackHandler
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -22,59 +26,45 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material3.*
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.moneymate.app.data.local.entity.LoanType
 import com.moneymate.app.data.local.entity.Payment
 import com.moneymate.app.data.local.entity.PaymentMode
 import com.moneymate.app.data.local.entity.Person
-import com.moneymate.app.data.local.entity.LoanType
 import com.moneymate.app.navigation.Screen
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel
 import com.moneymate.app.ui.viewmodel.PaymentViewModel
 import com.moneymate.app.ui.viewmodel.PersonViewModel
 import com.moneymate.app.ui.viewmodel.SettingsViewModel
-import com.moneymate.app.ui.viewmodel.UploadViewModel
 import com.moneymate.app.ui.viewmodel.UploadState
+import com.moneymate.app.ui.viewmodel.UploadViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.burnoutcrew.reorderable.ReorderableLazyListState
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
-import org.burnoutcrew.reorderable.reorderable
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.RoundedCornerShape
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.Job
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.foundation.lazy.items
 import kotlin.math.roundToInt
 
 const val PAGE_SIZE = 20
@@ -106,7 +96,7 @@ data class DayBreakdown(val label: String, val given: Double, val received: Doub
 enum class CallNoNumberMode { NONE, ENTER_NUMBER, SELECT_CONTACT }
 enum class ContactPickerTarget { NONE, ADD_DIALOG, EDIT_DIALOG, NO_NUMBER_DIALOG }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SlideToCallSheet(
     phoneNumber: String,
@@ -159,7 +149,9 @@ fun SlideToCallSheet(
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary)
                         .pointerInput(Unit) {
-                            detectDragGesturesAfterLongPress(
+                            // Correctly implementing the horizontal drag gesture tracker
+                            detectHorizontalDragGestures(
+                                onDragStart = {},
                                 onDragEnd = {
                                     if (offsetX.value >= maxSlide * 0.85f && !triggered) {
                                         triggered = true
@@ -168,10 +160,14 @@ fun SlideToCallSheet(
                                         coroutineScope.launch { offsetX.animateTo(0f, tween(300)) }
                                     }
                                 },
-                                onDrag = { change, dragAmount ->
+                                onDragCancel = {
+                                    coroutineScope.launch { offsetX.animateTo(0f, tween(300)) }
+                                },
+                                onHorizontalDrag = { change, dragAmount ->
                                     change.consume()
                                     coroutineScope.launch {
-                                        offsetX.snapTo((offsetX.value + dragAmount.x).coerceIn(0f, maxSlide))
+                                        val newValue = offsetX.value + dragAmount
+                                        offsetX.snapTo(newValue.coerceIn(0f, maxSlide))
                                     }
                                 }
                             )
@@ -298,17 +294,22 @@ fun FileDetailScreen(
 
     // Contact picker for Add/Edit dialog mobile field
     // Contact picker for Add/Edit dialog mobile field
+    // Contact picker for Add/Edit dialog mobile field
+    // Contact picker for Add/Edit dialog mobile field
     var contactPickerTarget by remember { mutableStateOf<ContactPickerTarget>(ContactPickerTarget.NONE) }
     val contactPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
         if (uri != null) {
             var number = ""
             try {
                 val contactId = uri.lastPathSegment
+
+                // Query using Data.CONTENT_URI to properly bridge the master Contact ID with the Phone number table
                 val cursor = context.contentResolver.query(
-                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    android.provider.ContactsContract.Data.CONTENT_URI,
                     arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                    arrayOf(contactId), null
+                    "${android.provider.ContactsContract.Data.CONTACT_ID} = ? AND ${android.provider.ContactsContract.Data.MIMETYPE} = ?",
+                    arrayOf(contactId, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE),
+                    null
                 )
 
                 cursor?.use { c ->
@@ -321,7 +322,6 @@ fun FileDetailScreen(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                // Safely handles cases where permissions are restricted or querying fails
             }
 
             // Execute the assignment based on the snapshot target before resetting it

@@ -53,11 +53,16 @@ class MainActivity : FragmentActivity() {
             MoneyMateTheme(darkTheme = darkMode, dynamicColor = false) {
                 when (authState) {
                     AuthState.LOADING -> {}
-                    AuthState.GOOGLE_SIGN_IN,           // ← NEW
+
+                    // UPDATED: Added PHONE_LOGIN and OTP_VERIFICATION states to routing group
+                    AuthState.GOOGLE_SIGN_IN,
+                    AuthState.PHONE_LOGIN,
+                    AuthState.OTP_VERIFICATION,
                     AuthState.LOGIN,
                     AuthState.ADMIN_LOGIN -> {
                         LoginScreen(viewModel = authViewModel, authState = authState)
                     }
+
                     AuthState.AUTHENTICATED -> {
                         val navController = rememberNavController()
                         NavGraph(

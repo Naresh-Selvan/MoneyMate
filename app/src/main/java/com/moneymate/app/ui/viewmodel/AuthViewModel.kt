@@ -26,8 +26,8 @@ enum class UserRole { USER, ADMIN }
 enum class AuthState {
     LOADING,
     GOOGLE_SIGN_IN,
-    PHONE_LOGIN,         // New: Enter Phone Number Screen
-    OTP_VERIFICATION,    // New: Enter Verification OTP Screen
+    PHONE_LOGIN,
+    OTP_VERIFICATION,
     LOGIN,
     ADMIN_LOGIN,
     AUTHENTICATED
@@ -221,7 +221,6 @@ class AuthViewModel @Inject constructor(
 
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                // Instantly validated via instant verification/auto-retrieval
                 signInWithPhoneCredential(credential)
             }
 
@@ -263,9 +262,11 @@ class AuthViewModel @Inject constructor(
                 val result = firebaseAuth.signInWithCredential(credential).await()
                 val uid = result.user?.uid ?: throw Exception("UID is null")
 
-                // Update system session criteria
                 prefs.firebaseUid = uid
-                prefs.googleEmail = result.user?.phoneNumber ?: ""
+                // If phone login is used, save the phone number as primary identifier context if email is absent
+                if (prefs.googleEmail.isEmpty()) {
+                    prefs.googleEmail = result.user?.phoneNumber ?: ""
+                }
 
                 _phoneSignInResult.value = PhoneSignInResult.Success
             } catch (e: Exception) {
@@ -277,6 +278,118 @@ class AuthViewModel @Inject constructor(
     fun onPhoneSignInHandled() {
         _phoneSignInResult.value = PhoneSignInResult.Idle
         _authState.value = AuthState.ADMIN_LOGIN
+    }
+
+    // ─── Account Linking Hooks & Active Identity Verification ──────────────────
+
+    fun getCurrentUserEmail(): String {
+        return firebaseAuth.currentUser?.email ?: prefs.googleEmail.ifEmpty { "Not Linked" }
+    }
+
+    fun getCurrentUserPhone(): String {
+        return firebaseAuth.currentUser?.phoneNumber ?: "Not Linked"
+    }
+
+    fun linkGoogleAccount(credential: AuthCredential, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        val currentUser = firebaseAuth.currentUser
+        if (currentUser == null) {
+            onFailure("No active authentication session discovered.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val result = currentUser.linkWithCredential(credential).await()
+                prefs.isGoogleSignedIn = true
+                prefs.googleEmail = result.user?.email ?: ""
+                prefs.googleDisplayName = result.user?.displayName ?: ""
+                onSuccess()
+            } catch (e: Exception) {
+                onFailure(e.message ?: "Identity mapping attachment failed.")
+            }
+        }
+    }
+
+    fun startLinkingPhoneNumber(phoneNumber: String, activity: Activity, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        val currentUser = firebaseAuth.currentUser
+        if (currentUser == null) {
+            onFailure("Active system user session terminated.")
+            return
+        }
+
+        val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                viewModelScope.launch {
+                    try {
+                        currentUser.linkWithCredential(credential).await()
+                        onSuccess()
+                    } catch (e: Exception) {
+                        onFailure(e.message ?: "Instant validation attachment failure.")
+                    }
+                }
+            }
+
+            override fun onVerificationFailed(e: FirebaseException) {
+                onFailure(e.message ?: "Verification pipeline failure.")
+            }
+
+            override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {
+                storedVerificationId = verificationId
+                resendToken = token
+                onSuccess()
+            }
+        }
+
+        val options = PhoneAuthOptions.newBuilder(firebaseAuth)
+            .setPhoneNumber(phoneNumber)
+            .setTimeout(60L, TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(callbacks)
+            .build()
+
+        PhoneAuthProvider.verifyPhoneNumber(options)
+    }
+
+    fun verifyAndLinkPhoneCode(code: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        val verificationId = storedVerificationId ?: run {
+            onFailure("Transaction tracker state lost.")
+            return
+        }
+        val currentUser = firebaseAuth.currentUser ?: run {
+            onFailure("Invalid context instance.")
+            return
+        }
+        val credential = PhoneAuthProvider.getCredential(verificationId, code)
+        viewModelScope.launch {
+            try {
+                currentUser.linkWithCredential(credential).await()
+                onSuccess()
+            } catch (e: Exception) {
+                onFailure(e.message ?: "Failed tracking state integration.")
+            }
+        }
+    }
+
+    fun logoutUser() {
+        viewModelScope.launch {
+            try {
+                firebaseAuth.signOut()
+
+                prefs.isGoogleSignedIn = false
+                prefs.firebaseUid = ""
+                prefs.googleDisplayName = ""
+                prefs.googleEmail = ""
+                prefs.currentRole = ""
+                prefs.isLoggedOut = true
+                prefs.appWasClosedLoggedIn = false
+
+                _currentRole.value = UserRole.ADMIN
+                _error.value = null
+                wentToBackground = false
+                _authState.value = AuthState.GOOGLE_SIGN_IN
+            } catch (e: Exception) {
+                _error.value = "Logout error processing: ${e.message}"
+            }
+        }
     }
 
     // ─── Existing Infrastructure ──────────────────────────────────────────

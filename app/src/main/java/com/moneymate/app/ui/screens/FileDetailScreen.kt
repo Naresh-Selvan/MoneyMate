@@ -297,30 +297,50 @@ fun FileDetailScreen(
     var editMobileFromContact by remember { mutableStateOf<String?>(null) }
 
     // Contact picker for Add/Edit dialog mobile field
+    // Contact picker for Add/Edit dialog mobile field
     var contactPickerTarget by remember { mutableStateOf<ContactPickerTarget>(ContactPickerTarget.NONE) }
     val contactPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
         if (uri != null) {
-            val contactId = uri.lastPathSegment
-            val cursor = context.contentResolver.query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-                "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                arrayOf(contactId), null
-            )
-            val number = cursor?.use { c -> if (c.moveToFirst()) c.getString(0)?.filter { ch -> ch.isDigit() || ch == '+' } else null } ?: ""
-            when (contactPickerTarget) {
-                ContactPickerTarget.ADD_DIALOG -> newMobile = number
-                ContactPickerTarget.EDIT_DIALOG -> { editMobileFromContact = number }
-                ContactPickerTarget.NO_NUMBER_DIALOG -> {
-                    if (number.isNotBlank() && personToCall != null) {
-                        personViewModel.updatePerson(personToCall!!.copy(mobileNumber = number))
-                        personToCall = personToCall!!.copy(mobileNumber = number)
-                        showNoNumberDialog = false
-                        if (slideToCallEnabled) showSlideToCall = true
-                        else context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+            var number = ""
+            try {
+                val contactId = uri.lastPathSegment
+                val cursor = context.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                    arrayOf(contactId), null
+                )
+
+                cursor?.use { c ->
+                    if (c.moveToFirst()) {
+                        val index = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                        if (index >= 0) {
+                            number = c.getString(index)?.filter { ch -> ch.isDigit() || ch == '+' } ?: ""
+                        }
                     }
                 }
-                ContactPickerTarget.NONE -> {}
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Safely handles cases where permissions are restricted or querying fails
+            }
+
+            // Execute the assignment based on the snapshot target before resetting it
+            val currentTarget = contactPickerTarget
+            if (number.isNotBlank() || currentTarget == ContactPickerTarget.ADD_DIALOG || currentTarget == ContactPickerTarget.EDIT_DIALOG) {
+                when (currentTarget) {
+                    ContactPickerTarget.ADD_DIALOG -> newMobile = number
+                    ContactPickerTarget.EDIT_DIALOG -> { editMobileFromContact = number }
+                    ContactPickerTarget.NO_NUMBER_DIALOG -> {
+                        if (number.isNotBlank() && personToCall != null) {
+                            personViewModel.updatePerson(personToCall!!.copy(mobileNumber = number))
+                            personToCall = personToCall!!.copy(mobileNumber = number)
+                            showNoNumberDialog = false
+                            if (slideToCallEnabled) showSlideToCall = true
+                            else context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+                        }
+                    }
+                    ContactPickerTarget.NONE -> {}
+                }
             }
             contactPickerTarget = ContactPickerTarget.NONE
         }

@@ -36,6 +36,7 @@ import com.moneymate.app.ui.viewmodel.PersonViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+import androidx.compose.foundation.gestures.detectDragGestures
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -219,15 +220,16 @@ fun PersonDetailScreen(
                 NativeActionConfirmationSlider(
                     accentColor = if (target.first == "DELETE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     icon = if (target.first == "DELETE") Icons.Default.Delete else Icons.Default.Edit,
+                    // Look around line 170 where sliderActionTarget bottom sheet handles onConfirmed:
                     onConfirmed = {
                         val targetedAction = target.first
                         val targetedPayment = target.second
-                        sliderActionTarget = null
+                        sliderActionTarget = null // Closes bottom sheet overlay
 
                         if (targetedAction == "DELETE") {
                             paymentViewModel.softDeletePayment(targetedPayment.id)
                         } else {
-                            paymentToEdit = targetedPayment
+                            paymentToEdit = targetedPayment // Triggers the Edit AlertDialog layout setup
                         }
                     }
                 )
@@ -468,8 +470,8 @@ fun NativeActionConfirmationSlider(
                 .padding(4.dp)
                 .background(accentColor, CircleShape)
                 .pointerInput(totalSwipeDistancePx) {
-                    detectTapGestures(onTap = {})
-                    this.detectDragGesturesAfterLongPress(
+                    // Changed to detectDragGestures for instantaneous, natural swiping response
+                    detectDragGestures(
                         onDragStart = {},
                         onDragEnd = {
                             if (thumbPositionX >= totalSwipeDistancePx * 0.82f) {

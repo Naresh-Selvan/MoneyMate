@@ -292,15 +292,14 @@ fun FileDetailScreen(
     // ── Add-dialog fields ───────────────────────────────────────────────────
     val context = LocalContext.current
 
+    // Declared before contactPickerLauncher so the lambda can reference them
+    var newMobile by remember { mutableStateOf("") }
+    var editMobileFromContact by remember { mutableStateOf<String?>(null) }
+
     // Contact picker for Add/Edit dialog mobile field
     var contactPickerTarget by remember { mutableStateOf<ContactPickerTarget>(ContactPickerTarget.NONE) }
     val contactPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
         if (uri != null) {
-            val phones = context.contentResolver.query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null,
-                "${ContactsContract.CommonDataKinds.Phone.CONTACT_URI} = ?", arrayOf(uri.toString()), null
-            )
-            // Fallback to direct phone query via contact id
             val contactId = uri.lastPathSegment
             val cursor = context.contentResolver.query(
                 ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
@@ -309,7 +308,6 @@ fun FileDetailScreen(
                 arrayOf(contactId), null
             )
             val number = cursor?.use { c -> if (c.moveToFirst()) c.getString(0)?.filter { ch -> ch.isDigit() || ch == '+' } else null } ?: ""
-            phones?.close()
             when (contactPickerTarget) {
                 ContactPickerTarget.ADD_DIALOG -> newMobile = number
                 ContactPickerTarget.EDIT_DIALOG -> { editMobileFromContact = number }
@@ -328,9 +326,6 @@ fun FileDetailScreen(
         }
     }
 
-    // Per-edit-dialog mobile from contact picker — communicated via a side channel
-    var editMobileFromContact by remember { mutableStateOf<String?>(null) }
-
     fun launchCall(person: Person) {
         val number = person.mobileNumber
         if (number.isNullOrBlank()) {
@@ -344,7 +339,6 @@ fun FileDetailScreen(
 
     var newName   by remember { mutableStateOf("") }
     var newPlace  by remember { mutableStateOf("") }
-    var newMobile by remember { mutableStateOf("") }
     var newAmount by remember { mutableStateOf("") }
     var newMode   by remember { mutableStateOf(PaymentMode.CASH) }
     var newType   by remember { mutableStateOf(LoanType.LENDING) }

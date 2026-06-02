@@ -37,15 +37,23 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fb06efd4-786f-470c-893b-138f47af15ff" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gradle/9.3.1/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.3.1/fileHashes/fileHashes.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/intermediates/linked_resources_binary_format/debug/processDebugResources/linked-resources-binary-format-debug.ap_" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/intermediates/linked_resources_binary_format/debug/processDebugResources/linked-resources-binary-format-debug.ap_" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/intermediates/linked_resources_binary_format/debug/processDebugResources/output-metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/intermediates/linked_resources_binary_format/debug/processDebugResources/output-metadata.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/intermediates/manifest_merge_blame_file/debug/processDebugMainManifest/manifest-merger-blame-debug-report.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/intermediates/manifest_merge_blame_file/debug/processDebugMainManifest/manifest-merger-blame-debug-report.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/intermediates/merged_manifests/debug/processDebugManifest/output-metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/intermediates/merged_manifests/debug/processDebugManifest/output-metadata.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/intermediates/packaged_manifests/debug/processDebugManifestForPackage/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/intermediates/packaged_manifests/debug/processDebugManifestForPackage/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/intermediates/packaged_manifests/debug/processDebugManifestForPackage/output-metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/intermediates/packaged_manifests/debug/processDebugManifestForPackage/output-metadata.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/kspCaches/debug/classLookups/lookups.tab" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/kspCaches/debug/classLookups/lookups.tab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/kspCaches/debug/classLookups/lookups.tab.values.at" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/kspCaches/debug/classLookups/lookups.tab.values.at" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/kspCaches/debug/symbolLookups/lookups.tab" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/kspCaches/debug/symbolLookups/lookups.tab" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/kspCaches/debug/symbolLookups/lookups.tab.values.at" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/kspCaches/debug/symbolLookups/lookups.tab.values.at" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/kspCaches/debug/symbols" beforeDir="false" afterPath="$PROJECT_DIR$/app/build/kspCaches/debug/symbols" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/FileDetailScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/FileDetailScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/HomeScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/HomeScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/PersonDetailScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/PersonDetailScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/SettingsScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/SettingsScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/SwipeablePersonCard.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/SwipeablePersonCard.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/SettingsViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/SettingsViewModel.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/utils/AppPreferences.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/utils/AppPreferences.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/reports/problems/problems-report.html" beforeDir="false" afterPath="$PROJECT_DIR$/build/reports/problems/problems-report.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -142,9 +150,9 @@
       <recent name="C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\res\xml" />
     </key>
     <key name="K2MoveDeclarationsDialog.RECENT_PACKAGE_KEY">
+      <recent name="com.moneymate.app.ui.screens" />
       <recent name="com.moneymate.app.data.repository" />
       <recent name="com.moneymate.app.utils" />
-      <recent name="com.moneymate.app.ui.screens" />
     </key>
   </component>
   <component name="RunManager">

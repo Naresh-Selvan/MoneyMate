@@ -263,7 +263,6 @@ class AuthViewModel @Inject constructor(
                 val uid = result.user?.uid ?: throw Exception("UID is null")
 
                 prefs.firebaseUid = uid
-                // If phone login is used, save the phone number as primary identifier context if email is absent
                 if (prefs.googleEmail.isEmpty()) {
                     prefs.googleEmail = result.user?.phoneNumber ?: ""
                 }

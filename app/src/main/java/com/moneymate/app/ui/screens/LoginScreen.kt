@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -44,6 +45,17 @@ import com.moneymate.app.ui.viewmodel.PhoneSignInResult
 import com.moneymate.app.ui.viewmodel.MigrationState
 import com.moneymate.app.ui.viewmodel.MigrationViewModel
 
+// Simple Country Data holder mapping flags to international call roots
+data class CountryData(val flag: String, val code: String, val name: String)
+
+val countryList = listOf(
+    CountryData("🇮🇳", "+91", "India"),
+    CountryData("🇺🇸", "+1", "United States"),
+    CountryData("🇬🇧", "+44", "United Kingdom"),
+    CountryData("🇦🇪", "+971", "UAE"),
+    CountryData("🇸🇬", "+65", "Singapore")
+)
+
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
@@ -54,6 +66,9 @@ fun LoginScreen(
     val googleSignInResult by viewModel.googleSignInResult.collectAsState()
     val phoneSignInResult by viewModel.phoneSignInResult.collectAsState()
     val migrationState by migrationViewModel.migrationState.collectAsState()
+
+    // Keep track of country picker state across screen compositions
+    var selectedCountry by remember { mutableStateOf(countryList.first()) }
 
     // ── Google Sign-In ─────────────────────────────────────────────────────
     val googleSignInLauncher = rememberLauncherForActivityResult(
@@ -138,7 +153,13 @@ fun LoginScreen(
                 PhoneInputScreen(
                     isLoading = phoneSignInResult is PhoneSignInResult.Loading,
                     error = (phoneSignInResult as? PhoneSignInResult.Failure)?.message,
-                    onSendOtp = { phone -> viewModel.sendOtpCode(phone, context as Activity) },
+                    selectedCountry = selectedCountry,
+                    onCountrySelected = { selectedCountry = it },
+                    onSendOtp = { rawPhone ->
+                        // Cleanly append prefix structural token before submitting data to Firebase Auth
+                        val fullFormattedNumber = "${selectedCountry.code}${rawPhone.trim()}"
+                        viewModel.sendOtpCode(fullFormattedNumber, context as Activity)
+                    },
                     onBack = { viewModel.navigateBackToSelector() }
                 )
             }
@@ -148,6 +169,7 @@ fun LoginScreen(
                 OtpVerificationScreen(
                     isLoading = phoneSignInResult is PhoneSignInResult.Loading,
                     error = (phoneSignInResult as? PhoneSignInResult.Failure)?.message,
+                    selectedCountry = selectedCountry,
                     onVerifyOtp = { code -> viewModel.verifyOtpCode(code) },
                     onBack = { viewModel.navigateToPhoneLogin() }
                 )
@@ -229,10 +251,13 @@ private fun AuthenticationSelectionScreen(
 private fun PhoneInputScreen(
     isLoading: Boolean,
     error: String?,
+    selectedCountry: CountryData,
+    onCountrySelected: (CountryData) -> Unit,
     onSendOtp: (String) -> Unit,
     onBack: () -> Unit
 ) {
-    var phoneNumber by remember { mutableStateOf("") }
+    var rawNumberInput by remember { mutableStateOf("") }
+    var expandedDropdown by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -241,23 +266,58 @@ private fun PhoneInputScreen(
     ) {
         Text("Verify Phone Number", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(8.dp))
-        Text("Enter your phone number with country code (e.g., +919876543210)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        Text("Select your country flag and enter your mobile number safely without leading zeros.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(32.dp))
 
-        OutlinedTextField(
-            value = phoneNumber,
-            onValueChange = { phoneNumber = it },
-            label = { Text("Phone Number") },
-            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box {
+                OutlinedButton(
+                    onClick = { if (!isLoading) expandedDropdown = true },
+                    modifier = Modifier.height(56.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Text(text = "${selectedCountry.flag} ${selectedCountry.code}", fontSize = 16.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                }
+
+                DropdownMenu(
+                    expanded = expandedDropdown,
+                    onDismissRequest = { expandedDropdown = false }
+                ) {
+                    countryList.forEach { country ->
+                        DropdownMenuItem(
+                            text = { Text("${country.flag} ${country.name} (${country.code})") },
+                            onClick = {
+                                onCountrySelected(country)
+                                expandedDropdown = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = rawNumberInput,
+                onValueChange = { rawNumberInput = it.filter { char -> char.isDigit() } },
+                label = { Text("Mobile Number") },
+                placeholder = { Text("9876543210") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.weight(1f),
+                enabled = !isLoading
+            )
+        }
 
         if (error != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -266,9 +326,10 @@ private fun PhoneInputScreen(
             CircularProgressIndicator()
         } else {
             Button(
-                onClick = { onSendOtp(phoneNumber.trim()) },
+                onClick = { onSendOtp(rawNumberInput) },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                enabled = phoneNumber.isNotBlank()
+                shape = RoundedCornerShape(12.dp),
+                enabled = rawNumberInput.isNotBlank()
             ) {
                 Text("Send OTP Verification")
             }
@@ -286,6 +347,7 @@ private fun PhoneInputScreen(
 private fun OtpVerificationScreen(
     isLoading: Boolean,
     error: String?,
+    selectedCountry: CountryData,
     onVerifyOtp: (String) -> Unit,
     onBack: () -> Unit
 ) {
@@ -298,12 +360,12 @@ private fun OtpVerificationScreen(
     ) {
         Text("Enter OTP Code", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(8.dp))
-        Text("Type the 6-digit verification token sent via SMS", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Type the 6-digit verification code sent to ${selectedCountry.code}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedTextField(
             value = otpCode,
-            onValueChange = { if (it.length <= 6) otpCode = it },
+            onValueChange = { if (it.length <= 6) otpCode = it.filter { char -> char.isDigit() } },
             label = { Text("Verification Code") },
             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
             singleLine = true,
@@ -325,13 +387,14 @@ private fun OtpVerificationScreen(
             Button(
                 onClick = { onVerifyOtp(otpCode.trim()) },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(12.dp),
                 enabled = otpCode.length == 6
             ) {
                 Text("Verify & Continue")
             }
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(onClick = onBack) {
-                Text("Resend or Change Number")
+                Text("Change Number or Resend")
             }
         }
     }

@@ -1,9 +1,14 @@
 package com.moneymate.app.ui.viewmodel
 
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.FirebaseException
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.PhoneAuthCredential
+import com.google.firebase.auth.PhoneAuthOptions
+import com.google.firebase.auth.PhoneAuthProvider
 import com.moneymate.app.utils.AppPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -13,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 enum class UserRole { USER, ADMIN }
@@ -20,9 +26,19 @@ enum class UserRole { USER, ADMIN }
 enum class AuthState {
     LOADING,
     GOOGLE_SIGN_IN,
+    PHONE_LOGIN,         // New: Enter Phone Number Screen
+    OTP_VERIFICATION,    // New: Enter Verification OTP Screen
     LOGIN,
     ADMIN_LOGIN,
     AUTHENTICATED
+}
+
+sealed class PhoneSignInResult {
+    object Idle : PhoneSignInResult()
+    object Loading : PhoneSignInResult()
+    object CodeSent : PhoneSignInResult()
+    object Success : PhoneSignInResult()
+    data class Failure(val message: String) : PhoneSignInResult()
 }
 
 sealed class GoogleSignInResult {
@@ -57,12 +73,18 @@ class AuthViewModel @Inject constructor(
     private val _lockCountdown = MutableStateFlow(0L)
     val lockCountdown: StateFlow<Long> = _lockCountdown
 
-    // ─── Google Sign-In state ────────────────────────────────────────────
+    // ─── Auth Flow States ──────────────────────────────────────────────────
 
     private val _googleSignInResult = MutableStateFlow<GoogleSignInResult>(GoogleSignInResult.Idle)
     val googleSignInResult: StateFlow<GoogleSignInResult> = _googleSignInResult
 
-    val isGoogleSignedIn: Boolean get() = prefs.isGoogleSignedIn
+    private val _phoneSignInResult = MutableStateFlow<PhoneSignInResult>(PhoneSignInResult.Idle)
+    val phoneSignInResult: StateFlow<PhoneSignInResult> = _phoneSignInResult
+
+    private var storedVerificationId: String? = null
+    private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
+
+    val isUserSignedIn: Boolean get() = prefs.isGoogleSignedIn || prefs.firebaseUid.isNotEmpty()
     val firebaseUid: String get() = prefs.firebaseUid
 
     private var countdownJob: Job? = null
@@ -94,18 +116,18 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // ─── Session / launch flow ─────────────────────────────────────────────────
+    // ─── Session Handling ──────────────────────────────────────────────────
 
     fun checkSessionTimeout() {
         isInitialized = true
 
-        if (prefs.isFirstLaunch && !prefs.isGoogleSignedIn) {
+        if (prefs.isFirstLaunch && !isUserSignedIn) {
             prefs.isFirstLaunch = false
             _authState.value = AuthState.GOOGLE_SIGN_IN
             return
         }
 
-        if (!prefs.isGoogleSignedIn) {
+        if (!isUserSignedIn) {
             _authState.value = AuthState.GOOGLE_SIGN_IN
             return
         }
@@ -149,15 +171,14 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // ─── Google Sign-In Logic ───────────────────────────────────────────────────
+    // ─── Google Sign-In Logic ──────────────────────────────────────────────
 
     fun handleGoogleCredential(credential: AuthCredential) {
         _googleSignInResult.value = GoogleSignInResult.Loading
         viewModelScope.launch {
             try {
                 val result = firebaseAuth.signInWithCredential(credential).await()
-                val uid = result.user?.uid
-                    ?: throw Exception("Sign-in succeeded but UID is null")
+                val uid = result.user?.uid ?: throw Exception("UID is null")
 
                 prefs.isGoogleSignedIn = true
                 prefs.firebaseUid = uid
@@ -166,9 +187,7 @@ class AuthViewModel @Inject constructor(
 
                 _googleSignInResult.value = GoogleSignInResult.Success
             } catch (e: Exception) {
-                _googleSignInResult.value = GoogleSignInResult.Failure(
-                    e.message ?: "Google Sign-In failed"
-                )
+                _googleSignInResult.value = GoogleSignInResult.Failure(e.message ?: "Google Sign-In failed")
             }
         }
     }
@@ -186,16 +205,88 @@ class AuthViewModel @Inject constructor(
         _googleSignInResult.value = GoogleSignInResult.Idle
     }
 
-    // ─── App Backgrounding ───────────────────────────────────────────────────
+    // ─── Firebase Phone OTP Logic ──────────────────────────────────────────
+
+    fun navigateToPhoneLogin() {
+        _authState.value = AuthState.PHONE_LOGIN
+        _phoneSignInResult.value = PhoneSignInResult.Idle
+    }
+
+    fun navigateBackToSelector() {
+        _authState.value = AuthState.GOOGLE_SIGN_IN
+    }
+
+    fun sendOtpCode(phoneNumber: String, activity: Activity) {
+        _phoneSignInResult.value = PhoneSignInResult.Loading
+
+        val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                // Instantly validated via instant verification/auto-retrieval
+                signInWithPhoneCredential(credential)
+            }
+
+            override fun onVerificationFailed(e: FirebaseException) {
+                _phoneSignInResult.value = PhoneSignInResult.Failure(e.message ?: "Verification failed")
+            }
+
+            override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {
+                storedVerificationId = verificationId
+                resendToken = token
+                _phoneSignInResult.value = PhoneSignInResult.CodeSent
+                _authState.value = AuthState.OTP_VERIFICATION
+            }
+        }
+
+        val options = PhoneAuthOptions.newBuilder(firebaseAuth)
+            .setPhoneNumber(phoneNumber)
+            .setTimeout(60L, TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(callbacks)
+            .build()
+
+        PhoneAuthProvider.verifyPhoneNumber(options)
+    }
+
+    fun verifyOtpCode(code: String) {
+        val verificationId = storedVerificationId ?: run {
+            _phoneSignInResult.value = PhoneSignInResult.Failure("Missing verification ID")
+            return
+        }
+        val credential = PhoneAuthProvider.getCredential(verificationId, code)
+        signInWithPhoneCredential(credential)
+    }
+
+    private fun signInWithPhoneCredential(credential: PhoneAuthCredential) {
+        _phoneSignInResult.value = PhoneSignInResult.Loading
+        viewModelScope.launch {
+            try {
+                val result = firebaseAuth.signInWithCredential(credential).await()
+                val uid = result.user?.uid ?: throw Exception("UID is null")
+
+                // Update system session criteria
+                prefs.firebaseUid = uid
+                prefs.googleEmail = result.user?.phoneNumber ?: ""
+
+                _phoneSignInResult.value = PhoneSignInResult.Success
+            } catch (e: Exception) {
+                _phoneSignInResult.value = PhoneSignInResult.Failure(e.message ?: "Authentication failed")
+            }
+        }
+    }
+
+    fun onPhoneSignInHandled() {
+        _phoneSignInResult.value = PhoneSignInResult.Idle
+        _authState.value = AuthState.ADMIN_LOGIN
+    }
+
+    // ─── Existing Infrastructure ──────────────────────────────────────────
 
     fun onAppBackground() {
         wentToBackground = true
         prefs.lastActiveTime = System.currentTimeMillis()
-
         if (_authState.value == AuthState.AUTHENTICATED) {
             prefs.appWasClosedLoggedIn = true
         }
-
         inactivityJob?.cancel()
         inactivityJob = viewModelScope.launch {
             delay(5 * 60 * 1000L)
@@ -206,17 +297,13 @@ class AuthViewModel @Inject constructor(
     }
 
     fun onAppForeground() {
-        if (!isInitialized) return
-        if (!wentToBackground) return
+        if (!isInitialized || !wentToBackground) return
         wentToBackground = false
-
         inactivityJob?.cancel()
         inactivityJob = null
-
         prefs.appWasClosedLoggedIn = false
 
         if (_authState.value != AuthState.AUTHENTICATED) return
-
         val savedRole = prefs.currentRole
         val lastActive = prefs.lastActiveTime
         val elapsed = System.currentTimeMillis() - lastActive
@@ -224,9 +311,8 @@ class AuthViewModel @Inject constructor(
 
         when (savedRole) {
             "ADMIN" -> {
-                if (elapsed > fiveMinutes) {
-                    forceLogout()
-                } else {
+                if (elapsed > fiveMinutes) forceLogout()
+                else {
                     _currentRole.value = UserRole.ADMIN
                     _authState.value = AuthState.AUTHENTICATED
                 }
@@ -248,8 +334,6 @@ class AuthViewModel @Inject constructor(
         wentToBackground = false
         _authState.value = AuthState.ADMIN_LOGIN
     }
-
-    // ─── Login Helpers ─────────────────────────────────────────────────────────
 
     fun loginAsUser() {
         prefs.isLoggedOut = false
@@ -312,8 +396,6 @@ class AuthViewModel @Inject constructor(
         _error.value = null
     }
 
-    // ─── Lockout System ────────────────────────────────────────────────────────
-
     private fun handleWrongAttempt() {
         val attempts = _wrongAttempts.value + 1
         _wrongAttempts.value = attempts
@@ -366,8 +448,6 @@ class AuthViewModel @Inject constructor(
         _wrongAttempts.value = 0
         prefs.wrongAttempts = 0
     }
-
-    // ─── Utility Hashing ───────────────────────────────────────────────────────
 
     fun isPalindrome(pin: String): Boolean = pin == pin.reversed()
 

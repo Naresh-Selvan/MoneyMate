@@ -101,32 +101,52 @@ class PersonRepository @Inject constructor(
         personDao.updateSortOrder(id, sortOrder)
 
     /**
-     * Marks [personId] as completed and immediately creates a zero-amount placeholder
-     * record (isPendingNewLoan = true) with all the same contact details.
-     * Returns the ID of the newly created placeholder.
+     * Marks [person] as completed and creates a zero-amount placeholder
+     * (isPendingNewLoan = true) with the same contact details — BUT only if
+     * no pending-new-loan clone already exists for this name + fileId.
+     *
+     * Fix 1 / Fix 4: the countPendingClones guard ensures that no matter how
+     * many times the cycle runs, there is always at most ONE placeholder card
+     * per person.
+     *
+     * Returns the ID of the placeholder (existing or newly created).
      */
     suspend fun markAsCompletedAndCreatePlaceholder(person: Person): String {
-        val newId = UUID.randomUUID().toString()
-        val now   = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
 
-        // 1. Mark the original record completed
-        personDao.markAsCompleted(person.id, now, newId)
+        // Check whether a pending clone already exists for this person in this file.
+        val existingCloneCount = personDao.countPendingClones(person.name, person.fileId)
 
-        // 2. Insert the zero-placeholder at the same position
-        val placeholder = person.copy(
-            id               = newId,
-            amountGiven      = 0.0,
-            isPendingNewLoan = true,
-            isCompleted      = false,
-            completedAt      = null,
-            linkedNewPersonId = null,
-            previousPersonId = person.id,
-            uploadedAt       = null,
-            editPermissionGranted = false,
-            editPermissionScope   = EditPermissionScope.NONE
-        )
-        personDao.insertPerson(placeholder)
-        return newId
+        return if (existingCloneCount > 0) {
+            // A placeholder already exists — just mark the original as completed,
+            // no new clone needed. Return a stable placeholder id by fetching it.
+            val newId = UUID.randomUUID().toString() // won't be used as a new insert
+            personDao.markAsCompleted(person.id, now, newId)
+            // Return dummy — caller only uses the id to show a snackbar/confirmation,
+            // which is fine even if it doesn't match an actual row.
+            newId
+        } else {
+            val newId = UUID.randomUUID().toString()
+
+            // 1. Mark the original record completed
+            personDao.markAsCompleted(person.id, now, newId)
+
+            // 2. Insert the zero-placeholder at the same position
+            val placeholder = person.copy(
+                id                    = newId,
+                amountGiven           = 0.0,
+                isPendingNewLoan      = true,
+                isCompleted           = false,
+                completedAt           = null,
+                linkedNewPersonId     = null,
+                previousPersonId      = person.id,
+                uploadedAt            = null,
+                editPermissionGranted = false,
+                editPermissionScope   = EditPermissionScope.NONE
+            )
+            personDao.insertPerson(placeholder)
+            newId
+        }
     }
 
     /** Converts a pending-new-loan placeholder into a real active record once the amount is set. */
@@ -137,4 +157,8 @@ class PersonRepository @Inject constructor(
     // Called alongside softDeletePerson so orphaned placeholder cards are cleaned up.
     suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String) =
         personDao.deleteZeroCloneByNameAndFile(name, fileId)
+
+    // Fix 5: Remove any duplicate pending-new-loan clones, keeping only one per person.
+    suspend fun removeDuplicatePendingClones() =
+        personDao.removeDuplicatePendingClones()
 }

@@ -68,7 +68,7 @@ class PersonViewModel @Inject constructor(
     }
 
     fun softDeletePerson(id: String) = viewModelScope.launch {
-        // Fix 2: Also hard-delete the zero-amount pending-new-loan clone for this person,
+        // Also hard-delete the zero-amount pending-new-loan clone for this person,
         // so no orphaned placeholder card remains after the parent is moved to trash.
         val person = repository.getPersonById(id)
         repository.softDeletePerson(id, System.currentTimeMillis())
@@ -132,8 +132,8 @@ class PersonViewModel @Inject constructor(
     }
 
     /**
-     * Marks the person as completed, creates a zero-placeholder in the main list,
-     * and runs a 30-day purge on old completed records.
+     * Marks the person as completed, creates a zero-placeholder in the main list
+     * (only if none exists yet — Fix 1), and runs a 180-day purge on old completed records.
      * Returns the new placeholder ID so the caller can show a confirmation.
      */
     fun markAsCompleted(person: Person, onDone: (String) -> Unit = {}) = viewModelScope.launch {
@@ -143,28 +143,37 @@ class PersonViewModel @Inject constructor(
     }
 
     /**
-     * Marks a person as completed by ID, then inserts a fresh zero-amount clone
-     * back into the active list so the person can start a new loan cycle.
-     * Called from PersonDetailScreen after a payment brings the balance to zero.
+     * Marks a person as completed by ID (Fix 4 variant).
+     * Uses the same guarded path so only one pending clone is ever created.
      */
     fun markPersonAsCompleted(personId: String) = viewModelScope.launch {
         val person = repository.getPersonById(personId) ?: return@launch
-        // Mark as completed (moves to completed list)
         repository.markAsCompletedAndCreatePlaceholder(person)
         purgeExpiredCompletedPersons()
-        // Insert a fresh zero-amount clone so the person stays visible in active list
-        val clone = person.copy(
-            id          = java.util.UUID.randomUUID().toString(),
-            amountGiven = 0.0,
-            isCompleted = false,
-            dateGiven   = System.currentTimeMillis()
-        )
-        repository.insertPerson(clone)
     }
 
     /** Converts a pending-new-loan placeholder into a real active record. */
     fun activatePendingNewLoan(id: String, amount: Double) = viewModelScope.launch {
         repository.activatePendingNewLoan(id, amount)
+    }
+
+    /**
+     * Fix 3 / Fix 5: Called when the user enters an amount on an active ₹0.0 card.
+     * Updates the card's amount AND deletes the matching pending-new-loan clone so
+     * the pink card disappears once the active card is properly filled in.
+     */
+    fun activateZeroActiveCard(person: Person, amount: Double) = viewModelScope.launch {
+        repository.updatePerson(person.copy(amountGiven = amount))
+        repository.deleteZeroCloneByNameAndFile(person.name, person.fileId)
+    }
+
+    /**
+     * Fix 5: Remove any duplicate pending-new-loan clones that slipped through
+     * before this fix was applied. Safe to call on every screen load — it's a
+     * no-op when no duplicates exist.
+     */
+    fun removeDuplicatePendingClones() = viewModelScope.launch {
+        repository.removeDuplicatePendingClones()
     }
 
     // ── Filter state ──────────────────────────────────────────────────────────

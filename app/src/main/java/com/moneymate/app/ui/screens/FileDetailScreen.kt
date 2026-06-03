@@ -200,6 +200,9 @@ fun FileDetailScreen(
     LaunchedEffect(fileId) { personViewModel.loadPersonsForFile(fileId) }
     LaunchedEffect(fileId) { paymentViewModel.loadPaymentsForFile(fileId) }
     LaunchedEffect(fileId) { personViewModel.purgeExpiredCompletedPersons() }
+    // Fix 5: One-time cleanup of any duplicate pending-new-loan clones that existed
+    // before the countPendingClones guard was added.
+    LaunchedEffect(fileId) { personViewModel.removeDuplicatePendingClones() }
 
     val persons                by personViewModel.persons.collectAsState()
     val deletedPersons         by personViewModel.deletedPersons.collectAsState()
@@ -1246,9 +1249,11 @@ fun FileDetailScreen(
                                         val serial = globalStart + idx + 1
 
                                         if (person.isPendingNewLoan) {
+                                            // Fix 2: Pending New Loan card is a visual indicator only.
+                                            // Tapping it does nothing — the active ₹0.0 card handles entry.
                                             PendingNewLoanCard(
                                                 person = person, dateFormat = dateFormat,
-                                                onTap = { personToActivate = person; activateAmount = "" }
+                                                onTap = { /* no-op — visual indicator only */ }
                                             )
                                         } else {
                                             val isDragging = reorderState.draggingItemKey == person.id
@@ -1575,7 +1580,9 @@ fun FileDetailScreen(
                     onClick = {
                         val entered = quickAmountInput.toDoubleOrNull()
                         if (entered != null && entered > 0) {
-                            personViewModel.updatePerson(targetedZeroPerson!!.copy(amountGiven = entered))
+                            // Fix 3: activateZeroActiveCard updates the amount AND deletes
+                            // the matching Pending New Loan clone for this person + file.
+                            personViewModel.activateZeroActiveCard(targetedZeroPerson!!, entered)
                             showQuickAmountPrompt = false
                             targetedZeroPerson = null
                             quickAmountInput = ""

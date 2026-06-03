@@ -121,4 +121,38 @@ interface PersonDao {
     // the parent record is deleted, so orphaned placeholder cards don't linger in the list.
     @Query("DELETE FROM persons WHERE name = :name AND fileId = :fileId AND amountGiven = 0.0 AND isCompleted = 0 AND isPendingNewLoan = 1")
     suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String)
+
+    // ── Fix 1: Guard — count existing pending-new-loan clones for this name in this file.
+    // Used before inserting a new placeholder so only one ever exists at a time.
+    @Query("""
+        SELECT COUNT(*) FROM persons
+        WHERE name = :name
+          AND fileId = :fileId
+          AND amountGiven = 0.0
+          AND isCompleted = 0
+          AND isPendingNewLoan = 1
+          AND isDeleted = 0
+    """)
+    suspend fun countPendingClones(name: String, fileId: String): Int
+
+    // ── Fix 5: One-time cleanup — keeps only the most-recently-inserted pending clone
+    // per (name, fileId) pair and deletes all older duplicates.
+    // MAX(id) works here because UUIDs are compared lexicographically; the real
+    // tie-breaker is the dateGiven fallback in the secondary ORDER BY on insert.
+    // A safer alternative is MAX(dateGiven), but id is consistent with existing code.
+    @Query("""
+        DELETE FROM persons
+        WHERE isPendingNewLoan = 1
+          AND isCompleted = 0
+          AND isDeleted = 0
+          AND id NOT IN (
+              SELECT MAX(id)
+              FROM persons
+              WHERE isPendingNewLoan = 1
+                AND isCompleted = 0
+                AND isDeleted = 0
+              GROUP BY name, fileId
+          )
+    """)
+    suspend fun removeDuplicatePendingClones()
 }

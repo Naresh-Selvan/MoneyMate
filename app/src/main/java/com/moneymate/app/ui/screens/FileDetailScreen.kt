@@ -259,6 +259,9 @@ fun FileDetailScreen(
     var viewAddPaymentType     by remember { mutableStateOf("RECEIVED") } // "GIVEN" or "RECEIVED"
     var personToActivate       by remember { mutableStateOf<Person?>(null) }
     var activateAmount         by remember { mutableStateOf("") }
+    // Prompt to enter a loan amount when tapping a 0-amount active entry
+    var personForAmountPrompt  by remember { mutableStateOf<Person?>(null) }
+    var amountPromptText       by remember { mutableStateOf("") }
     var totalsRevealed         by remember { mutableStateOf(false) }
     var autoHideJob            by remember { mutableStateOf<Job?>(null) }
     val holdProgress           = remember { Animatable(0f) }
@@ -427,9 +430,14 @@ fun FileDetailScreen(
 
     val filteredPersons = remember(
         persons, weekDateRange, minAmount, maxAmount,
-        paymentTypeFilter, upiReceivedPersonIds, cashReceivedPersonIds, searchQuery, filePayments
+        paymentTypeFilter, upiReceivedPersonIds, cashReceivedPersonIds, searchQuery, filePayments,
+        paidByPerson
     ) {
-        var list = persons
+        // A person is active only if not completed AND balance > 0
+        var list = persons.filter { person ->
+            val balance = person.amountGiven - (paidByPerson[person.id] ?: 0.0)
+            !person.isCompleted && (person.amountGiven == 0.0 || balance > 0.0)
+        }
         weekDateRange?.let { (s, e) ->
             val personIdsWithPaymentInRange = filePayments
                 .filter { it.date in s..e }
@@ -1260,8 +1268,14 @@ fun FileDetailScreen(
                                                 personPayments = paymentsByPerson[person.id] ?: emptyList(),
                                                 dateColPager = dateColPager,
                                                 onClick = {
-                                                    if (isSelecting) selectedIds = if (isSelected) selectedIds - person.id else selectedIds + person.id
-                                                    else navController.navigate(Screen.PersonDetail.createRoute(person.id))
+                                                    if (isSelecting) {
+                                                        selectedIds = if (isSelected) selectedIds - person.id else selectedIds + person.id
+                                                    } else if (person.amountGiven == 0.0) {
+                                                        personForAmountPrompt = person
+                                                        amountPromptText = ""
+                                                    } else {
+                                                        navController.navigate(Screen.PersonDetail.createRoute(person.id))
+                                                    }
                                                 },
                                                 onLongClick = { selectedIds = selectedIds + person.id },
                                                 onDelete = { personToDelete = person },
@@ -1279,9 +1293,12 @@ fun FileDetailScreen(
                                                                 date     = System.currentTimeMillis()
                                                             )
                                                         )
-                                                        // Auto-complete: if the new payment brings balance to zero, mark complete
-                                                        val paid = (paidByPerson[person.id] ?: 0.0) + amount
-                                                        if (paid >= person.amountGiven && person.amountGiven > 0) {
+                                                        // Auto-complete: if the new payment brings balance to zero,
+                                                        // markAsCompleted handles both marking completed AND creating
+                                                        // the fresh 0-amount pending-new-loan placeholder internally.
+                                                        val newTotalPaid = (paidByPerson[person.id] ?: 0.0) + amount
+                                                        val remainingBalance = person.amountGiven - newTotalPaid
+                                                        if (remainingBalance <= 0.0 && person.amountGiven > 0) {
                                                             personViewModel.markAsCompleted(person)
                                                         }
                                                     }
@@ -1528,6 +1545,47 @@ fun FileDetailScreen(
                 }
             },
             dismissButton = { TextButton(onClick = { completedPersonToConfirmDelete = null }) { Text("Cancel") } }
+        )
+    }
+
+    // ── Zero-amount active entry: prompt for loan amount ──────────────────────
+    personForAmountPrompt?.let { p ->
+        AlertDialog(
+            onDismissRequest = { personForAmountPrompt = null; amountPromptText = "" },
+            title = { Text("Enter Loan Amount for ${p.name}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "This entry has no loan amount yet. Enter the amount to activate it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = amountPromptText,
+                        onValueChange = { amountPromptText = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Loan Amount*") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val entered = amountPromptText.toDoubleOrNull()
+                        if (entered != null && entered > 0) {
+                            personViewModel.updatePerson(p.copy(amountGiven = entered))
+                            personForAmountPrompt = null
+                            amountPromptText = ""
+                        }
+                    },
+                    enabled = amountPromptText.toDoubleOrNull()?.let { it > 0 } == true
+                ) { Text("Confirm") }
+            },
+            dismissButton = {
+                TextButton(onClick = { personForAmountPrompt = null; amountPromptText = "" }) { Text("Cancel") }
+            }
         )
     }
 

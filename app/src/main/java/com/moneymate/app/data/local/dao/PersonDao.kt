@@ -116,4 +116,9 @@ interface PersonDao {
 
     @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND mode = 'UPI'")
     suspend fun getTotalGivenUpiInFile(fileId: String): Double?
+
+    // Fix 2: Delete the zero-amount pending-new-loan clone belonging to this person when
+    // the parent record is deleted, so orphaned placeholder cards don't linger in the list.
+    @Query("DELETE FROM persons WHERE name = :name AND fileId = :fileId AND amountGiven = 0.0 AND isCompleted = 0 AND isPendingNewLoan = 1")
+    suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String)
 }

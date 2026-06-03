@@ -1248,9 +1248,7 @@ fun FileDetailScreen(
                                         if (person.isPendingNewLoan) {
                                             PendingNewLoanCard(
                                                 person = person, dateFormat = dateFormat,
-                                                onActivate = { personToActivate = person; activateAmount = "" },
-                                                onDelete   = { personToDelete = person },
-                                                onTap      = { personToActivate = person; activateAmount = "" }
+                                                onTap = { personToActivate = person; activateAmount = "" }
                                             )
                                         } else {
                                             val isDragging = reorderState.draggingItemKey == person.id
@@ -2141,8 +2139,19 @@ fun FileDetailScreen(
             map
         }
 
+        // Build a lookup: completedPerson.id → Person, so pending-clone rows can show
+        // the original completed person's amountGiven in the Given column.
+        // Fix 3 & 4: pending-new-loan clones have amountGiven=0.0 — we must resolve the
+        // real loan amount from the completed parent via previousPersonId.
+        val completedPersonById: Map<String, Person> = remember(completedPersons) {
+            completedPersons.associateBy { it.id }
+        }
+
         // Build the single deduplicated list of persons to show.
-        // Only active persons + pending-new-loan placeholders — NO completed persons.
+        // Fix 4: Deduplicate — if an active (non-pending) entry already exists for a name,
+        // exclude the pending-new-loan clone for that name from the row list to prevent
+        // duplicate rows. The completed person's payments are already merged via
+        // completedIdToActiveId so no received amounts are lost.
         val viewPersons: List<Person> = remember(
             viewPersonFilter, persons, pendingNewLoanPersons, completedIdToActiveId
         ) {
@@ -2156,20 +2165,44 @@ fun FileDetailScreen(
             } else {
                 // All-persons view: active list + pending-new-loan placeholders only.
                 // Completed persons are excluded as rows; their payments are merged above.
-                (persons.filter { !it.isDeleted } + pendingNewLoanPersons)
-                    .sortedBy { it.sortOrder }
+                // Fix 4: exclude pending-new-loan clones whose name already has an active
+                // non-pending entry in the same file, preventing duplicate rows.
+                val activePersons = persons.filter { !it.isDeleted }
+                val activeNames = activePersons.map { it.name.lowercase() }.toSet()
+                val filteredPending = pendingNewLoanPersons.filter { pending ->
+                    pending.name.lowercase() !in activeNames
+                }
+                (activePersons + filteredPending).sortedBy { it.sortOrder }
             }
         }
 
-        val totalGivenOnDate = remember(viewPersons, dayStart, dayEnd) {
+        // Fix 3 & 4: For each person in the view, resolve the correct amountGiven.
+        // Pending-new-loan clones have amountGiven=0 — look up their previousPersonId
+        // to find the completed parent and use the parent's amountGiven instead.
+        val resolvedAmountGiven: Map<String, Double> = remember(viewPersons, completedPersonById) {
+            viewPersons.associate { p ->
+                val amount = if (p.isPendingNewLoan && p.previousPersonId != null) {
+                    completedPersonById[p.previousPersonId]?.amountGiven ?: p.amountGiven
+                } else {
+                    p.amountGiven
+                }
+                p.id to amount
+            }
+        }
+
+        val totalGivenOnDate = remember(viewPersons, resolvedAmountGiven, dayStart, dayEnd) {
             viewPersons.filter { p ->
                 val gDay = Calendar.getInstance().also {
-                    it.timeInMillis = p.dateGiven
+                    // For pending clones, use the completed parent's dateGiven for the date check
+                    val dateToCheck = if (p.isPendingNewLoan && p.previousPersonId != null) {
+                        completedPersonById[p.previousPersonId]?.dateGiven ?: p.dateGiven
+                    } else p.dateGiven
+                    it.timeInMillis = dateToCheck
                     it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
                     it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
                 }.timeInMillis
                 gDay == dayStart
-            }.sumOf { it.amountGiven }
+            }.sumOf { resolvedAmountGiven[it.id] ?: 0.0 }
         }
 
         val totalReceivedOnDate = remember(receivedOnDateById) {
@@ -2222,13 +2255,20 @@ fun FileDetailScreen(
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     itemsIndexed(viewPersons, key = { _, p -> p.id }) { idx, person ->
+                        // Fix 3: Use resolvedAmountGiven so pending-new-loan clone rows
+                        // show the original completed person's loan amount, not 0.0.
+                        // For the date check on clones, use the completed parent's dateGiven.
+                        val effectiveAmountGiven = resolvedAmountGiven[person.id] ?: person.amountGiven
+                        val effectiveDateGiven = if (person.isPendingNewLoan && person.previousPersonId != null) {
+                            completedPersonById[person.previousPersonId]?.dateGiven ?: person.dateGiven
+                        } else person.dateGiven
                         val givenAmt = if (
                             Calendar.getInstance().also {
-                                it.timeInMillis = person.dateGiven
+                                it.timeInMillis = effectiveDateGiven
                                 it.set(Calendar.HOUR_OF_DAY, 0); it.set(Calendar.MINUTE, 0)
                                 it.set(Calendar.SECOND, 0); it.set(Calendar.MILLISECOND, 0)
                             }.timeInMillis == dayStart
-                        ) person.amountGiven else 0.0
+                        ) effectiveAmountGiven else 0.0
 
                         // Received for this row = own payments + any merged completed-person payments
                         val receivedAmt = receivedOnDateById[person.id] ?: 0.0
@@ -2800,13 +2840,13 @@ fun CompletedPersonCard(
 }
 
 // ── PendingNewLoanCard ───────────────────────────────────────────────────────
+// Fix 1: Removed "+ Set Amount" button and red delete icon. The card now shows
+// only name + "Pending New Loan" label. Tapping the card opens the amount dialog.
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PendingNewLoanCard(
     person: Person,
     dateFormat: SimpleDateFormat,
-    onActivate: () -> Unit,
-    onDelete: () -> Unit,
     onTap: () -> Unit
 ) {
     Card(
@@ -2833,14 +2873,6 @@ fun PendingNewLoanCard(
                 Spacer(Modifier.height(2.dp))
                 Text("Pending New Loan", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
-            }
-            TextButton(onClick = onActivate) {
-                Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Set Amount")
-            }
-            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
             }
         }
     }

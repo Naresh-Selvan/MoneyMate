@@ -68,7 +68,13 @@ class PersonViewModel @Inject constructor(
     }
 
     fun softDeletePerson(id: String) = viewModelScope.launch {
+        // Fix 2: Also hard-delete the zero-amount pending-new-loan clone for this person,
+        // so no orphaned placeholder card remains after the parent is moved to trash.
+        val person = repository.getPersonById(id)
         repository.softDeletePerson(id, System.currentTimeMillis())
+        if (person != null) {
+            repository.deleteZeroCloneByNameAndFile(person.name, person.fileId)
+        }
     }
 
     /** Soft-deletes a completed person so it appears in TrashScreen for 180 days. */

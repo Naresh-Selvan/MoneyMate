@@ -132,4 +132,9 @@ class PersonRepository @Inject constructor(
     /** Converts a pending-new-loan placeholder into a real active record once the amount is set. */
     suspend fun activatePendingNewLoan(id: String, amount: Double) =
         personDao.activatePendingNewLoan(id, amount, System.currentTimeMillis())
+
+    // Fix 2: Delete the zero-amount pending-new-loan clone for a given name + fileId.
+    // Called alongside softDeletePerson so orphaned placeholder cards are cleaned up.
+    suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String) =
+        personDao.deleteZeroCloneByNameAndFile(name, fileId)
 }

@@ -136,6 +136,26 @@ class PersonViewModel @Inject constructor(
         onDone(newId)
     }
 
+    /**
+     * Marks a person as completed by ID, then inserts a fresh zero-amount clone
+     * back into the active list so the person can start a new loan cycle.
+     * Called from PersonDetailScreen after a payment brings the balance to zero.
+     */
+    fun markPersonAsCompleted(personId: String) = viewModelScope.launch {
+        val person = repository.getPersonById(personId) ?: return@launch
+        // Mark as completed (moves to completed list)
+        repository.markAsCompletedAndCreatePlaceholder(person)
+        purgeExpiredCompletedPersons()
+        // Insert a fresh zero-amount clone so the person stays visible in active list
+        val clone = person.copy(
+            id          = java.util.UUID.randomUUID().toString(),
+            amountGiven = 0.0,
+            isCompleted = false,
+            dateGiven   = System.currentTimeMillis()
+        )
+        repository.insertPerson(clone)
+    }
+
     /** Converts a pending-new-loan placeholder into a real active record. */
     fun activatePendingNewLoan(id: String, amount: Double) = viewModelScope.launch {
         repository.activatePendingNewLoan(id, amount)

@@ -282,6 +282,12 @@ fun PersonDetailScreen(
                     val amt = newAmount.toDoubleOrNull()
                     if (amt != null && amt > 0) {
                         paymentViewModel.insertPayment(Payment(personId = personId, amount = amt, mode = newMode, date = newDate))
+                        // Auto-complete: if new payment brings remaining balance to zero,
+                        // mark as completed and spawn a fresh zero-amount clone.
+                        val remainingBalance = balance - amt
+                        if (remainingBalance <= 0 && amountGiven > 0) {
+                            personViewModel.markPersonAsCompleted(personId)
+                        }
                         newAmount = ""; newMode = PaymentMode.CASH; newDate = defaultPaymentDate; showAddDialog = false
                     }
                 }) { Text("Add") }

@@ -260,8 +260,9 @@ fun FileDetailScreen(
     var personToActivate       by remember { mutableStateOf<Person?>(null) }
     var activateAmount         by remember { mutableStateOf("") }
     // Prompt to enter a loan amount when tapping a 0-amount active entry
-    var personForAmountPrompt  by remember { mutableStateOf<Person?>(null) }
-    var amountPromptText       by remember { mutableStateOf("") }
+    var showQuickAmountPrompt  by remember { mutableStateOf(false) }
+    var targetedZeroPerson     by remember { mutableStateOf<Person?>(null) }
+    var quickAmountInput       by remember { mutableStateOf("") }
     var totalsRevealed         by remember { mutableStateOf(false) }
     var autoHideJob            by remember { mutableStateOf<Job?>(null) }
     val holdProgress           = remember { Animatable(0f) }
@@ -1271,10 +1272,11 @@ fun FileDetailScreen(
                                                     if (isSelecting) {
                                                         selectedIds = if (isSelected) selectedIds - person.id else selectedIds + person.id
                                                     } else if (person.amountGiven == 0.0) {
-                                                        personForAmountPrompt = person
-                                                        amountPromptText = ""
+                                                        targetedZeroPerson = person
+                                                        quickAmountInput = ""
+                                                        showQuickAmountPrompt = true
                                                     } else {
-                                                        navController.navigate(Screen.PersonDetail.createRoute(person.id))
+                                                        navController.navigate("person_detail/${person.id}")
                                                     }
                                                 },
                                                 onLongClick = { selectedIds = selectedIds + person.id },
@@ -1549,10 +1551,10 @@ fun FileDetailScreen(
     }
 
     // ── Zero-amount active entry: prompt for loan amount ──────────────────────
-    personForAmountPrompt?.let { p ->
+    if (showQuickAmountPrompt && targetedZeroPerson != null) {
         AlertDialog(
-            onDismissRequest = { personForAmountPrompt = null; amountPromptText = "" },
-            title = { Text("Enter Loan Amount for ${p.name}") },
+            onDismissRequest = { showQuickAmountPrompt = false; targetedZeroPerson = null; quickAmountInput = "" },
+            title = { Text("Enter Loan Amount for ${targetedZeroPerson!!.name}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -1561,30 +1563,31 @@ fun FileDetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     OutlinedTextField(
-                        value = amountPromptText,
-                        onValueChange = { amountPromptText = it.filter { c -> c.isDigit() || c == '.' } },
+                        value = quickAmountInput,
+                        onValueChange = { quickAmountInput = it.filter { c -> c.isDigit() || c == '.' } },
                         label = { Text("Loan Amount*") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val entered = amountPromptText.toDoubleOrNull()
+                        val entered = quickAmountInput.toDoubleOrNull()
                         if (entered != null && entered > 0) {
-                            personViewModel.updatePerson(p.copy(amountGiven = entered))
-                            personForAmountPrompt = null
-                            amountPromptText = ""
+                            personViewModel.updatePerson(targetedZeroPerson!!.copy(amountGiven = entered))
+                            showQuickAmountPrompt = false
+                            targetedZeroPerson = null
+                            quickAmountInput = ""
                         }
                     },
-                    enabled = amountPromptText.toDoubleOrNull()?.let { it > 0 } == true
+                    enabled = quickAmountInput.toDoubleOrNull()?.let { it > 0 } == true
                 ) { Text("Confirm") }
             },
             dismissButton = {
-                TextButton(onClick = { personForAmountPrompt = null; amountPromptText = "" }) { Text("Cancel") }
+                TextButton(onClick = { showQuickAmountPrompt = false; targetedZeroPerson = null; quickAmountInput = "" }) { Text("Cancel") }
             }
         )
     }

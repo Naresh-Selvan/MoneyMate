@@ -437,7 +437,9 @@ fun FileDetailScreen(
         paymentTypeFilter, upiReceivedPersonIds, cashReceivedPersonIds, searchQuery, filePayments,
         paidByPerson
     ) {
-        // A person is active only if not completed AND balance > 0
+        // Include: not completed AND (amountGiven == 0.0 = white new-loan card, OR balance > 0 = active debt)
+        // NOTE: amountGiven == 0.0 cards MUST NOT be filtered out — they are the white active
+        // cards that appear after a person completes a loan and awaits a new loan entry.
         var list = persons.filter { person ->
             val balance = person.amountGiven - (paidByPerson[person.id] ?: 0.0)
             !person.isCompleted && (person.amountGiven == 0.0 || balance > 0.0)

@@ -32,7 +32,7 @@ interface PersonDao {
     @Query("SELECT * FROM persons WHERE fileId = :fileId AND isCompleted = 1 AND isDeleted = 0 ORDER BY completedAt DESC")
     fun getCompletedPersonsByFile(fileId: String): Flow<List<Person>>
 
-    // ── Pending-new-loan placeholders ─────────────────────────────────────────
+    // ── Pending-new-loan placeholders (pink indicator cards) ──────────────────
     @Query("SELECT * FROM persons WHERE fileId = :fileId AND isPendingNewLoan = 1 AND isDeleted = 0 ORDER BY sortOrder ASC")
     fun getPendingNewLoanPersonsByFile(fileId: String): Flow<List<Person>>
 
@@ -100,11 +100,16 @@ interface PersonDao {
     @Query("UPDATE persons SET editPermissionGranted = :granted, editPermissionScope = :scope WHERE id = :id")
     suspend fun setEditPermission(id: String, granted: Boolean, scope: EditPermissionScope)
 
-    // Mark person as completed and store timestamp + linked new record ID
+    // Mark person as completed — sets isCompleted + completedAt + stores the linked active-card ID.
     @Query("UPDATE persons SET isCompleted = 1, completedAt = :completedAt, linkedNewPersonId = :linkedNewPersonId WHERE id = :id")
     suspend fun markAsCompleted(id: String, completedAt: Long, linkedNewPersonId: String)
 
-    // Update the pending-new-loan fields when the amount is filled in
+    // ── Fix 2: Update amount AND date together when boss enters a new loan amount
+    // on the white active card. dateGiven = today so the new loan cycle starts correctly.
+    @Query("UPDATE persons SET amountGiven = :amount, dateGiven = :dateGiven WHERE id = :id")
+    suspend fun updateAmountAndDate(id: String, amount: Double, dateGiven: Long)
+
+    // Update the pending-new-loan fields when the amount is filled in (legacy path, kept for safety)
     @Query("UPDATE persons SET isPendingNewLoan = 0, amountGiven = :amount, dateGiven = :dateGiven WHERE id = :id")
     suspend fun activatePendingNewLoan(id: String, amount: Double, dateGiven: Long)
 
@@ -117,13 +122,14 @@ interface PersonDao {
     @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND mode = 'UPI'")
     suspend fun getTotalGivenUpiInFile(fileId: String): Double?
 
-    // Fix 2: Delete the zero-amount pending-new-loan clone belonging to this person when
-    // the parent record is deleted, so orphaned placeholder cards don't linger in the list.
+    // Delete the pending-new-loan pink card for a given name + fileId.
+    // Called when: (a) the white active card gets its amount set, or
+    //              (b) the parent active card is soft-deleted.
     @Query("DELETE FROM persons WHERE name = :name AND fileId = :fileId AND amountGiven = 0.0 AND isCompleted = 0 AND isPendingNewLoan = 1")
     suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String)
 
-    // ── Fix 1: Guard — count existing pending-new-loan clones for this name in this file.
-    // Used before inserting a new placeholder so only one ever exists at a time.
+    // Guard — count existing pending-new-loan pink cards for this name in this file.
+    // Used before inserting a new pink card so only one ever exists at a time.
     @Query("""
         SELECT COUNT(*) FROM persons
         WHERE name = :name
@@ -135,11 +141,21 @@ interface PersonDao {
     """)
     suspend fun countPendingClones(name: String, fileId: String): Int
 
-    // ── Fix 5: One-time cleanup — keeps only the most-recently-inserted pending clone
+    // Guard — count existing zero-amount active cards (isPendingNewLoan = 0) for
+    // this name in this file. Used to avoid inserting a second white card.
+    @Query("""
+        SELECT COUNT(*) FROM persons
+        WHERE name = :name
+          AND fileId = :fileId
+          AND amountGiven = 0.0
+          AND isCompleted = 0
+          AND isPendingNewLoan = 0
+          AND isDeleted = 0
+    """)
+    suspend fun countZeroActiveCards(name: String, fileId: String): Int
+
+    // One-time cleanup — keeps only the most-recently-inserted pending clone
     // per (name, fileId) pair and deletes all older duplicates.
-    // MAX(id) works here because UUIDs are compared lexicographically; the real
-    // tie-breaker is the dateGiven fallback in the secondary ORDER BY on insert.
-    // A safer alternative is MAX(dateGiven), but id is consistent with existing code.
     @Query("""
         DELETE FROM persons
         WHERE isPendingNewLoan = 1

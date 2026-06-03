@@ -101,40 +101,56 @@ class PersonRepository @Inject constructor(
         personDao.updateSortOrder(id, sortOrder)
 
     /**
-     * Marks [person] as completed and creates a zero-amount placeholder
-     * (isPendingNewLoan = true) with the same contact details — BUT only if
-     * no pending-new-loan clone already exists for this name + fileId.
+     * Marks [person] as completed and produces two new rows — a white active card
+     * (amountGiven = 0.0, isPendingNewLoan = false) that stays visible in the main
+     * list, and a pink indicator card (isPendingNewLoan = true) — BUT only if those
+     * rows don't already exist for this name + fileId.
      *
-     * Fix 1 / Fix 4: the countPendingClones guard ensures that no matter how
-     * many times the cycle runs, there is always at most ONE placeholder card
-     * per person.
+     * Three-step atomic sequence:
+     *   1. Set isCompleted = 1 on the original row   → moves to Completed section
+     *   2. Insert white active card (₹0.0, normal)   → stays in main active list
+     *   3. Insert pink indicator card (pending clone) → shown below as visual indicator
      *
-     * Returns the ID of the placeholder (existing or newly created).
+     * Guards prevent duplicates on repeated completion cycles.
+     *
+     * Returns the ID of the white active card (new loan placeholder).
      */
     suspend fun markAsCompletedAndCreatePlaceholder(person: Person): String {
-        val now = System.currentTimeMillis()
+        val now       = System.currentTimeMillis()
+        val activeId  = UUID.randomUUID().toString()
+        val pinkId    = UUID.randomUUID().toString()
 
-        // Check whether a pending clone already exists for this person in this file.
-        val existingCloneCount = personDao.countPendingClones(person.name, person.fileId)
+        // 1. Mark the original record as completed — it moves to the Completed section.
+        personDao.markAsCompleted(person.id, now, activeId)
 
-        return if (existingCloneCount > 0) {
-            // A placeholder already exists — just mark the original as completed,
-            // no new clone needed. Return a stable placeholder id by fetching it.
-            val newId = UUID.randomUUID().toString() // won't be used as a new insert
-            personDao.markAsCompleted(person.id, now, newId)
-            // Return dummy — caller only uses the id to show a snackbar/confirmation,
-            // which is fine even if it doesn't match an actual row.
-            newId
-        } else {
-            val newId = UUID.randomUUID().toString()
-
-            // 1. Mark the original record completed
-            personDao.markAsCompleted(person.id, now, newId)
-
-            // 2. Insert the zero-placeholder at the same position
-            val placeholder = person.copy(
-                id                    = newId,
+        // 2. Insert the white active card only if one doesn't already exist.
+        //    isPendingNewLoan = false → included in getPersonsByFile → visible as white card.
+        //    amountGiven = 0.0 + dateGiven = now → tapping it opens the loan-amount dialog.
+        if (personDao.countZeroActiveCards(person.name, person.fileId) == 0) {
+            val whiteCard = person.copy(
+                id                    = activeId,
                 amountGiven           = 0.0,
+                dateGiven             = now,          // completion date; updated to today when amount is entered
+                isPendingNewLoan      = false,        // MUST be false so it appears in the normal active list
+                isCompleted           = false,
+                completedAt           = null,
+                linkedNewPersonId     = null,
+                previousPersonId      = person.id,
+                uploadedAt            = null,
+                editPermissionGranted = false,
+                editPermissionScope   = EditPermissionScope.NONE
+            )
+            personDao.insertPerson(whiteCard)
+        }
+
+        // 3. Insert the pink indicator card only if one doesn't already exist.
+        //    isPendingNewLoan = true → excluded from getPersonsByFile, included in
+        //    getPendingNewLoanPersonsByFile → shown as the pink "Pending New Loan" card.
+        if (personDao.countPendingClones(person.name, person.fileId) == 0) {
+            val pinkCard = person.copy(
+                id                    = pinkId,
+                amountGiven           = 0.0,
+                dateGiven             = now,
                 isPendingNewLoan      = true,
                 isCompleted           = false,
                 completedAt           = null,
@@ -144,21 +160,33 @@ class PersonRepository @Inject constructor(
                 editPermissionGranted = false,
                 editPermissionScope   = EditPermissionScope.NONE
             )
-            personDao.insertPerson(placeholder)
-            newId
+            personDao.insertPerson(pinkCard)
         }
+
+        return activeId
     }
 
     /** Converts a pending-new-loan placeholder into a real active record once the amount is set. */
     suspend fun activatePendingNewLoan(id: String, amount: Double) =
         personDao.activatePendingNewLoan(id, amount, System.currentTimeMillis())
 
-    // Fix 2: Delete the zero-amount pending-new-loan clone for a given name + fileId.
-    // Called alongside softDeletePerson so orphaned placeholder cards are cleaned up.
+    /**
+     * Called when boss taps the white ₹0.0 active card and enters the new loan amount.
+     * Updates amount + dateGiven to TODAY on the white card, then deletes the pink clone.
+     */
+    suspend fun activateZeroActiveCard(person: Person, amount: Double) {
+        personDao.updateAmountAndDate(person.id, amount, System.currentTimeMillis())
+        personDao.deleteZeroCloneByNameAndFile(person.name, person.fileId)
+    }
+
+    /**
+     * Called when the active card for a person is soft-deleted.
+     * Removes the orphaned pink indicator card for the same name + fileId.
+     */
     suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String) =
         personDao.deleteZeroCloneByNameAndFile(name, fileId)
 
-    // Fix 5: Remove any duplicate pending-new-loan clones, keeping only one per person.
+    /** Remove any duplicate pending-new-loan pink cards, keeping only one per person. */
     suspend fun removeDuplicatePendingClones() =
         personDao.removeDuplicatePendingClones()
 }

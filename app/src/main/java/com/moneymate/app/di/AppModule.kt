@@ -67,6 +67,15 @@ object AppModule {
                     database.execSQL("ALTER TABLE persons ADD COLUMN isPendingNewLoan INTEGER NOT NULL DEFAULT 0")
                     database.execSQL("ALTER TABLE persons ADD COLUMN previousPersonId TEXT")
                 }
+            },
+            // ── Privacy fix: remove all hardcoded NLR seed template rows ──────────
+            // This migration runs once when the app upgrades from version 7 to 8.
+            // It ONLY touches the `default_persons` table (the seed template store).
+            // Dad's real data in `persons`, `payments`, and `loan_files` is untouched.
+            object : androidx.room.migration.Migration(7, 8) {
+                override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    database.execSQL("DELETE FROM default_persons")
+                }
             }
         ).build()
     }
@@ -75,6 +84,9 @@ object AppModule {
     @Provides fun providePersonDao(db: AppDatabase): PersonDao = db.personDao()
     @Provides fun providePaymentDao(db: AppDatabase): PaymentDao = db.paymentDao()
     @Provides fun provideEditRequestDao(db: AppDatabase): EditRequestDao = db.editRequestDao()
+
+    // DefaultPersonDao / DefaultPersonRepository are kept in the DI graph so any
+    // existing injection sites compile without changes. The table is now always empty.
     @Provides fun provideDefaultPersonDao(db: AppDatabase): DefaultPersonDao = db.defaultPersonDao()
 
     @Provides
@@ -82,7 +94,7 @@ object AppModule {
     fun provideDefaultPersonRepository(dao: DefaultPersonDao): DefaultPersonRepository =
         DefaultPersonRepository(dao)
 
-    // ─── NEW ───────────────────────────────────────────────────────────────────
+    // ─── Firestore path provider ──────────────────────────────────────────────
 
     /**
      * Provides [FirestorePathProvider] — the single source of truth for all

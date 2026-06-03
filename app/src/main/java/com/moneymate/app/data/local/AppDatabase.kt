@@ -11,9 +11,9 @@ import com.moneymate.app.data.local.entity.*
         Person::class,
         Payment::class,
         EditRequest::class,
-        DefaultPerson::class
+        DefaultPerson::class   // Table kept in schema; all rows purged by migration 7→8
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

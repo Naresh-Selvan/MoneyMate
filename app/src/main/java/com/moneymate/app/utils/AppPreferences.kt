@@ -112,6 +112,21 @@ class AppPreferences @Inject constructor(
         get() = prefs.getBoolean("migration_done", false)
         set(value) = prefs.edit { putBoolean("migration_done", value) }
 
+    // ─── Privacy: Seed-data cleanup ────────────────────────────────────────────
+
+    /**
+     * True once the one-time cleanup that removes all hardcoded NLR seed template
+     * rows from the `default_persons` table has completed successfully.
+     *
+     * The cleanup is triggered by the DB migration 7→8 (DELETE FROM default_persons)
+     * and this flag is set immediately after so it never runs again.
+     *
+     * Dad's real loan data in `persons`, `payments`, and `loan_files` is never touched.
+     */
+    var seedDataCleanedUp: Boolean
+        get() = prefs.getBoolean("seed_data_cleaned_up", false)
+        set(value) = prefs.edit { putBoolean("seed_data_cleaned_up", value) }
+
     // ─── Existing: Init ───────────────────────────────────────────────────────
 
     fun initDefaultPinIfNeeded() {

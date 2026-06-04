@@ -76,7 +76,8 @@ object AppModule {
                 override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                     database.execSQL("DELETE FROM default_persons")
                 }
-            }
+            },
+            AppDatabase.MIGRATION_8_9
         ).build()
     }
 

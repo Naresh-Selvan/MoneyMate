@@ -100,16 +100,15 @@ interface PersonDao {
     @Query("UPDATE persons SET editPermissionGranted = :granted, editPermissionScope = :scope WHERE id = :id")
     suspend fun setEditPermission(id: String, granted: Boolean, scope: EditPermissionScope)
 
-    // Mark person as completed — sets isCompleted + completedAt + stores the linked active-card ID.
+    // Mark person as completed
     @Query("UPDATE persons SET isCompleted = 1, completedAt = :completedAt, linkedNewPersonId = :linkedNewPersonId WHERE id = :id")
     suspend fun markAsCompleted(id: String, completedAt: Long, linkedNewPersonId: String)
 
-    // ── Fix 2: Update amount AND date together when boss enters a new loan amount
-    // on the white active card. dateGiven = today so the new loan cycle starts correctly.
+    // Update amount AND date together when entering a new loan amount
     @Query("UPDATE persons SET amountGiven = :amount, dateGiven = :dateGiven WHERE id = :id")
     suspend fun updateAmountAndDate(id: String, amount: Double, dateGiven: Long)
 
-    // Update the pending-new-loan fields when the amount is filled in (legacy path, kept for safety)
+    // Update the pending-new-loan fields when the amount is filled in (legacy path)
     @Query("UPDATE persons SET isPendingNewLoan = 0, amountGiven = :amount, dateGiven = :dateGiven WHERE id = :id")
     suspend fun activatePendingNewLoan(id: String, amount: Double, dateGiven: Long)
 
@@ -123,13 +122,10 @@ interface PersonDao {
     suspend fun getTotalGivenUpiInFile(fileId: String): Double?
 
     // Delete the pending-new-loan pink card for a given name + fileId.
-    // Called when: (a) the white active card gets its amount set, or
-    //              (b) the parent active card is soft-deleted.
     @Query("DELETE FROM persons WHERE name = :name AND fileId = :fileId AND amountGiven = 0.0 AND isCompleted = 0 AND isPendingNewLoan = 1")
     suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String)
 
     // Guard — count existing pending-new-loan pink cards for this name in this file.
-    // Used before inserting a new pink card so only one ever exists at a time.
     @Query("""
         SELECT COUNT(*) FROM persons
         WHERE name = :name
@@ -141,8 +137,7 @@ interface PersonDao {
     """)
     suspend fun countPendingClones(name: String, fileId: String): Int
 
-    // Guard — count existing zero-amount active cards (isPendingNewLoan = 0) for
-    // this name in this file. Used to avoid inserting a second white card.
+    // Guard — count existing zero-amount active cards for this name in this file.
     @Query("""
         SELECT COUNT(*) FROM persons
         WHERE name = :name
@@ -154,8 +149,7 @@ interface PersonDao {
     """)
     suspend fun countZeroActiveCards(name: String, fileId: String): Int
 
-    // One-time cleanup — keeps only the most-recently-inserted pending clone
-    // per (name, fileId) pair and deletes all older duplicates.
+    // One-time cleanup — keeps only the most-recently-inserted pending clone per (name, fileId)
     @Query("""
         DELETE FROM persons
         WHERE isPendingNewLoan = 1
@@ -171,4 +165,34 @@ interface PersonDao {
           )
     """)
     suspend fun removeDuplicatePendingClones()
+
+    // ── Interest field updates ─────────────────────────────────────────────────
+
+    /**
+     * Update all interest-related fields on a single person row.
+     * Called after the user confirms the loan amount dialog with interest details.
+     */
+    @Query("""
+        UPDATE persons SET
+            interestRate         = :interestRate,
+            interestAmount       = :interestAmount,
+            totalRepayment       = :totalRepayment,
+            loanType             = :loanType,
+            numberOfInstallments = :numberOfInstallments,
+            perInstallmentAmount = :perInstallmentAmount,
+            isDurationBased      = :isDurationBased,
+            durationDays         = :durationDays
+        WHERE id = :id
+    """)
+    suspend fun updateInterestFields(
+        id: String,
+        interestRate: Double,
+        interestAmount: Double,
+        totalRepayment: Double,
+        loanType: String,
+        numberOfInstallments: Int,
+        perInstallmentAmount: Double,
+        isDurationBased: Boolean,
+        durationDays: Int?
+    )
 }

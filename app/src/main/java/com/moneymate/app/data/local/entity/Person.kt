@@ -38,16 +38,29 @@ data class Person(
     val recordType: LoanType = LoanType.LENDING,
 
     // ── Completion / rollover fields ──────────────────────────────────────────
-    // isCompleted = true when this person has fully repaid and is moved to the Completed section.
-    // completedAt = timestamp when marked complete (drives 30-day auto-delete from Completed section).
-    // linkedNewPersonId = ID of the zero-placeholder record created when this one is completed.
-    // isPendingNewLoan = true on the zero-placeholder; excluded from amount totals, shown as "Pending New Loan".
-    // previousPersonId = back-link from placeholder to the completed record (shown on upload).
     val isCompleted: Boolean = false,
     val completedAt: Long? = null,
     val linkedNewPersonId: String? = null,
     val isPendingNewLoan: Boolean = false,
-    val previousPersonId: String? = null
+    val previousPersonId: String? = null,
+
+    // ── Interest fields (Part 4) ──────────────────────────────────────────────
+    // Per-person interest rate (inherited from file default, but user can override)
+    val interestRate: Double = 0.0,
+    // Calculated flat interest amount = principal × (rate/100)
+    val interestAmount: Double = 0.0,
+    // Total repayment = principal + interestAmount
+    val totalRepayment: Double = 0.0,
+    // Installment type chosen by user
+    val loanType: String = "MONTHLY",  // DAILY / WEEKLY / MONTHLY
+    // Number of installments
+    val numberOfInstallments: Int = 10,
+    // Per installment = totalRepayment / numberOfInstallments
+    val perInstallmentAmount: Double = 0.0,
+    // Advanced mode: use duration-based calculation instead of flat rate
+    val isDurationBased: Boolean = false,
+    // Duration in days (nullable; used only when isDurationBased = true)
+    val durationDays: Int? = null
 )
 
 enum class PaymentMode {

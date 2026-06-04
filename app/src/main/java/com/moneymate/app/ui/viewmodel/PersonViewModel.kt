@@ -43,8 +43,7 @@ class PersonViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Pink indicator cards (isPendingNewLoan = true); shown alongside but separate from
-    // the white active cards in the merged list in FileDetailScreen.
+    // Pink indicator cards (isPendingNewLoan = true)
     val pendingNewLoanPersons: StateFlow<List<Person>> = _currentFileId
         .flatMapLatest { fileId ->
             if (fileId != null) repository.getPendingNewLoanPersonsByFile(fileId)
@@ -69,8 +68,6 @@ class PersonViewModel @Inject constructor(
     }
 
     fun softDeletePerson(id: String) = viewModelScope.launch {
-        // Also hard-delete the pink indicator card for this person so no orphaned
-        // pink card lingers in the list after the white active card is trashed.
         val person = repository.getPersonById(id)
         repository.softDeletePerson(id, System.currentTimeMillis())
         if (person != null) {
@@ -138,8 +135,6 @@ class PersonViewModel @Inject constructor(
      *   • Original row           → isCompleted = 1  (Completed section)
      *   • White active card      → amountGiven = 0.0, isPendingNewLoan = false  (main list)
      *   • Pink indicator card    → amountGiven = 0.0, isPendingNewLoan = true   (pink row)
-     *
-     * Guards in the repository prevent duplicates on repeated cycles.
      */
     fun markAsCompleted(person: Person, onDone: (String) -> Unit = {}) = viewModelScope.launch {
         val newId = repository.markAsCompletedAndCreatePlaceholder(person)
@@ -148,8 +143,7 @@ class PersonViewModel @Inject constructor(
     }
 
     /**
-     * ID-based variant used from PersonDetailScreen when a payment brings the balance
-     * to zero. Same guarded logic as markAsCompleted(Person).
+     * ID-based variant used from PersonDetailScreen when a payment brings the balance to zero.
      */
     fun markPersonAsCompleted(personId: String) = viewModelScope.launch {
         val person = repository.getPersonById(personId) ?: return@launch
@@ -164,19 +158,14 @@ class PersonViewModel @Inject constructor(
 
     /**
      * Called when boss taps the white ₹0.0 active card and confirms a new loan amount.
-     *
-     * Fix 2 + Fix 3:
-     *   • Updates amountGiven on the white card
-     *   • Sets dateGiven = TODAY (correct loan-start date for the new cycle)
-     *   • Deletes the matching pink indicator card for this name + fileId
+     * Updates amountGiven, sets dateGiven = TODAY, deletes the pink indicator card.
      */
     fun activateZeroActiveCard(person: Person, amount: Double) = viewModelScope.launch {
         repository.activateZeroActiveCard(person, amount)
     }
 
     /**
-     * Remove any duplicate pending-new-loan pink cards that existed before the
-     * countPendingClones guard was introduced. Safe to call on every screen load.
+     * Remove any duplicate pending-new-loan pink cards.
      */
     fun removeDuplicatePendingClones() = viewModelScope.launch {
         repository.removeDuplicatePendingClones()

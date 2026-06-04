@@ -2,6 +2,7 @@ package com.moneymate.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moneymate.app.data.local.entity.CalculationMode
 import com.moneymate.app.data.local.entity.LoanFile
 import com.moneymate.app.data.repository.LoanFileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +26,8 @@ class LoanFileViewModel @Inject constructor(
     /**
      * Insert a new file. The file is always created completely empty — no names,
      * no template data, no pre-populated persons. The user adds entries manually.
+     * The [defaultInterestRate] and [defaultCalculationMode] are captured at
+     * creation time from the second dialog shown after the name dialog.
      */
     fun insertFile(file: LoanFile) = viewModelScope.launch {
         repository.insertFile(file)
@@ -40,4 +43,23 @@ class LoanFileViewModel @Inject constructor(
     }
     fun markSynced(id: String) = viewModelScope.launch { repository.markSynced(id, true, System.currentTimeMillis()) }
     fun updateSortOrder(id: String, sortOrder: Int) = viewModelScope.launch { repository.updateSortOrder(id, sortOrder) }
+
+    /**
+     * Update only the interest-rate defaults for a file.
+     * Called from the "File Interest Settings" dialog in FileDetailScreen.
+     * Does NOT retroactively touch any existing Person rows.
+     */
+    fun updateFileInterestSettings(
+        fileId: String,
+        defaultInterestRate: Double,
+        defaultCalculationMode: CalculationMode
+    ) = viewModelScope.launch {
+        val file = repository.getAllFilesOnce().find { it.id == fileId } ?: return@launch
+        repository.updateFile(
+            file.copy(
+                defaultInterestRate = defaultInterestRate,
+                defaultCalculationMode = defaultCalculationMode
+            )
+        )
+    }
 }

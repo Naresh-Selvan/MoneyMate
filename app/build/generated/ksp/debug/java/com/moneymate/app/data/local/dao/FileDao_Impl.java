@@ -13,9 +13,11 @@ import androidx.room.SharedSQLiteStatement;
 import androidx.room.util.CursorUtil;
 import androidx.room.util.DBUtil;
 import androidx.sqlite.db.SupportSQLiteStatement;
+import com.moneymate.app.data.local.entity.CalculationMode;
 import com.moneymate.app.data.local.entity.LoanFile;
 import java.lang.Class;
 import java.lang.Exception;
+import java.lang.IllegalArgumentException;
 import java.lang.Long;
 import java.lang.Object;
 import java.lang.Override;
@@ -57,7 +59,7 @@ public final class FileDao_Impl implements FileDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `loan_files` (`id`,`name`,`createdAt`,`sortOrder`,`isDeleted`,`deletedAt`,`syncedToFirebase`,`lastUploadedAt`) VALUES (?,?,?,?,?,?,?,?)";
+        return "INSERT OR REPLACE INTO `loan_files` (`id`,`name`,`createdAt`,`sortOrder`,`isDeleted`,`deletedAt`,`syncedToFirebase`,`lastUploadedAt`,`defaultInterestRate`,`defaultCalculationMode`) VALUES (?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -81,13 +83,15 @@ public final class FileDao_Impl implements FileDao {
         } else {
           statement.bindLong(8, entity.getLastUploadedAt());
         }
+        statement.bindDouble(9, entity.getDefaultInterestRate());
+        statement.bindString(10, __CalculationMode_enumToString(entity.getDefaultCalculationMode()));
       }
     };
     this.__updateAdapterOfLoanFile = new EntityDeletionOrUpdateAdapter<LoanFile>(__db) {
       @Override
       @NonNull
       protected String createQuery() {
-        return "UPDATE OR ABORT `loan_files` SET `id` = ?,`name` = ?,`createdAt` = ?,`sortOrder` = ?,`isDeleted` = ?,`deletedAt` = ?,`syncedToFirebase` = ?,`lastUploadedAt` = ? WHERE `id` = ?";
+        return "UPDATE OR ABORT `loan_files` SET `id` = ?,`name` = ?,`createdAt` = ?,`sortOrder` = ?,`isDeleted` = ?,`deletedAt` = ?,`syncedToFirebase` = ?,`lastUploadedAt` = ?,`defaultInterestRate` = ?,`defaultCalculationMode` = ? WHERE `id` = ?";
       }
 
       @Override
@@ -111,7 +115,9 @@ public final class FileDao_Impl implements FileDao {
         } else {
           statement.bindLong(8, entity.getLastUploadedAt());
         }
-        statement.bindString(9, entity.getId());
+        statement.bindDouble(9, entity.getDefaultInterestRate());
+        statement.bindString(10, __CalculationMode_enumToString(entity.getDefaultCalculationMode()));
+        statement.bindString(11, entity.getId());
       }
     };
     this.__preparedStmtOfSoftDeleteFile = new SharedSQLiteStatement(__db) {
@@ -380,6 +386,8 @@ public final class FileDao_Impl implements FileDao {
           final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
           final int _cursorIndexOfSyncedToFirebase = CursorUtil.getColumnIndexOrThrow(_cursor, "syncedToFirebase");
           final int _cursorIndexOfLastUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "lastUploadedAt");
+          final int _cursorIndexOfDefaultInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultInterestRate");
+          final int _cursorIndexOfDefaultCalculationMode = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultCalculationMode");
           final List<LoanFile> _result = new ArrayList<LoanFile>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final LoanFile _item;
@@ -411,7 +419,11 @@ public final class FileDao_Impl implements FileDao {
             } else {
               _tmpLastUploadedAt = _cursor.getLong(_cursorIndexOfLastUploadedAt);
             }
-            _item = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt);
+            final double _tmpDefaultInterestRate;
+            _tmpDefaultInterestRate = _cursor.getDouble(_cursorIndexOfDefaultInterestRate);
+            final CalculationMode _tmpDefaultCalculationMode;
+            _tmpDefaultCalculationMode = __CalculationMode_stringToEnum(_cursor.getString(_cursorIndexOfDefaultCalculationMode));
+            _item = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt,_tmpDefaultInterestRate,_tmpDefaultCalculationMode);
             _result.add(_item);
           }
           return _result;
@@ -448,6 +460,8 @@ public final class FileDao_Impl implements FileDao {
           final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
           final int _cursorIndexOfSyncedToFirebase = CursorUtil.getColumnIndexOrThrow(_cursor, "syncedToFirebase");
           final int _cursorIndexOfLastUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "lastUploadedAt");
+          final int _cursorIndexOfDefaultInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultInterestRate");
+          final int _cursorIndexOfDefaultCalculationMode = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultCalculationMode");
           final LoanFile _result;
           if (_cursor.moveToFirst()) {
             final String _tmpId;
@@ -478,7 +492,11 @@ public final class FileDao_Impl implements FileDao {
             } else {
               _tmpLastUploadedAt = _cursor.getLong(_cursorIndexOfLastUploadedAt);
             }
-            _result = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt);
+            final double _tmpDefaultInterestRate;
+            _tmpDefaultInterestRate = _cursor.getDouble(_cursorIndexOfDefaultInterestRate);
+            final CalculationMode _tmpDefaultCalculationMode;
+            _tmpDefaultCalculationMode = __CalculationMode_stringToEnum(_cursor.getString(_cursorIndexOfDefaultCalculationMode));
+            _result = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt,_tmpDefaultInterestRate,_tmpDefaultCalculationMode);
           } else {
             _result = null;
           }
@@ -512,6 +530,8 @@ public final class FileDao_Impl implements FileDao {
           final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
           final int _cursorIndexOfSyncedToFirebase = CursorUtil.getColumnIndexOrThrow(_cursor, "syncedToFirebase");
           final int _cursorIndexOfLastUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "lastUploadedAt");
+          final int _cursorIndexOfDefaultInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultInterestRate");
+          final int _cursorIndexOfDefaultCalculationMode = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultCalculationMode");
           final LoanFile _result;
           if (_cursor.moveToFirst()) {
             final String _tmpId;
@@ -542,7 +562,11 @@ public final class FileDao_Impl implements FileDao {
             } else {
               _tmpLastUploadedAt = _cursor.getLong(_cursorIndexOfLastUploadedAt);
             }
-            _result = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt);
+            final double _tmpDefaultInterestRate;
+            _tmpDefaultInterestRate = _cursor.getDouble(_cursorIndexOfDefaultInterestRate);
+            final CalculationMode _tmpDefaultCalculationMode;
+            _tmpDefaultCalculationMode = __CalculationMode_stringToEnum(_cursor.getString(_cursorIndexOfDefaultCalculationMode));
+            _result = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt,_tmpDefaultInterestRate,_tmpDefaultCalculationMode);
           } else {
             _result = null;
           }
@@ -573,6 +597,8 @@ public final class FileDao_Impl implements FileDao {
           final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
           final int _cursorIndexOfSyncedToFirebase = CursorUtil.getColumnIndexOrThrow(_cursor, "syncedToFirebase");
           final int _cursorIndexOfLastUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "lastUploadedAt");
+          final int _cursorIndexOfDefaultInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultInterestRate");
+          final int _cursorIndexOfDefaultCalculationMode = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultCalculationMode");
           final List<LoanFile> _result = new ArrayList<LoanFile>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final LoanFile _item;
@@ -604,7 +630,11 @@ public final class FileDao_Impl implements FileDao {
             } else {
               _tmpLastUploadedAt = _cursor.getLong(_cursorIndexOfLastUploadedAt);
             }
-            _item = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt);
+            final double _tmpDefaultInterestRate;
+            _tmpDefaultInterestRate = _cursor.getDouble(_cursorIndexOfDefaultInterestRate);
+            final CalculationMode _tmpDefaultCalculationMode;
+            _tmpDefaultCalculationMode = __CalculationMode_stringToEnum(_cursor.getString(_cursorIndexOfDefaultCalculationMode));
+            _item = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt,_tmpDefaultInterestRate,_tmpDefaultCalculationMode);
             _result.add(_item);
           }
           return _result;
@@ -639,6 +669,8 @@ public final class FileDao_Impl implements FileDao {
           final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
           final int _cursorIndexOfSyncedToFirebase = CursorUtil.getColumnIndexOrThrow(_cursor, "syncedToFirebase");
           final int _cursorIndexOfLastUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "lastUploadedAt");
+          final int _cursorIndexOfDefaultInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultInterestRate");
+          final int _cursorIndexOfDefaultCalculationMode = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultCalculationMode");
           final List<LoanFile> _result = new ArrayList<LoanFile>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final LoanFile _item;
@@ -670,7 +702,11 @@ public final class FileDao_Impl implements FileDao {
             } else {
               _tmpLastUploadedAt = _cursor.getLong(_cursorIndexOfLastUploadedAt);
             }
-            _item = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt);
+            final double _tmpDefaultInterestRate;
+            _tmpDefaultInterestRate = _cursor.getDouble(_cursorIndexOfDefaultInterestRate);
+            final CalculationMode _tmpDefaultCalculationMode;
+            _tmpDefaultCalculationMode = __CalculationMode_stringToEnum(_cursor.getString(_cursorIndexOfDefaultCalculationMode));
+            _item = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt,_tmpDefaultInterestRate,_tmpDefaultCalculationMode);
             _result.add(_item);
           }
           return _result;
@@ -685,5 +721,21 @@ public final class FileDao_Impl implements FileDao {
   @NonNull
   public static List<Class<?>> getRequiredConverters() {
     return Collections.emptyList();
+  }
+
+  private String __CalculationMode_enumToString(@NonNull final CalculationMode _value) {
+    switch (_value) {
+      case FLAT: return "FLAT";
+      case DURATION: return "DURATION";
+      default: throw new IllegalArgumentException("Can't convert enum to string, unknown enum value: " + _value);
+    }
+  }
+
+  private CalculationMode __CalculationMode_stringToEnum(@NonNull final String _value) {
+    switch (_value) {
+      case "FLAT": return CalculationMode.FLAT;
+      case "DURATION": return CalculationMode.DURATION;
+      default: throw new IllegalArgumentException("Can't convert value to enum, unknown value: " + _value);
+    }
   }
 }

@@ -429,60 +429,60 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
+      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
 
       static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
+      static String com_moneymate_app_ui_viewmodel_PaymentViewModel = "com.moneymate.app.ui.viewmodel.PaymentViewModel";
 
       static String com_moneymate_app_ui_viewmodel_EditRequestViewModel = "com.moneymate.app.ui.viewmodel.EditRequestViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_PaymentViewModel = "com.moneymate.app.ui.viewmodel.PaymentViewModel";
+      static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
 
       static String com_moneymate_app_ui_viewmodel_RestoreViewModel = "com.moneymate.app.ui.viewmodel.RestoreViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
-
-      @KeepFieldType
-      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
-
-      @KeepFieldType
-      AuthViewModel com_moneymate_app_ui_viewmodel_AuthViewModel2;
-
-      @KeepFieldType
-      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
-
-      @KeepFieldType
-      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
+      static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
 
       @KeepFieldType
       UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
 
       @KeepFieldType
-      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
-
-      @KeepFieldType
-      TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
-
-      @KeepFieldType
-      EditRequestViewModel com_moneymate_app_ui_viewmodel_EditRequestViewModel2;
+      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
 
       @KeepFieldType
       PaymentViewModel com_moneymate_app_ui_viewmodel_PaymentViewModel2;
 
       @KeepFieldType
-      RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
+      EditRequestViewModel com_moneymate_app_ui_viewmodel_EditRequestViewModel2;
 
       @KeepFieldType
       PersonViewModel com_moneymate_app_ui_viewmodel_PersonViewModel2;
+
+      @KeepFieldType
+      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
+
+      @KeepFieldType
+      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
+
+      @KeepFieldType
+      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
+
+      @KeepFieldType
+      AuthViewModel com_moneymate_app_ui_viewmodel_AuthViewModel2;
+
+      @KeepFieldType
+      RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
+
+      @KeepFieldType
+      TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
     }
   }
 
@@ -553,15 +553,21 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
+      static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
 
       static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
 
       static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
 
+      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
+
       static String com_moneymate_app_ui_viewmodel_EditRequestViewModel = "com.moneymate.app.ui.viewmodel.EditRequestViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
+      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
 
       static String com_moneymate_app_ui_viewmodel_RestoreViewModel = "com.moneymate.app.ui.viewmodel.RestoreViewModel";
 
@@ -569,14 +575,14 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
 
       static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
+      @KeepFieldType
+      TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
 
       @KeepFieldType
-      UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
+      AuthViewModel com_moneymate_app_ui_viewmodel_AuthViewModel2;
+
+      @KeepFieldType
+      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
 
       @KeepFieldType
       PersonViewModel com_moneymate_app_ui_viewmodel_PersonViewModel2;
@@ -585,10 +591,13 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
       UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
 
       @KeepFieldType
+      UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
+
+      @KeepFieldType
       EditRequestViewModel com_moneymate_app_ui_viewmodel_EditRequestViewModel2;
 
       @KeepFieldType
-      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
+      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
 
       @KeepFieldType
       RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
@@ -598,15 +607,6 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
 
       @KeepFieldType
       SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
-
-      @KeepFieldType
-      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
-
-      @KeepFieldType
-      AuthViewModel com_moneymate_app_ui_viewmodel_AuthViewModel2;
-
-      @KeepFieldType
-      TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
     }
 
     private static final class SwitchingProvider<T> implements Provider<T> {
@@ -637,7 +637,7 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
           return (T) new EditRequestViewModel(singletonCImpl.editRequestRepositoryProvider.get());
 
           case 2: // com.moneymate.app.ui.viewmodel.LoanFileViewModel 
-          return (T) new LoanFileViewModel(singletonCImpl.loanFileRepositoryProvider.get(), singletonCImpl.personRepositoryProvider.get(), singletonCImpl.provideDefaultPersonRepositoryProvider.get());
+          return (T) new LoanFileViewModel(singletonCImpl.loanFileRepositoryProvider.get());
 
           case 3: // com.moneymate.app.ui.viewmodel.MigrationViewModel 
           return (T) new MigrationViewModel(singletonCImpl.appPreferencesProvider.get(), singletonCImpl.provideFirestorePathProvider.get());
@@ -751,13 +751,13 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
 
     private Provider<LoanFileRepository> loanFileRepositoryProvider;
 
-    private Provider<PersonRepository> personRepositoryProvider;
-
-    private Provider<DefaultPersonRepository> provideDefaultPersonRepositoryProvider;
-
     private Provider<FirestorePathProvider> provideFirestorePathProvider;
 
     private Provider<PaymentRepository> paymentRepositoryProvider;
+
+    private Provider<PersonRepository> personRepositoryProvider;
+
+    private Provider<DefaultPersonRepository> provideDefaultPersonRepositoryProvider;
 
     private SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
       this.applicationContextModule = applicationContextModuleParam;
@@ -773,6 +773,10 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
       return AppModule_ProvideFileDaoFactory.provideFileDao(provideDatabaseProvider.get());
     }
 
+    private PaymentDao paymentDao() {
+      return AppModule_ProvidePaymentDaoFactory.providePaymentDao(provideDatabaseProvider.get());
+    }
+
     private PersonDao personDao() {
       return AppModule_ProvidePersonDaoFactory.providePersonDao(provideDatabaseProvider.get());
     }
@@ -781,20 +785,16 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
       return AppModule_ProvideDefaultPersonDaoFactory.provideDefaultPersonDao(provideDatabaseProvider.get());
     }
 
-    private PaymentDao paymentDao() {
-      return AppModule_ProvidePaymentDaoFactory.providePaymentDao(provideDatabaseProvider.get());
-    }
-
     @SuppressWarnings("unchecked")
     private void initialize(final ApplicationContextModule applicationContextModuleParam) {
       this.appPreferencesProvider = DoubleCheck.provider(new SwitchingProvider<AppPreferences>(singletonCImpl, 0));
       this.provideDatabaseProvider = DoubleCheck.provider(new SwitchingProvider<AppDatabase>(singletonCImpl, 2));
       this.editRequestRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<EditRequestRepository>(singletonCImpl, 1));
       this.loanFileRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LoanFileRepository>(singletonCImpl, 3));
-      this.personRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PersonRepository>(singletonCImpl, 4));
-      this.provideDefaultPersonRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DefaultPersonRepository>(singletonCImpl, 5));
-      this.provideFirestorePathProvider = DoubleCheck.provider(new SwitchingProvider<FirestorePathProvider>(singletonCImpl, 6));
-      this.paymentRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PaymentRepository>(singletonCImpl, 7));
+      this.provideFirestorePathProvider = DoubleCheck.provider(new SwitchingProvider<FirestorePathProvider>(singletonCImpl, 4));
+      this.paymentRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PaymentRepository>(singletonCImpl, 5));
+      this.personRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PersonRepository>(singletonCImpl, 6));
+      this.provideDefaultPersonRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DefaultPersonRepository>(singletonCImpl, 7));
     }
 
     @Override
@@ -842,17 +842,17 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
           case 3: // com.moneymate.app.data.repository.LoanFileRepository 
           return (T) new LoanFileRepository(singletonCImpl.fileDao());
 
-          case 4: // com.moneymate.app.data.repository.PersonRepository 
-          return (T) new PersonRepository(singletonCImpl.personDao());
-
-          case 5: // com.moneymate.app.data.repository.DefaultPersonRepository 
-          return (T) AppModule_ProvideDefaultPersonRepositoryFactory.provideDefaultPersonRepository(singletonCImpl.defaultPersonDao());
-
-          case 6: // com.moneymate.app.utils.FirestorePathProvider 
+          case 4: // com.moneymate.app.utils.FirestorePathProvider 
           return (T) AppModule_ProvideFirestorePathProviderFactory.provideFirestorePathProvider(singletonCImpl.appPreferencesProvider.get());
 
-          case 7: // com.moneymate.app.data.repository.PaymentRepository 
+          case 5: // com.moneymate.app.data.repository.PaymentRepository 
           return (T) new PaymentRepository(singletonCImpl.paymentDao());
+
+          case 6: // com.moneymate.app.data.repository.PersonRepository 
+          return (T) new PersonRepository(singletonCImpl.personDao());
+
+          case 7: // com.moneymate.app.data.repository.DefaultPersonRepository 
+          return (T) AppModule_ProvideDefaultPersonRepositoryFactory.provideDefaultPersonRepository(singletonCImpl.defaultPersonDao());
 
           default: throw new AssertionError(id);
         }

@@ -37,17 +37,93 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fb06efd4-786f-470c-893b-138f47af15ff" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/InterestDialogs.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/9.3.1/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.3.1/fileHashes/fileHashes.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/AppDatabase.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/AppDatabase.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/dao/PersonDao.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/dao/PersonDao.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/entity/LoanFile.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/entity/LoanFile.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/entity/Person.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/data/local/entity/Person.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/Hilt_MainActivity.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/MainActivity_GeneratedInjector.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/MoneyMateApplication_GeneratedInjector.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/local/AppDatabase_Impl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/local/dao/DefaultPersonDao_Impl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/local/dao/EditRequestDao_Impl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/local/dao/FileDao_Impl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/local/dao/PaymentDao_Impl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/local/dao/PersonDao_Impl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/repository/DefaultPersonRepository_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/repository/EditRequestRepository_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/repository/LoanFileRepository_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/repository/PaymentRepository_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/data/repository/PersonRepository_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/di/AppModule_ProvideDatabaseFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/di/AppModule_ProvideDefaultPersonDaoFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/di/AppModule_ProvideDefaultPersonRepositoryFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/di/AppModule_ProvideEditRequestDaoFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/di/AppModule_ProvideFileDaoFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/di/AppModule_ProvideFirestorePathProviderFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/di/AppModule_ProvidePaymentDaoFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/di/AppModule_ProvidePersonDaoFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/AuthViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/AuthViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/AuthViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/EditRequestViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/EditRequestViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/EditRequestViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/LoanFileViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/LoanFileViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/LoanFileViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/MigrationViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/MigrationViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/MigrationViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/PaymentViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/PaymentViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/PaymentViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/PersonViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/PersonViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/PersonViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/RestoreViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/RestoreViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/RestoreViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/SettingsViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/SettingsViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/SettingsViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/TemplateViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/TemplateViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/TemplateViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/UpdateViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/UpdateViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/UpdateViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/UploadViewModel_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/UploadViewModel_HiltModules.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/ui/viewmodel/UploadViewModel_HiltModules_KeyModule_ProvideFactory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/utils/AppPreferences_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/com/moneymate/app/utils/FirestorePathProvider_Factory.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/dagger/hilt/internal/aggregatedroot/codegen/_com_moneymate_app_MoneyMateApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_MainActivity_GeneratedInjector.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_MoneyMateApplication_GeneratedInjector.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_di_AppModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_AuthViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_AuthViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_EditRequestViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_EditRequestViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_LoanFileViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_LoanFileViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_MigrationViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_MigrationViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_PaymentViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_PaymentViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_PersonViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_PersonViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_RestoreViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_RestoreViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_SettingsViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_SettingsViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_TemplateViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_TemplateViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_UpdateViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_UpdateViewModel_HiltModules_KeyModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_UploadViewModel_HiltModules_BindsModule.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build/generated/ksp/debug/java/hilt_aggregated_deps/_com_moneymate_app_ui_viewmodel_UploadViewModel_HiltModules_KeyModule.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/FileDetailScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/screens/FileDetailScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/LoanFileViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/LoanFileViewModel.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/PersonViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/moneymate/app/ui/viewmodel/PersonViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/reports/problems/problems-report.html" beforeDir="false" afterPath="$PROJECT_DIR$/build/reports/problems/problems-report.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

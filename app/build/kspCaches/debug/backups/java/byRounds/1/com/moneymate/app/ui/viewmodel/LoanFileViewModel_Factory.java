@@ -1,8 +1,6 @@
 package com.moneymate.app.ui.viewmodel;
 
-import com.moneymate.app.data.repository.DefaultPersonRepository;
 import com.moneymate.app.data.repository.LoanFileRepository;
-import com.moneymate.app.data.repository.PersonRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
@@ -27,31 +25,20 @@ import javax.inject.Provider;
 public final class LoanFileViewModel_Factory implements Factory<LoanFileViewModel> {
   private final Provider<LoanFileRepository> repositoryProvider;
 
-  private final Provider<PersonRepository> personRepositoryProvider;
-
-  private final Provider<DefaultPersonRepository> defaultPersonRepositoryProvider;
-
-  public LoanFileViewModel_Factory(Provider<LoanFileRepository> repositoryProvider,
-      Provider<PersonRepository> personRepositoryProvider,
-      Provider<DefaultPersonRepository> defaultPersonRepositoryProvider) {
+  public LoanFileViewModel_Factory(Provider<LoanFileRepository> repositoryProvider) {
     this.repositoryProvider = repositoryProvider;
-    this.personRepositoryProvider = personRepositoryProvider;
-    this.defaultPersonRepositoryProvider = defaultPersonRepositoryProvider;
   }
 
   @Override
   public LoanFileViewModel get() {
-    return newInstance(repositoryProvider.get(), personRepositoryProvider.get(), defaultPersonRepositoryProvider.get());
+    return newInstance(repositoryProvider.get());
   }
 
-  public static LoanFileViewModel_Factory create(Provider<LoanFileRepository> repositoryProvider,
-      Provider<PersonRepository> personRepositoryProvider,
-      Provider<DefaultPersonRepository> defaultPersonRepositoryProvider) {
-    return new LoanFileViewModel_Factory(repositoryProvider, personRepositoryProvider, defaultPersonRepositoryProvider);
+  public static LoanFileViewModel_Factory create(Provider<LoanFileRepository> repositoryProvider) {
+    return new LoanFileViewModel_Factory(repositoryProvider);
   }
 
-  public static LoanFileViewModel newInstance(LoanFileRepository repository,
-      PersonRepository personRepository, DefaultPersonRepository defaultPersonRepository) {
-    return new LoanFileViewModel(repository, personRepository, defaultPersonRepository);
+  public static LoanFileViewModel newInstance(LoanFileRepository repository) {
+    return new LoanFileViewModel(repository);
   }
 }

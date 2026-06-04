@@ -50,18 +50,18 @@ public final class AppDatabase_Impl extends AppDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(7) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(9) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
-        db.execSQL("CREATE TABLE IF NOT EXISTS `loan_files` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `deletedAt` INTEGER, `syncedToFirebase` INTEGER NOT NULL, `lastUploadedAt` INTEGER, PRIMARY KEY(`id`))");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `persons` (`id` TEXT NOT NULL, `fileId` TEXT NOT NULL, `name` TEXT NOT NULL, `place` TEXT, `mobileNumber` TEXT, `amountGiven` REAL NOT NULL, `mode` TEXT NOT NULL, `dateGiven` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `deletedAt` INTEGER, `uploadedAt` INTEGER, `editPermissionGranted` INTEGER NOT NULL, `editPermissionScope` TEXT NOT NULL, `recordType` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `completedAt` INTEGER, `linkedNewPersonId` TEXT, `isPendingNewLoan` INTEGER NOT NULL, `previousPersonId` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`fileId`) REFERENCES `loan_files`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `loan_files` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `deletedAt` INTEGER, `syncedToFirebase` INTEGER NOT NULL, `lastUploadedAt` INTEGER, `defaultInterestRate` REAL NOT NULL, `defaultCalculationMode` TEXT NOT NULL, PRIMARY KEY(`id`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `persons` (`id` TEXT NOT NULL, `fileId` TEXT NOT NULL, `name` TEXT NOT NULL, `place` TEXT, `mobileNumber` TEXT, `amountGiven` REAL NOT NULL, `mode` TEXT NOT NULL, `dateGiven` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `deletedAt` INTEGER, `uploadedAt` INTEGER, `editPermissionGranted` INTEGER NOT NULL, `editPermissionScope` TEXT NOT NULL, `recordType` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `completedAt` INTEGER, `linkedNewPersonId` TEXT, `isPendingNewLoan` INTEGER NOT NULL, `previousPersonId` TEXT, `interestRate` REAL NOT NULL, `interestAmount` REAL NOT NULL, `totalRepayment` REAL NOT NULL, `loanType` TEXT NOT NULL, `numberOfInstallments` INTEGER NOT NULL, `perInstallmentAmount` REAL NOT NULL, `isDurationBased` INTEGER NOT NULL, `durationDays` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`fileId`) REFERENCES `loan_files`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_persons_fileId` ON `persons` (`fileId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `payments` (`id` TEXT NOT NULL, `personId` TEXT NOT NULL, `amount` REAL NOT NULL, `mode` TEXT NOT NULL, `date` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `deletedAt` INTEGER, `isRollover` INTEGER NOT NULL, `uploadedAt` INTEGER, `editPermissionGranted` INTEGER NOT NULL, `editPermissionScope` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`personId`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_payments_personId` ON `payments` (`personId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `edit_requests` (`id` TEXT NOT NULL, `recordId` TEXT NOT NULL, `recordType` TEXT NOT NULL, `requestedAt` INTEGER NOT NULL, `status` TEXT NOT NULL, `resolvedAt` INTEGER, `scope` TEXT NOT NULL, `firestoreRequestId` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `default_persons` (`id` TEXT NOT NULL, `nlrKey` TEXT NOT NULL, `name` TEXT NOT NULL, `place` TEXT, `mobileNumber` TEXT, `amountGiven` REAL NOT NULL, `mode` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, `recordType` TEXT NOT NULL, `isSeeded` INTEGER NOT NULL, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '61f6b9a0b3bbba31ff88e666d4935fba')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f7e1e8542fac159b5130de6e50e3de44')");
       }
 
       @Override
@@ -115,7 +115,7 @@ public final class AppDatabase_Impl extends AppDatabase {
       @NonNull
       public RoomOpenHelper.ValidationResult onValidateSchema(
           @NonNull final SupportSQLiteDatabase db) {
-        final HashMap<String, TableInfo.Column> _columnsLoanFiles = new HashMap<String, TableInfo.Column>(8);
+        final HashMap<String, TableInfo.Column> _columnsLoanFiles = new HashMap<String, TableInfo.Column>(10);
         _columnsLoanFiles.put("id", new TableInfo.Column("id", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsLoanFiles.put("name", new TableInfo.Column("name", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsLoanFiles.put("createdAt", new TableInfo.Column("createdAt", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -124,6 +124,8 @@ public final class AppDatabase_Impl extends AppDatabase {
         _columnsLoanFiles.put("deletedAt", new TableInfo.Column("deletedAt", "INTEGER", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsLoanFiles.put("syncedToFirebase", new TableInfo.Column("syncedToFirebase", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsLoanFiles.put("lastUploadedAt", new TableInfo.Column("lastUploadedAt", "INTEGER", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsLoanFiles.put("defaultInterestRate", new TableInfo.Column("defaultInterestRate", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsLoanFiles.put("defaultCalculationMode", new TableInfo.Column("defaultCalculationMode", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysLoanFiles = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesLoanFiles = new HashSet<TableInfo.Index>(0);
         final TableInfo _infoLoanFiles = new TableInfo("loan_files", _columnsLoanFiles, _foreignKeysLoanFiles, _indicesLoanFiles);
@@ -133,7 +135,7 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoLoanFiles + "\n"
                   + " Found:\n" + _existingLoanFiles);
         }
-        final HashMap<String, TableInfo.Column> _columnsPersons = new HashMap<String, TableInfo.Column>(20);
+        final HashMap<String, TableInfo.Column> _columnsPersons = new HashMap<String, TableInfo.Column>(28);
         _columnsPersons.put("id", new TableInfo.Column("id", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsPersons.put("fileId", new TableInfo.Column("fileId", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsPersons.put("name", new TableInfo.Column("name", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -154,6 +156,14 @@ public final class AppDatabase_Impl extends AppDatabase {
         _columnsPersons.put("linkedNewPersonId", new TableInfo.Column("linkedNewPersonId", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsPersons.put("isPendingNewLoan", new TableInfo.Column("isPendingNewLoan", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsPersons.put("previousPersonId", new TableInfo.Column("previousPersonId", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsPersons.put("interestRate", new TableInfo.Column("interestRate", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsPersons.put("interestAmount", new TableInfo.Column("interestAmount", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsPersons.put("totalRepayment", new TableInfo.Column("totalRepayment", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsPersons.put("loanType", new TableInfo.Column("loanType", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsPersons.put("numberOfInstallments", new TableInfo.Column("numberOfInstallments", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsPersons.put("perInstallmentAmount", new TableInfo.Column("perInstallmentAmount", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsPersons.put("isDurationBased", new TableInfo.Column("isDurationBased", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsPersons.put("durationDays", new TableInfo.Column("durationDays", "INTEGER", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysPersons = new HashSet<TableInfo.ForeignKey>(1);
         _foreignKeysPersons.add(new TableInfo.ForeignKey("loan_files", "CASCADE", "NO ACTION", Arrays.asList("fileId"), Arrays.asList("id")));
         final HashSet<TableInfo.Index> _indicesPersons = new HashSet<TableInfo.Index>(1);
@@ -228,7 +238,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "61f6b9a0b3bbba31ff88e666d4935fba", "2f835c292a2b8dcd8a16338aeb3bf546");
+    }, "f7e1e8542fac159b5130de6e50e3de44", "d4815c935f8036ed584b085a2e9fd013");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

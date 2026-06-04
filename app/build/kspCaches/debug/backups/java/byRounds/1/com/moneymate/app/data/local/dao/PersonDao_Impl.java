@@ -21,6 +21,7 @@ import java.lang.Class;
 import java.lang.Double;
 import java.lang.Exception;
 import java.lang.IllegalArgumentException;
+import java.lang.Integer;
 import java.lang.Long;
 import java.lang.Object;
 import java.lang.Override;
@@ -72,7 +73,15 @@ public final class PersonDao_Impl implements PersonDao {
 
   private final SharedSQLiteStatement __preparedStmtOfMarkAsCompleted;
 
+  private final SharedSQLiteStatement __preparedStmtOfUpdateAmountAndDate;
+
   private final SharedSQLiteStatement __preparedStmtOfActivatePendingNewLoan;
+
+  private final SharedSQLiteStatement __preparedStmtOfDeleteZeroCloneByNameAndFile;
+
+  private final SharedSQLiteStatement __preparedStmtOfRemoveDuplicatePendingClones;
+
+  private final SharedSQLiteStatement __preparedStmtOfUpdateInterestFields;
 
   public PersonDao_Impl(@NonNull final RoomDatabase __db) {
     this.__db = __db;
@@ -80,7 +89,7 @@ public final class PersonDao_Impl implements PersonDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `persons` (`id`,`fileId`,`name`,`place`,`mobileNumber`,`amountGiven`,`mode`,`dateGiven`,`sortOrder`,`isDeleted`,`deletedAt`,`uploadedAt`,`editPermissionGranted`,`editPermissionScope`,`recordType`,`isCompleted`,`completedAt`,`linkedNewPersonId`,`isPendingNewLoan`,`previousPersonId`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        return "INSERT OR REPLACE INTO `persons` (`id`,`fileId`,`name`,`place`,`mobileNumber`,`amountGiven`,`mode`,`dateGiven`,`sortOrder`,`isDeleted`,`deletedAt`,`uploadedAt`,`editPermissionGranted`,`editPermissionScope`,`recordType`,`isCompleted`,`completedAt`,`linkedNewPersonId`,`isPendingNewLoan`,`previousPersonId`,`interestRate`,`interestAmount`,`totalRepayment`,`loanType`,`numberOfInstallments`,`perInstallmentAmount`,`isDurationBased`,`durationDays`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -137,6 +146,19 @@ public final class PersonDao_Impl implements PersonDao {
           statement.bindNull(20);
         } else {
           statement.bindString(20, entity.getPreviousPersonId());
+        }
+        statement.bindDouble(21, entity.getInterestRate());
+        statement.bindDouble(22, entity.getInterestAmount());
+        statement.bindDouble(23, entity.getTotalRepayment());
+        statement.bindString(24, entity.getLoanType());
+        statement.bindLong(25, entity.getNumberOfInstallments());
+        statement.bindDouble(26, entity.getPerInstallmentAmount());
+        final int _tmp_4 = entity.isDurationBased() ? 1 : 0;
+        statement.bindLong(27, _tmp_4);
+        if (entity.getDurationDays() == null) {
+          statement.bindNull(28);
+        } else {
+          statement.bindLong(28, entity.getDurationDays());
         }
       }
     };
@@ -144,7 +166,7 @@ public final class PersonDao_Impl implements PersonDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "UPDATE OR ABORT `persons` SET `id` = ?,`fileId` = ?,`name` = ?,`place` = ?,`mobileNumber` = ?,`amountGiven` = ?,`mode` = ?,`dateGiven` = ?,`sortOrder` = ?,`isDeleted` = ?,`deletedAt` = ?,`uploadedAt` = ?,`editPermissionGranted` = ?,`editPermissionScope` = ?,`recordType` = ?,`isCompleted` = ?,`completedAt` = ?,`linkedNewPersonId` = ?,`isPendingNewLoan` = ?,`previousPersonId` = ? WHERE `id` = ?";
+        return "UPDATE OR ABORT `persons` SET `id` = ?,`fileId` = ?,`name` = ?,`place` = ?,`mobileNumber` = ?,`amountGiven` = ?,`mode` = ?,`dateGiven` = ?,`sortOrder` = ?,`isDeleted` = ?,`deletedAt` = ?,`uploadedAt` = ?,`editPermissionGranted` = ?,`editPermissionScope` = ?,`recordType` = ?,`isCompleted` = ?,`completedAt` = ?,`linkedNewPersonId` = ?,`isPendingNewLoan` = ?,`previousPersonId` = ?,`interestRate` = ?,`interestAmount` = ?,`totalRepayment` = ?,`loanType` = ?,`numberOfInstallments` = ?,`perInstallmentAmount` = ?,`isDurationBased` = ?,`durationDays` = ? WHERE `id` = ?";
       }
 
       @Override
@@ -202,7 +224,20 @@ public final class PersonDao_Impl implements PersonDao {
         } else {
           statement.bindString(20, entity.getPreviousPersonId());
         }
-        statement.bindString(21, entity.getId());
+        statement.bindDouble(21, entity.getInterestRate());
+        statement.bindDouble(22, entity.getInterestAmount());
+        statement.bindDouble(23, entity.getTotalRepayment());
+        statement.bindString(24, entity.getLoanType());
+        statement.bindLong(25, entity.getNumberOfInstallments());
+        statement.bindDouble(26, entity.getPerInstallmentAmount());
+        final int _tmp_4 = entity.isDurationBased() ? 1 : 0;
+        statement.bindLong(27, _tmp_4);
+        if (entity.getDurationDays() == null) {
+          statement.bindNull(28);
+        } else {
+          statement.bindLong(28, entity.getDurationDays());
+        }
+        statement.bindString(29, entity.getId());
       }
     };
     this.__preparedStmtOfUpdateMobileNumber = new SharedSQLiteStatement(__db) {
@@ -317,11 +352,67 @@ public final class PersonDao_Impl implements PersonDao {
         return _query;
       }
     };
+    this.__preparedStmtOfUpdateAmountAndDate = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "UPDATE persons SET amountGiven = ?, dateGiven = ? WHERE id = ?";
+        return _query;
+      }
+    };
     this.__preparedStmtOfActivatePendingNewLoan = new SharedSQLiteStatement(__db) {
       @Override
       @NonNull
       public String createQuery() {
         final String _query = "UPDATE persons SET isPendingNewLoan = 0, amountGiven = ?, dateGiven = ? WHERE id = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfDeleteZeroCloneByNameAndFile = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "DELETE FROM persons WHERE name = ? AND fileId = ? AND amountGiven = 0.0 AND isCompleted = 0 AND isPendingNewLoan = 1";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfRemoveDuplicatePendingClones = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "\n"
+                + "        DELETE FROM persons\n"
+                + "        WHERE isPendingNewLoan = 1\n"
+                + "          AND isCompleted = 0\n"
+                + "          AND isDeleted = 0\n"
+                + "          AND id NOT IN (\n"
+                + "              SELECT MAX(id)\n"
+                + "              FROM persons\n"
+                + "              WHERE isPendingNewLoan = 1\n"
+                + "                AND isCompleted = 0\n"
+                + "                AND isDeleted = 0\n"
+                + "              GROUP BY name, fileId\n"
+                + "          )\n"
+                + "    ";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfUpdateInterestFields = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "\n"
+                + "        UPDATE persons SET\n"
+                + "            interestRate         = ?,\n"
+                + "            interestAmount       = ?,\n"
+                + "            totalRepayment       = ?,\n"
+                + "            loanType             = ?,\n"
+                + "            numberOfInstallments = ?,\n"
+                + "            perInstallmentAmount = ?,\n"
+                + "            isDurationBased      = ?,\n"
+                + "            durationDays         = ?\n"
+                + "        WHERE id = ?\n"
+                + "    ";
         return _query;
       }
     };
@@ -759,6 +850,36 @@ public final class PersonDao_Impl implements PersonDao {
   }
 
   @Override
+  public Object updateAmountAndDate(final String id, final double amount, final long dateGiven,
+      final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdateAmountAndDate.acquire();
+        int _argIndex = 1;
+        _stmt.bindDouble(_argIndex, amount);
+        _argIndex = 2;
+        _stmt.bindLong(_argIndex, dateGiven);
+        _argIndex = 3;
+        _stmt.bindString(_argIndex, id);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfUpdateAmountAndDate.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
   public Object activatePendingNewLoan(final String id, final double amount, final long dateGiven,
       final Continuation<? super Unit> $completion) {
     return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
@@ -783,6 +904,107 @@ public final class PersonDao_Impl implements PersonDao {
           }
         } finally {
           __preparedStmtOfActivatePendingNewLoan.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object deleteZeroCloneByNameAndFile(final String name, final String fileId,
+      final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteZeroCloneByNameAndFile.acquire();
+        int _argIndex = 1;
+        _stmt.bindString(_argIndex, name);
+        _argIndex = 2;
+        _stmt.bindString(_argIndex, fileId);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfDeleteZeroCloneByNameAndFile.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object removeDuplicatePendingClones(final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfRemoveDuplicatePendingClones.acquire();
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfRemoveDuplicatePendingClones.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object updateInterestFields(final String id, final double interestRate,
+      final double interestAmount, final double totalRepayment, final String loanType,
+      final int numberOfInstallments, final double perInstallmentAmount,
+      final boolean isDurationBased, final Integer durationDays,
+      final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdateInterestFields.acquire();
+        int _argIndex = 1;
+        _stmt.bindDouble(_argIndex, interestRate);
+        _argIndex = 2;
+        _stmt.bindDouble(_argIndex, interestAmount);
+        _argIndex = 3;
+        _stmt.bindDouble(_argIndex, totalRepayment);
+        _argIndex = 4;
+        _stmt.bindString(_argIndex, loanType);
+        _argIndex = 5;
+        _stmt.bindLong(_argIndex, numberOfInstallments);
+        _argIndex = 6;
+        _stmt.bindDouble(_argIndex, perInstallmentAmount);
+        _argIndex = 7;
+        final int _tmp = isDurationBased ? 1 : 0;
+        _stmt.bindLong(_argIndex, _tmp);
+        _argIndex = 8;
+        if (durationDays == null) {
+          _stmt.bindNull(_argIndex);
+        } else {
+          _stmt.bindLong(_argIndex, durationDays);
+        }
+        _argIndex = 9;
+        _stmt.bindString(_argIndex, id);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfUpdateInterestFields.release(_stmt);
         }
       }
     }, $completion);
@@ -820,6 +1042,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -899,7 +1129,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -947,6 +1199,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -1026,7 +1286,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -1074,6 +1356,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -1153,7 +1443,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -1203,6 +1515,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -1282,7 +1602,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -1326,6 +1668,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -1405,7 +1755,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -1454,6 +1826,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final Person _result;
           if (_cursor.moveToFirst()) {
             final String _tmpId;
@@ -1532,7 +1912,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _result = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _result = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
           } else {
             _result = null;
           }
@@ -1577,6 +1979,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -1656,7 +2066,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -1704,6 +2136,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -1783,7 +2223,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -1835,6 +2297,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -1914,7 +2384,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -1964,6 +2456,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -2043,7 +2543,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -2114,6 +2636,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -2193,7 +2723,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -2239,6 +2791,14 @@ public final class PersonDao_Impl implements PersonDao {
           final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
           final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
           final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
           final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final Person _item;
@@ -2318,7 +2878,29 @@ public final class PersonDao_Impl implements PersonDao {
             } else {
               _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
             }
-            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId);
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
             _result.add(_item);
           }
           return _result;
@@ -2429,6 +3011,88 @@ public final class PersonDao_Impl implements PersonDao {
             _result = _tmp;
           } else {
             _result = null;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object countPendingClones(final String name, final String fileId,
+      final Continuation<? super Integer> $completion) {
+    final String _sql = "\n"
+            + "        SELECT COUNT(*) FROM persons\n"
+            + "        WHERE name = ?\n"
+            + "          AND fileId = ?\n"
+            + "          AND amountGiven = 0.0\n"
+            + "          AND isCompleted = 0\n"
+            + "          AND isPendingNewLoan = 1\n"
+            + "          AND isDeleted = 0\n"
+            + "    ";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 2);
+    int _argIndex = 1;
+    _statement.bindString(_argIndex, name);
+    _argIndex = 2;
+    _statement.bindString(_argIndex, fileId);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<Integer>() {
+      @Override
+      @NonNull
+      public Integer call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final Integer _result;
+          if (_cursor.moveToFirst()) {
+            final int _tmp;
+            _tmp = _cursor.getInt(0);
+            _result = _tmp;
+          } else {
+            _result = 0;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object countZeroActiveCards(final String name, final String fileId,
+      final Continuation<? super Integer> $completion) {
+    final String _sql = "\n"
+            + "        SELECT COUNT(*) FROM persons\n"
+            + "        WHERE name = ?\n"
+            + "          AND fileId = ?\n"
+            + "          AND amountGiven = 0.0\n"
+            + "          AND isCompleted = 0\n"
+            + "          AND isPendingNewLoan = 0\n"
+            + "          AND isDeleted = 0\n"
+            + "    ";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 2);
+    int _argIndex = 1;
+    _statement.bindString(_argIndex, name);
+    _argIndex = 2;
+    _statement.bindString(_argIndex, fileId);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<Integer>() {
+      @Override
+      @NonNull
+      public Integer call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final Integer _result;
+          if (_cursor.moveToFirst()) {
+            final int _tmp;
+            _tmp = _cursor.getInt(0);
+            _result = _tmp;
+          } else {
+            _result = 0;
           }
           return _result;
         } finally {

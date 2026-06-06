@@ -177,6 +177,14 @@ class PersonViewModel @Inject constructor(
     }
 
     /**
+     * BUG 2 FIX: Deletes the white ₹0 placeholder for a person after a new loan
+     * is created from the completed card tap flow, preventing duplicate active cards.
+     */
+    fun deleteZeroPlaceholderByNameAndFile(name: String, fileId: String) = viewModelScope.launch {
+        repository.deleteZeroCloneByNameAndFile(name, fileId)
+    }
+
+    /**
      * Remove any duplicate pending-new-loan pink cards.
      */
     fun removeDuplicatePendingClones() = viewModelScope.launch {

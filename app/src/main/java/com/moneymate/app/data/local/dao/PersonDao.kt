@@ -81,7 +81,7 @@ interface PersonDao {
     @Query("SELECT name FROM persons WHERE fileId = :fileId AND isDeleted = 0")
     suspend fun findAllNamesInFile(fileId: String): List<String>
 
-    @Query("SELECT * FROM persons WHERE isDeleted = 1 ORDER BY deletedAt DESC")
+    @Query("SELECT * FROM persons WHERE isDeleted = 1 AND isPendingNewLoan = 0 ORDER BY deletedAt DESC")
     fun getDeletedPersons(): Flow<List<Person>>
 
     @Query("DELETE FROM persons WHERE isDeleted = 1 AND deletedAt < :cutoff")

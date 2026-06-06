@@ -2841,7 +2841,7 @@ public final class PersonDao_Impl implements PersonDao {
 
   @Override
   public Flow<List<Person>> getDeletedPersons() {
-    final String _sql = "SELECT * FROM persons WHERE isDeleted = 1 ORDER BY deletedAt DESC";
+    final String _sql = "SELECT * FROM persons WHERE isDeleted = 1 AND isPendingNewLoan = 0 ORDER BY deletedAt DESC";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     return CoroutinesRoom.createFlow(__db, false, new String[] {"persons"}, new Callable<List<Person>>() {
       @Override

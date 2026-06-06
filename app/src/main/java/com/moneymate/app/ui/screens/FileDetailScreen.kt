@@ -1249,45 +1249,12 @@ fun FileDetailScreen(
             }
         }
 
-        // ── Fix 2: Dustbin overlay (shown on completed-person long press) ────────
-        if (showDustbin) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.15f))
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp)
-                    .onGloballyPositioned { coords ->
-                        dustbinPosition = coords.positionInWindow()
-                    }
-                    .scale(dustbinScale)
-                    .background(
-                        if (isOverDustbin) MaterialTheme.colorScheme.errorContainer
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = CircleShape
-                    )
-                    .padding(20.dp)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Drop to delete",
-                    tint = if (isOverDustbin) MaterialTheme.colorScheme.onErrorContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-            Text(
-                "Drop here to delete",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp)
-            )
-        }
+        // The completed-person drag-to-delete dustbin is now rendered inside the
+        // ModalBottomSheet (see showCompletedDialog block) so it appears in the
+        // correct window layer. The outer dustbin overlay below is kept only for
+        // any other future use; the completed-section state variables below are unused.
 
-        // ── Fix 2: Floating drag ghost ──────────────────────────────────────────
+        // ── Floating drag ghost ──────────────────────────────────────────────────
         if (draggingCompletedPerson != null) {
             Box(
                 modifier = Modifier
@@ -1338,6 +1305,9 @@ fun FileDetailScreen(
 
 // ── Fix 2/3: Completed persons bottom sheet with drag-to-delete ───────────
     if (showCompletedDialog) {
+        // BUG 2: state for "start new loan" flow triggered by tapping a completed card
+        var completedPersonForNewLoan by remember { mutableStateOf<Person?>(null) }
+
         ModalBottomSheet(
             onDismissRequest = { showCompletedDialog = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1347,140 +1317,235 @@ fun FileDetailScreen(
                     comp.id to filePaymentsAll.filter { it.personId == comp.id }
                 }
             }
-            Column(Modifier.fillMaxWidth()) {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 8.dp, bottom = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // BUG 4 FIX: Dustbin state lives inside the bottom sheet so it renders
+            // in the same window layer as the completed cards, not behind the scrim.
+            var sheetDraggingPerson   by remember { mutableStateOf<Person?>(null) }
+            var sheetDragOffset       by remember { mutableStateOf(Offset.Zero) }
+            var sheetShowDustbin      by remember { mutableStateOf(false) }
+            var sheetDustbinPosition  by remember { mutableStateOf(Offset.Zero) }
+            var sheetIsOverDustbin    by remember { mutableStateOf(false) }
+            var sheetConfirmDelete    by remember { mutableStateOf<Person?>(null) }
+            val sheetDustbinScale by animateFloatAsState(
+                targetValue = if (sheetShowDustbin) (if (sheetIsOverDustbin) 1.3f else 1f) else 0f,
+                animationSpec = tween(200), label = "sheetDustbinScale"
+            )
+
+            Box(Modifier.fillMaxWidth().fillMaxHeight(0.92f)) {
+                Column(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 8.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Completed (${completedPersons.size})",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = { showCompletedDialog = false }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close")
+                            }
+                        }
                         Text(
-                            "Completed (${completedPersons.size})",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
+                            "Tap a card to start a new loan  •  Long press to drag-delete  •  Auto-purges after 180 days",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        IconButton(onClick = { showCompletedDialog = false }) {
-                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        HorizontalDivider(Modifier.padding(top = 8.dp))
+                    }
+                    val completedGroupFmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+                    val completedByDate: List<Pair<String, List<Person>>> = remember(completedPersons) {
+                        val cal = Calendar.getInstance()
+                        val map = linkedMapOf<String, MutableList<Person>>()
+                        completedPersons.forEach { comp ->
+                            cal.timeInMillis = comp.completedAt ?: comp.dateGiven
+                            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
+                            cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+                            val label = completedGroupFmt.format(cal.time)
+                            map.getOrPut(label) { mutableListOf() }.add(comp)
                         }
+                        map.entries.map { (label, persons) -> label to persons }
                     }
-                    Text(
-                        "Long press a card to drag and drop onto the bin to delete  •  Auto-purges after 180 days",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    HorizontalDivider(Modifier.padding(top = 8.dp))
-                }
-                // ── Fix 7: Group completed persons by completion date (newest first) ──
-                val completedGroupFmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
-                // Build an ordered list of (dateLabel, List<Person>) pairs.
-                // completedPersons is already sorted completedAt DESC from the DAO,
-                // so we preserve that order while grouping by calendar day.
-                val completedByDate: List<Pair<String, List<Person>>> = remember(completedPersons) {
-                    val cal = Calendar.getInstance()
-                    // Group preserving existing DESC order — LinkedHashMap keeps insertion order.
-                    val map = linkedMapOf<String, MutableList<Person>>()
-                    completedPersons.forEach { comp ->
-                        cal.timeInMillis = comp.completedAt ?: comp.dateGiven
-                        cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
-                        cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
-                        val label = completedGroupFmt.format(cal.time)
-                        map.getOrPut(label) { mutableListOf() }.add(comp)
-                    }
-                    map.entries.map { (label, persons) -> label to persons }
-                }
-
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.85f),
-                    contentPadding = PaddingValues(bottom = 16.dp)
-                ) {
-                    completedByDate.forEach { (dateLabel, personsOnDate) ->
-                        // ── Date header ───────────────────────────────────────
-                        stickyHeader(key = "header_$dateLabel") {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Text(
-                                    text = dateLabel,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                                )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f),
+                        contentPadding = PaddingValues(bottom = 80.dp)
+                    ) {
+                        completedByDate.forEach { (dateLabel, personsOnDate) ->
+                            stickyHeader(key = "header_$dateLabel") {
+                                Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                    Text(text = dateLabel, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                }
                             }
-                        }
-                        // ── Cards under this date ─────────────────────────────
-                        itemsIndexed(personsOnDate, key = { _, c -> c.id }) { _, comp ->
-                            val compPayments = completedPaymentsMap[comp.id] ?: emptyList()
-                            val daysLeft = 180 - ((System.currentTimeMillis() - (comp.completedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
-                            Box(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
-                                DraggableCompletedPersonCard(
-                                    person = comp,
-                                    daysLeft = daysLeft,
-                                    dateFormat = dateFormat,
-                                    payments = compPayments,
-                                    onDragStarted = {
-                                        draggingCompletedPerson = comp
-                                        showDustbin = true
-                                    },
-                                    onDragMoved = { offset ->
-                                        dragOffset = offset
-                                        val dustbinCenterX = dustbinPosition.x + 38f
-                                        val dustbinCenterY = dustbinPosition.y + 38f
-                                        isOverDustbin = (offset.x - dustbinCenterX).let { dx ->
-                                            (offset.y - dustbinCenterY).let { dy ->
-                                                dx * dx + dy * dy < 100f * 100f
+                            itemsIndexed(personsOnDate, key = { _, c -> c.id }) { _, comp ->
+                                val compPayments = completedPaymentsMap[comp.id] ?: emptyList()
+                                // BUG 1 FIX: Compute actual balance = totalRepayment - totalPaid.
+                                // For a fully repaid loan this is ≤0; show ₹0 for completed.
+                                val compTotalRepayment = if (comp.totalRepayment > 0) comp.totalRepayment else comp.amountGiven
+                                val compTotalPaid = compPayments.filter { !it.isDeleted }.sumOf { it.amount }
+                                val compBalance = (compTotalRepayment - compTotalPaid).coerceAtLeast(0.0)
+                                val daysLeft = 180 - ((System.currentTimeMillis() - (comp.completedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
+                                Box(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
+                                    DraggableCompletedPersonCard(
+                                        person = comp,
+                                        balance = compBalance,
+                                        daysLeft = daysLeft,
+                                        dateFormat = dateFormat,
+                                        payments = compPayments,
+                                        onTap = {
+                                            // BUG 2: Tapping opens new loan flow
+                                            completedPersonForNewLoan = comp
+                                        },
+                                        onDragStarted = {
+                                            sheetDraggingPerson = comp
+                                            sheetShowDustbin = true
+                                        },
+                                        onDragMoved = { offset ->
+                                            sheetDragOffset = offset
+                                            val cx = sheetDustbinPosition.x + 38f
+                                            val cy = sheetDustbinPosition.y + 38f
+                                            sheetIsOverDustbin = (offset.x - cx).let { dx ->
+                                                (offset.y - cy).let { dy -> dx * dx + dy * dy < 100f * 100f }
                                             }
+                                        },
+                                        onDragEnded = {
+                                            if (sheetIsOverDustbin && sheetDraggingPerson != null) {
+                                                sheetConfirmDelete = sheetDraggingPerson
+                                            }
+                                            sheetDraggingPerson = null
+                                            sheetDragOffset = Offset.Zero
+                                            sheetShowDustbin = false
+                                            sheetIsOverDustbin = false
                                         }
-                                    },
-                                    onDragEnded = {
-                                        if (isOverDustbin && draggingCompletedPerson != null) {
-                                            completedPersonToConfirmDelete = draggingCompletedPerson
-                                        }
-                                        draggingCompletedPerson = null
-                                        dragOffset = Offset.Zero
-                                        showDustbin = false
-                                        isOverDustbin = false
-                                    }
-                                )
+                                    )
+                                }
                             }
                         }
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
+                }
+
+                // BUG 4 FIX: Dustbin overlay inside the bottom sheet's own Box
+                if (sheetShowDustbin) {
+                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.15f)))
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 24.dp)
+                            .onGloballyPositioned { coords -> sheetDustbinPosition = coords.positionInWindow() }
+                            .scale(sheetDustbinScale)
+                            .background(
+                                if (sheetIsOverDustbin) MaterialTheme.colorScheme.errorContainer
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = CircleShape
+                            )
+                            .padding(20.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Drop to delete",
+                            tint = if (sheetIsOverDustbin) MaterialTheme.colorScheme.onErrorContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(36.dp))
+                    }
+                    Text("Drop here to delete", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp))
+                }
+
+                // Ghost card during drag
+                if (sheetDraggingPerson != null) {
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(sheetDragOffset.x.roundToInt() - 80, sheetDragOffset.y.roundToInt() - 40) }
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(sheetDraggingPerson!!.name, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
                 }
             }
-        }
-    }
 
-// ── Fix 2: Confirmation dialog after drag-drop onto dustbin ──────────────
-    completedPersonToConfirmDelete?.let { comp ->
-        AlertDialog(
-            onDismissRequest = { completedPersonToConfirmDelete = null },
-            title = { Text("Delete ${comp.name}?") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("This will move ${comp.name} to Recently Deleted.", style = MaterialTheme.typography.bodyMedium)
-                    Text("They can be restored within 180 days.", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    personViewModel.softDeleteCompletedPerson(comp.id)
-                    completedPersonToConfirmDelete = null
-                    if (completedPersons.size <= 1) showCompletedDialog = false
-                }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = { TextButton(onClick = { completedPersonToConfirmDelete = null }) { Text("Cancel") } }
-        )
+            // Confirm delete dialog inside sheet
+            sheetConfirmDelete?.let { comp ->
+                AlertDialog(
+                    onDismissRequest = { sheetConfirmDelete = null },
+                    title = { Text("Delete ${comp.name}?") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("This will move ${comp.name} to Recently Deleted.", style = MaterialTheme.typography.bodyMedium)
+                            Text("They can be restored within 180 days.", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            personViewModel.softDeleteCompletedPerson(comp.id)
+                            sheetConfirmDelete = null
+                            if (completedPersons.size <= 1) showCompletedDialog = false
+                        }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = { TextButton(onClick = { sheetConfirmDelete = null }) { Text("Cancel") } }
+                )
+            }
+        }
+
+        // BUG 2 FIX: New loan dialog for a completed person
+        completedPersonForNewLoan?.let { completedPerson ->
+            val defaultRate = file?.defaultInterestRate ?: 25.0
+            val defaultMode = file?.defaultCalculationMode ?: CalculationMode.FLAT
+            LoanAmountInterestDialog(
+                fileDefaultRate = defaultRate,
+                fileDefaultMode = defaultMode,
+                initialAmount   = "",
+                onConfirm = { result ->
+                    // BUG 2 & 3: Create a brand-new active Person record for this person.
+                    // The old completed record is preserved untouched in Room.
+                    // The new record gets a fresh UUID, amountGiven = new principal,
+                    // totalRepayment = principal + interest so the card shows the correct total.
+                    val newPerson = completedPerson.copy(
+                        id                    = java.util.UUID.randomUUID().toString(),
+                        amountGiven           = result.principal,
+                        interestRate         = result.interestRate,
+                        interestType         = result.interestType,
+                        interestAmount       = result.interestAmount,
+                        totalRepayment       = result.totalRepayment,
+                        loanType             = result.loanType,
+                        numberOfInstallments = result.numberOfInstallments,
+                        perInstallmentAmount = result.perInstallmentAmount,
+                        isDurationBased      = result.isDurationBased,
+                        durationDays         = result.durationDays,
+                        dateGiven            = System.currentTimeMillis(),
+                        isCompleted          = false,
+                        completedAt          = null,
+                        linkedNewPersonId    = null,
+                        isPendingNewLoan     = false,
+                        previousPersonId     = completedPerson.id,
+                        isDeleted            = false,
+                        deletedAt            = null,
+                        uploadedAt           = null,
+                        sortOrder            = persons.size,
+                        editPermissionGranted = false,
+                        editPermissionScope  = com.moneymate.app.data.local.entity.EditPermissionScope.NONE
+                    )
+                    coroutineScope.launch {
+                        personViewModel.insertPerson(newPerson)
+                        // Delete the white ₹0 placeholder for this person if one exists,
+                        // since we just created a real active record.
+                        personViewModel.deleteZeroPlaceholderByNameAndFile(completedPerson.name, fileId)
+                    }
+                    completedPersonForNewLoan = null
+                    showCompletedDialog = false
+                },
+                onDismiss = { completedPersonForNewLoan = null }
+            )
+        }
     }
 
 // ── Zero-amount active entry: prompt for loan amount ──────────────────────
@@ -2207,25 +2272,53 @@ fun FileDetailScreen(
         }
         val dayEnd = dayStart + 86_399_999L
 
-        // ── FIX: Build a map from completed-person ID → active/placeholder person ID
-        // so we can attribute completed-person payments to their active counterpart row.
-        //
-        // A completed person has a `linkedNewPersonId` pointing to the pending-new-loan
-        // placeholder. We collect those pairs so that when we sum received amounts for an
-        // active row we also include payments recorded under the old completed ID.
-        //
-        // We deliberately do NOT add completed persons as separate rows.
-        val completedIdToActiveId: Map<String, String> = remember(completedPersons, pendingNewLoanPersons) {
-            // pending-new-loan placeholder has previousPersonId = completed person's id
+        // ── FIX BUG 5 & original: Build a map from ANY completed-person ID → the
+        // current active row ID, following the full previousPersonId chain so ALL
+        // past loan cycles for a person are attributed to their current active row.
+        // This ensures View by Date shows payments from every historical cycle.
+        val completedIdToActiveId: Map<String, String> = remember(completedPersons, pendingNewLoanPersons, persons) {
             val result = mutableMapOf<String, String>()
+            // Build a reverse-link map: completedId → newPersonId, following chains.
+            // First pass: direct links from pending-new-loan placeholder
             pendingNewLoanPersons.forEach { placeholder ->
                 val prevId = placeholder.previousPersonId
                 if (prevId != null) result[prevId] = placeholder.id
             }
-            // Also map via completedPerson.linkedNewPersonId for the reverse direction
+            // Second pass: direct links from completedPerson.linkedNewPersonId
             completedPersons.forEach { comp ->
                 val linkedId = comp.linkedNewPersonId
                 if (linkedId != null && !result.containsKey(comp.id)) result[comp.id] = linkedId
+            }
+            // Third pass: also link from completedPerson.previousPersonId chain,
+            // so grandparent completed records point to the ultimate current active row.
+            // Build a forward-chain: follow result[id] until we reach an active person.
+            val allPersonIds = (persons + pendingNewLoanPersons).map { it.id }.toSet()
+            fun resolveToActive(id: String, depth: Int = 0): String? {
+                if (depth > 20) return null // guard against infinite loops
+                if (id in allPersonIds) return id
+                val next = result[id] ?: return null
+                return resolveToActive(next, depth + 1)
+            }
+            // For each completed person not already mapped, try to resolve via previousPersonId chain
+            completedPersons.forEach { comp ->
+                if (!result.containsKey(comp.id)) {
+                    // Try to find the terminal active person by walking previousPersonId in completed persons
+                    val activeId = resolveToActive(comp.id)
+                    if (activeId != null) result[comp.id] = activeId
+                }
+            }
+            // Also ensure all completedPersons that are ancestors of other completedPersons
+            // (multi-cycle) point to the ultimate current active row.
+            val completedById = completedPersons.associateBy { it.id }
+            completedPersons.forEach { comp ->
+                val linked = comp.linkedNewPersonId
+                if (linked != null) {
+                    // Walk the chain: linked → linked's linked → ... → active
+                    val terminal = resolveToActive(linked)
+                    if (terminal != null && terminal != linked) {
+                        result[comp.id] = terminal
+                    }
+                }
             }
             result
         }
@@ -2743,9 +2836,11 @@ fun FileDetailScreen(
 @Composable
 fun DraggableCompletedPersonCard(
     person: Person,
+    balance: Double,                  // BUG 1 FIX: computed balance (should be ≤0 when fully paid)
     daysLeft: Int,
     dateFormat: SimpleDateFormat,
     payments: List<Payment>,
+    onTap: () -> Unit,                // BUG 2 FIX: tap opens new loan flow
     onDragStarted: () -> Unit,
     onDragMoved: (Offset) -> Unit,
     onDragEnded: () -> Unit
@@ -2759,11 +2854,6 @@ fun DraggableCompletedPersonCard(
             .onGloballyPositioned { coords ->
                 cardPosition = coords.positionInWindow()
             }
-            // detectDragGesturesAfterLongPress MUST come before clickable in the
-            // modifier chain. Compose resolves pointer events in declaration order —
-            // whichever pointerInput is listed first gets priority. The original bug
-            // was combinedClickable appearing first: it consumed the long-press so
-            // detectDragGesturesAfterLongPress never saw it and drag never started.
             .pointerInput(Unit) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
@@ -2778,8 +2868,6 @@ fun DraggableCompletedPersonCard(
                     onDragCancel = { onDragEnded() }
                 )
             }
-            // Plain clickable (no onLongClick) handles expand/collapse.
-            // Long press is fully owned by the pointerInput above.
             .clickable { expanded = !expanded },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
@@ -2795,25 +2883,42 @@ fun DraggableCompletedPersonCard(
                         Text(person.mobileNumber!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(2.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("₹${person.amountGiven} fully repaid",
+                        // BUG 1 FIX: Show principal + computed balance (₹0 when fully paid)
+                        Text("₹${person.amountGiven} given",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium)
+                        Text(if (balance <= 0.0) "✓ Balance: ₹0" else "Balance: ₹$balance",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (balance <= 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Medium)
                         Text(if (daysLeft > 0) "$daysLeft days left" else "expires soon",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (daysLeft <= 5) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    // BUG 2: Hint that tapping starts a new loan
+                    Text("Tap to start new loan",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                 }
-                Text(
-                    "Hold & drag to delete",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-                Icon(
-                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    null, tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Hold & drag\nto delete",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(28.dp)) {
+                        Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    // BUG 2: Explicit "New Loan" button
+                    TextButton(
+                        onClick = onTap,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("New Loan", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
@@ -2848,7 +2953,7 @@ fun DraggableCompletedPersonCard(
                     Spacer(Modifier.height(4.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total Paid", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text("₹${payments.sumOf { it.amount }}", style = MaterialTheme.typography.labelMedium,
+                        Text("₹${payments.filter { !it.isDeleted }.sumOf { it.amount }}", style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }

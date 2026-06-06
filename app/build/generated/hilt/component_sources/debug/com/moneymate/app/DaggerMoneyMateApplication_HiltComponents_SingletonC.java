@@ -433,63 +433,63 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
     private static final class LazyClassKeyProvider {
       static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_EditRequestViewModel = "com.moneymate.app.ui.viewmodel.EditRequestViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_FileInsightsViewModel = "com.moneymate.app.ui.viewmodel.FileInsightsViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_RestoreViewModel = "com.moneymate.app.ui.viewmodel.RestoreViewModel";
+      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
 
       static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
+      static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_RestoreViewModel = "com.moneymate.app.ui.viewmodel.RestoreViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_PaymentViewModel = "com.moneymate.app.ui.viewmodel.PaymentViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_EditRequestViewModel = "com.moneymate.app.ui.viewmodel.EditRequestViewModel";
 
       static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
+      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_PaymentViewModel = "com.moneymate.app.ui.viewmodel.PaymentViewModel";
+      static String com_moneymate_app_ui_viewmodel_FileInsightsViewModel = "com.moneymate.app.ui.viewmodel.FileInsightsViewModel";
 
       @KeepFieldType
       AuthViewModel com_moneymate_app_ui_viewmodel_AuthViewModel2;
 
       @KeepFieldType
-      EditRequestViewModel com_moneymate_app_ui_viewmodel_EditRequestViewModel2;
-
-      @KeepFieldType
-      TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
-
-      @KeepFieldType
-      FileInsightsViewModel com_moneymate_app_ui_viewmodel_FileInsightsViewModel2;
-
-      @KeepFieldType
-      UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
-
-      @KeepFieldType
-      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
-
-      @KeepFieldType
-      RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
+      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
 
       @KeepFieldType
       MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
 
       @KeepFieldType
-      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
+      PersonViewModel com_moneymate_app_ui_viewmodel_PersonViewModel2;
+
+      @KeepFieldType
+      RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
+
+      @KeepFieldType
+      PaymentViewModel com_moneymate_app_ui_viewmodel_PaymentViewModel2;
+
+      @KeepFieldType
+      TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
+
+      @KeepFieldType
+      UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
+
+      @KeepFieldType
+      EditRequestViewModel com_moneymate_app_ui_viewmodel_EditRequestViewModel2;
 
       @KeepFieldType
       LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
 
       @KeepFieldType
-      PersonViewModel com_moneymate_app_ui_viewmodel_PersonViewModel2;
+      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
 
       @KeepFieldType
-      PaymentViewModel com_moneymate_app_ui_viewmodel_PaymentViewModel2;
+      FileInsightsViewModel com_moneymate_app_ui_viewmodel_FileInsightsViewModel2;
     }
   }
 
@@ -563,56 +563,47 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
+      static String com_moneymate_app_ui_viewmodel_EditRequestViewModel = "com.moneymate.app.ui.viewmodel.EditRequestViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
 
       static String com_moneymate_app_ui_viewmodel_FileInsightsViewModel = "com.moneymate.app.ui.viewmodel.FileInsightsViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
-
       static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
+      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_EditRequestViewModel = "com.moneymate.app.ui.viewmodel.EditRequestViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
+      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
 
       static String com_moneymate_app_ui_viewmodel_PaymentViewModel = "com.moneymate.app.ui.viewmodel.PaymentViewModel";
 
       static String com_moneymate_app_ui_viewmodel_RestoreViewModel = "com.moneymate.app.ui.viewmodel.RestoreViewModel";
 
+      static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
+
       static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
 
-      @KeepFieldType
-      UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
+      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
 
-      @KeepFieldType
-      FileInsightsViewModel com_moneymate_app_ui_viewmodel_FileInsightsViewModel2;
-
-      @KeepFieldType
-      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
-
-      @KeepFieldType
-      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
-
-      @KeepFieldType
-      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
+      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
 
       @KeepFieldType
       EditRequestViewModel com_moneymate_app_ui_viewmodel_EditRequestViewModel2;
 
       @KeepFieldType
-      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
-
-      @KeepFieldType
-      PersonViewModel com_moneymate_app_ui_viewmodel_PersonViewModel2;
-
-      @KeepFieldType
       AuthViewModel com_moneymate_app_ui_viewmodel_AuthViewModel2;
+
+      @KeepFieldType
+      FileInsightsViewModel com_moneymate_app_ui_viewmodel_FileInsightsViewModel2;
+
+      @KeepFieldType
+      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
+
+      @KeepFieldType
+      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
+
+      @KeepFieldType
+      UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
 
       @KeepFieldType
       PaymentViewModel com_moneymate_app_ui_viewmodel_PaymentViewModel2;
@@ -621,7 +612,16 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
       RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
 
       @KeepFieldType
+      PersonViewModel com_moneymate_app_ui_viewmodel_PersonViewModel2;
+
+      @KeepFieldType
       TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
+
+      @KeepFieldType
+      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
+
+      @KeepFieldType
+      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
     }
 
     private static final class SwitchingProvider<T> implements Provider<T> {

@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.moneymate.app.ui.screens.CollectionScreen
 import com.moneymate.app.ui.screens.FileDetailScreen
 import com.moneymate.app.ui.screens.HomeScreen
 import com.moneymate.app.ui.screens.PersonDetailScreen
@@ -25,6 +26,7 @@ sealed class Screen(val route: String) {
         fun createRoute(personId: String) = "person_detail/$personId"
     }
     object Trash : Screen("trash")
+    object Collection : Screen("collection")
     object EditRequests : Screen("edit_requests")
     object Settings : Screen("settings")
 }
@@ -60,6 +62,9 @@ fun NavGraph(
         ) { backStack ->
             val personId = backStack.arguments?.getString("personId") ?: return@composable
             PersonDetailScreen(navController, personId)
+        }
+        composable(Screen.Collection.route) {
+            CollectionScreen(navController = navController)
         }
         composable(Screen.Trash.route) {
             TrashScreen(navController, settingsViewModel = settingsViewModel)

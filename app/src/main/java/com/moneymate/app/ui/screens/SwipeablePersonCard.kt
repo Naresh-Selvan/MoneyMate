@@ -32,7 +32,7 @@ fun SwipeablePersonCard(
     onCallNow: () -> Unit = {},
     onQuickPayment: (amount: Double, mode: PaymentMode) -> Unit
 ) {
-    PersonCard(
+    OverduePersonCard(
         person = person,
         serialNumber = serialNumber,
         totalPaid = totalPaid,

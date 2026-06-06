@@ -53,6 +53,10 @@ import com.moneymate.app.data.local.entity.Payment
 import com.moneymate.app.data.local.entity.PaymentMode
 import com.moneymate.app.data.local.entity.Person
 import com.moneymate.app.navigation.Screen
+import com.moneymate.app.ui.theme.OverdueHighRed
+import com.moneymate.app.ui.theme.OverdueLowOrange
+import com.moneymate.app.ui.theme.OverdueMediumOrangeRed
+import com.moneymate.app.utils.EmiScheduleEngine
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel
 import com.moneymate.app.ui.viewmodel.PaymentViewModel
 import com.moneymate.app.ui.viewmodel.PersonViewModel
@@ -586,7 +590,7 @@ fun FileDetailScreen(
         return null
     }
 
-    fun doInsertPerson(person: Person, afterSortOrder: Int?) {
+    fun doInsertPerson(    person: Person, afterSortOrder: Int?) {
         coroutineScope.launch {
             if (afterSortOrder != null) {
                 personViewModel.shiftSortOrdersAfterSync(fileId, afterSortOrder)

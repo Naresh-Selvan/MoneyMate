@@ -96,4 +96,21 @@ interface PaymentDao {
         WHERE pr.fileId = :fileId AND p.isDeleted = 0 AND pr.isDeleted = 0
     """)
     fun getPaymentsForFileIncludingCompleted(fileId: String): Flow<List<Payment>>
+
+    // ── Insights queries ───────────────────────────────────────────────────────
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0) FROM payments p
+        INNER JOIN persons pr ON p.personId = pr.id
+        WHERE pr.fileId = :fileId AND p.isDeleted = 0 AND pr.isDeleted = 0
+          AND p.date >= :startOfDay AND p.date < :endOfDay
+    """)
+    suspend fun getTotalReceivedToday(fileId: String, startOfDay: Long, endOfDay: Long): Double
+
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0) FROM payments p
+        INNER JOIN persons pr ON p.personId = pr.id
+        WHERE pr.fileId = :fileId AND p.isDeleted = 0 AND pr.isDeleted = 0
+          AND p.date >= :weekStart AND p.date < :weekEnd
+    """)
+    suspend fun getTotalReceivedThisWeek(fileId: String, weekStart: Long, weekEnd: Long): Double
 }

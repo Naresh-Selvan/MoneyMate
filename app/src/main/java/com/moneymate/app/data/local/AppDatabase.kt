@@ -15,7 +15,7 @@ import com.moneymate.app.data.local.entity.*
         EditRequest::class,
         DefaultPerson::class   // Table kept in schema; all rows purged by migration 7→8
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -78,6 +78,21 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "ALTER TABLE persons ADD COLUMN durationDays INTEGER"
+                )
+            }
+        }
+
+        /**
+         * Migration 9 → 10
+         * Adds interestType column to persons table.
+         *
+         * persons:
+         *   interestType TEXT NOT NULL DEFAULT 'PERCENTAGE'
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE persons ADD COLUMN interestType TEXT NOT NULL DEFAULT 'PERCENTAGE'"
                 )
             }
         }

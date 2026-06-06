@@ -3,6 +3,7 @@ package com.moneymate.app;
 import com.moneymate.app.di.AppModule;
 import com.moneymate.app.ui.viewmodel.AuthViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.EditRequestViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.FileInsightsViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.MigrationViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.PaymentViewModel_HiltModules;
@@ -165,6 +166,7 @@ public final class MoneyMateApplication_HiltComponents {
       modules = {
           AuthViewModel_HiltModules.KeyModule.class,
           EditRequestViewModel_HiltModules.KeyModule.class,
+          FileInsightsViewModel_HiltModules.KeyModule.class,
           HiltWrapper_ActivityRetainedComponentManager_LifecycleModule.class,
           HiltWrapper_SavedStateHandleModule.class,
           LoanFileViewModel_HiltModules.KeyModule.class,
@@ -215,6 +217,7 @@ public final class MoneyMateApplication_HiltComponents {
       modules = {
           AuthViewModel_HiltModules.BindsModule.class,
           EditRequestViewModel_HiltModules.BindsModule.class,
+          FileInsightsViewModel_HiltModules.BindsModule.class,
           HiltWrapper_HiltViewModelFactory_ViewModelModule.class,
           LoanFileViewModel_HiltModules.BindsModule.class,
           MigrationViewModel_HiltModules.BindsModule.class,

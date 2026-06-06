@@ -213,6 +213,7 @@ fun FileInterestSettingsDialog(
 data class InterestInputResult(
     val principal: Double,
     val interestRate: Double,
+    val interestType: String = "PERCENTAGE",
     val interestAmount: Double,
     val totalRepayment: Double,
     val loanType: String,
@@ -234,6 +235,8 @@ fun LoanAmountInterestDialog(
     var rateText      by remember { mutableStateOf(
         fileDefaultRate.toBigDecimal().stripTrailingZeros().toPlainString()
     ) }
+    var interestType  by remember { mutableStateOf("PERCENTAGE") } // "PERCENTAGE" or "FIXED_AMOUNT"
+    var fixedInterestText by remember { mutableStateOf("") }
     var loanType      by remember { mutableStateOf("MONTHLY") }
     var installText   by remember { mutableStateOf(defaultInstallmentsForType("MONTHLY").toString()) }
     var showAdvanced  by remember { mutableStateOf(false) }
@@ -243,15 +246,19 @@ fun LoanAmountInterestDialog(
     // ── Live calculations ────────────────────────────────────────────────────
     val principal     by remember { derivedStateOf { amountText.toDoubleOrNull() ?: 0.0 } }
     val rate          by remember { derivedStateOf { rateText.toDoubleOrNull() ?: 0.0 } }
+    val fixedInterestVal by remember { derivedStateOf { fixedInterestText.toDoubleOrNull() ?: 0.0 } }
     val installments  by remember { derivedStateOf { installText.toIntOrNull()?.coerceAtLeast(1) ?: 1 } }
     val durationDays  by remember { derivedStateOf { durationText.toIntOrNull()?.coerceAtLeast(1) } }
 
     val interestAmount by remember {
         derivedStateOf {
-            if (durationBased && durationDays != null)
+            if (interestType == "FIXED_AMOUNT") {
+                fixedInterestVal
+            } else if (durationBased && durationDays != null) {
                 calcDurationInterest(principal, rate, durationDays!!)
-            else
+            } else {
                 calcFlatInterest(principal, rate)
+            }
         }
     }
     val totalRepayment     by remember { derivedStateOf { principal + interestAmount } }
@@ -286,16 +293,46 @@ fun LoanAmountInterestDialog(
                     leadingIcon = { Text("₹", style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(start = 8.dp)) }
                 )
-                OutlinedTextField(
-                    value = rateText,
-                    onValueChange = { rateText = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Interest Rate (%)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    trailingIcon = { Text("%", style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(end = 8.dp)) }
-                )
+
+                // ── Interest type toggle ──────────────────────────────────────
+                Text("Interest Type", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = interestType == "PERCENTAGE",
+                        onClick  = { interestType = "PERCENTAGE" },
+                        label    = { Text("Flat Rate (%)") }
+                    )
+                    FilterChip(
+                        selected = interestType == "FIXED_AMOUNT",
+                        onClick  = { interestType = "FIXED_AMOUNT" },
+                        label    = { Text("Custom Fixed Amount") }
+                    )
+                }
+
+                if (interestType == "PERCENTAGE") {
+                    OutlinedTextField(
+                        value = rateText,
+                        onValueChange = { rateText = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Interest Rate (%)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        trailingIcon = { Text("%", style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(end = 8.dp)) }
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = fixedInterestText,
+                        onValueChange = { fixedInterestText = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Fixed Interest Amount (₹)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        leadingIcon = { Text("₹", style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 8.dp)) }
+                    )
+                }
 
                 // ── Live summary card ────────────────────────────────────────
                 if (principal > 0.0) {
@@ -433,6 +470,7 @@ fun LoanAmountInterestDialog(
                         InterestInputResult(
                             principal            = p,
                             interestRate         = rate,
+                            interestType         = interestType,
                             interestAmount       = interestAmount,
                             totalRepayment       = totalRepayment,
                             loanType             = loanType,

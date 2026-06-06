@@ -30,6 +30,8 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.moneymate.app.ui.viewmodel.AuthViewModel
+import com.moneymate.app.ui.viewmodel.FileInsightsViewModel
+import com.moneymate.app.ui.viewmodel.LoanFileViewModel
 import com.moneymate.app.ui.viewmodel.RestoreState
 import com.moneymate.app.ui.viewmodel.RestoreViewModel
 import com.moneymate.app.ui.viewmodel.SettingsViewModel
@@ -364,6 +366,148 @@ fun SettingsScreen(
                                     }
                                 }, modifier = Modifier.fillMaxWidth()) { Text("Change Admin PIN") }
                             }
+                        }
+                    }
+                }
+            }
+
+            // ── File Insights ────────────────────────────────────────────────────
+            item {
+                Text("File Insights", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(4.dp))
+                val loanFileViewModel: LoanFileViewModel = hiltViewModel()
+                val allFiles by loanFileViewModel.allFiles.collectAsState()
+                val fileInsightsVM: FileInsightsViewModel = hiltViewModel()
+                val insightsData by fileInsightsVM.insights.collectAsState()
+                val isLoading by fileInsightsVM.isLoading.collectAsState()
+                var selectedFileId by remember { mutableStateOf<String?>(null) }
+
+                // Load insights for selected file
+                LaunchedEffect(selectedFileId) {
+                    selectedFileId?.let { fileInsightsVM.loadInsights(it) }
+                }
+
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Analytics, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(16.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("File-wise Data Insights", fontWeight = FontWeight.Medium)
+                                Text("Select a file to see today's, weekly, and all-time data",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        // File selector
+                        var fileDropdownExp by remember { mutableStateOf(false) }
+                        val selFile = allFiles.find { it.id == selectedFileId }
+                        ExposedDropdownMenuBox(
+                            expanded = fileDropdownExp,
+                            onExpandedChange = { fileDropdownExp = it }
+                        ) {
+                            OutlinedTextField(
+                                value = selFile?.name ?: "",
+                                onValueChange = {},
+                                readOnly = true,
+                                placeholder = { Text("Choose a file…") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fileDropdownExp) },
+                                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                singleLine = true
+                            )
+                            ExposedDropdownMenu(
+                                expanded = fileDropdownExp,
+                                onDismissRequest = { fileDropdownExp = false }
+                            ) {
+                                allFiles.filter { !it.isDeleted }.forEach { file ->
+                                    DropdownMenuItem(
+                                        text = { Text(file.name) },
+                                        onClick = {
+                                            selectedFileId = file.id
+                                            fileDropdownExp = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isLoading) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+
+                        if (selectedFileId != null && !isLoading) {
+                            val d = insightsData
+                            // Today's Data
+                            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("Today", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Given", style = MaterialTheme.typography.bodySmall)
+                                        Text("₹${d.todayGiven}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Received", style = MaterialTheme.typography.bodySmall)
+                                        Text("₹${d.todayReceived}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Net", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                        Text("₹${d.todayNet}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
+                                            color = if (d.todayNet >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            // This Week
+                            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("This Week", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Given", style = MaterialTheme.typography.bodySmall)
+                                        Text("₹${d.weekGiven}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Received", style = MaterialTheme.typography.bodySmall)
+                                        Text("₹${d.weekReceived}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Net", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                        Text("₹${d.weekNet}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
+                                            color = if (d.weekNet >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            // All-Time Totals
+                            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("All-Time Totals", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Total Given", style = MaterialTheme.typography.bodySmall)
+                                        Text("₹${d.allTimeGiven}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Total Received", style = MaterialTheme.typography.bodySmall)
+                                        Text("₹${d.allTimeReceived}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Outstanding", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                        Text("₹${d.outstanding}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
+                                            color = if (d.outstanding > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                                    }
+                                    HorizontalDivider()
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Active Loans", style = MaterialTheme.typography.bodySmall)
+                                        Text("${d.activeLoanCount}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Completed Loans", style = MaterialTheme.typography.bodySmall)
+                                        Text("${d.completedLoanCount}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        } else if (selectedFileId != null) {
+                            Text("Select a file above to view insights.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

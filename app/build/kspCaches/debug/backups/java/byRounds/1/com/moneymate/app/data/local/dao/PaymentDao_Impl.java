@@ -1224,6 +1224,86 @@ public final class PaymentDao_Impl implements PaymentDao {
     });
   }
 
+  @Override
+  public Object getTotalReceivedToday(final String fileId, final long startOfDay,
+      final long endOfDay, final Continuation<? super Double> $completion) {
+    final String _sql = "\n"
+            + "        SELECT COALESCE(SUM(p.amount), 0) FROM payments p\n"
+            + "        INNER JOIN persons pr ON p.personId = pr.id\n"
+            + "        WHERE pr.fileId = ? AND p.isDeleted = 0 AND pr.isDeleted = 0\n"
+            + "          AND p.date >= ? AND p.date < ?\n"
+            + "    ";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 3);
+    int _argIndex = 1;
+    _statement.bindString(_argIndex, fileId);
+    _argIndex = 2;
+    _statement.bindLong(_argIndex, startOfDay);
+    _argIndex = 3;
+    _statement.bindLong(_argIndex, endOfDay);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<Double>() {
+      @Override
+      @NonNull
+      public Double call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final Double _result;
+          if (_cursor.moveToFirst()) {
+            final double _tmp;
+            _tmp = _cursor.getDouble(0);
+            _result = _tmp;
+          } else {
+            _result = 0.0;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object getTotalReceivedThisWeek(final String fileId, final long weekStart,
+      final long weekEnd, final Continuation<? super Double> $completion) {
+    final String _sql = "\n"
+            + "        SELECT COALESCE(SUM(p.amount), 0) FROM payments p\n"
+            + "        INNER JOIN persons pr ON p.personId = pr.id\n"
+            + "        WHERE pr.fileId = ? AND p.isDeleted = 0 AND pr.isDeleted = 0\n"
+            + "          AND p.date >= ? AND p.date < ?\n"
+            + "    ";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 3);
+    int _argIndex = 1;
+    _statement.bindString(_argIndex, fileId);
+    _argIndex = 2;
+    _statement.bindLong(_argIndex, weekStart);
+    _argIndex = 3;
+    _statement.bindLong(_argIndex, weekEnd);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<Double>() {
+      @Override
+      @NonNull
+      public Double call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final Double _result;
+          if (_cursor.moveToFirst()) {
+            final double _tmp;
+            _tmp = _cursor.getDouble(0);
+            _result = _tmp;
+          } else {
+            _result = 0.0;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
   @NonNull
   public static List<Class<?>> getRequiredConverters() {
     return Collections.emptyList();

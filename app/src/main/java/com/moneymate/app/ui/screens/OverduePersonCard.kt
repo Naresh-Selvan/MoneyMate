@@ -151,10 +151,19 @@ fun OverduePersonCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))
-                        Text("₹${person.amountGiven}", fontWeight = FontWeight.Medium,
+                        // BUG 7: Show totalRepayment as the card amount (principal + interest)
+                        val displayAmount = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
+                        Text("₹$displayAmount", fontWeight = FontWeight.Medium,
                             style = MaterialTheme.typography.bodyLarge,
                             color = if (isBorrowing) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.primary)
+                        if (person.totalRepayment > person.amountGiven) {
+                            Text(
+                                "Principal: ₹${person.amountGiven} | Interest: ₹${person.interestAmount}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
                         PersonInterestInfo(
                             interestRate         = person.interestRate,
                             totalRepayment       = person.totalRepayment,

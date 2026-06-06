@@ -49,8 +49,17 @@ class PersonRepository @Inject constructor(
     suspend fun shiftSortOrdersAfter(fileId: String, afterSortOrder: Int) =
         personDao.shiftSortOrdersAfter(fileId, afterSortOrder)
 
+    /** BUG 6 FIX: Closes the gap left by a person being moved by decrementing all
+     * sortOrders strictly above [currentSortOrder]. */
+    suspend fun shiftSortOrdersDown(fileId: String, currentSortOrder: Int) =
+        personDao.shiftSortOrdersDown(fileId, currentSortOrder)
+
     suspend fun getPersonById(id: String): Person? =
         personDao.getPersonById(id)
+
+    /** Reactive variant — emits updates whenever the person row changes. */
+    fun getPersonByIdFlow(id: String): kotlinx.coroutines.flow.Flow<Person?> =
+        personDao.getPersonByIdFlow(id)
 
     suspend fun insertPerson(person: Person) =
         personDao.insertPerson(person)
@@ -185,6 +194,19 @@ class PersonRepository @Inject constructor(
      */
     suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String) =
         personDao.deleteZeroCloneByNameAndFile(name, fileId)
+
+    // ── Insights ───────────────────────────────────────────────────────────────
+    suspend fun getTotalGivenToday(fileId: String, startOfDay: Long, endOfDay: Long): Double =
+        personDao.getTotalGivenToday(fileId, startOfDay, endOfDay) ?: 0.0
+
+    suspend fun getActiveLoanCount(fileId: String): Int =
+        personDao.getActiveLoanCount(fileId)
+
+    suspend fun getCompletedLoanCount(fileId: String): Int =
+        personDao.getCompletedLoanCount(fileId)
+
+    suspend fun getTotalOutstanding(fileId: String): Double =
+        personDao.getTotalOutstanding(fileId)
 
     /** Remove any duplicate pending-new-loan pink cards, keeping only one per person. */
     suspend fun removeDuplicatePendingClones() =

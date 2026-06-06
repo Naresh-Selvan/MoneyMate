@@ -52,9 +52,9 @@ fun PersonDetailScreen(
     LaunchedEffect(personId) { paymentViewModel.loadPaymentsForPerson(personId) }
 
     val payments by paymentViewModel.payments.collectAsState()
-    val person   by produceState<com.moneymate.app.data.local.entity.Person?>(null, personId) {
-        value = personViewModel.getPersonById(personId)
-    }
+    // BUG 5 FIX: Use a reactive Flow so the person card updates immediately after
+    // any edit (amount, interest, etc.) without requiring screen re-navigation.
+    val person by personViewModel.getPersonByIdFlow(personId).collectAsState(initial = null)
 
     val isBorrowing = person?.recordType == LoanType.BORROWING
     val defaultPaymentDate: Long = remember { System.currentTimeMillis() }
@@ -77,7 +77,10 @@ fun PersonDetailScreen(
     val totalPaidCash = payments.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount }
     val totalPaidUpi  = payments.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amount }
     val amountGiven   = person?.amountGiven ?: 0.0
-    val balance       = amountGiven - totalPaid
+    val totalRepayment = person?.totalRepayment ?: amountGiven
+    // BUG 2: Given = principal only
+    // BUG 3: Pending = totalRepayment - totalPaid (principal + interest minus what's been paid)
+    val balance       = totalRepayment - totalPaid
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -145,9 +148,23 @@ fun PersonDetailScreen(
                             Spacer(Modifier.height(12.dp))
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            // BUG 2: Given shows principal only
                             LocalSummaryItem(if (isBorrowing) "Borrowed" else "Given", "₹$amountGiven")
+                            // BUG 3: Pending shows totalRepayment - paid
                             LocalSummaryItem(if (isBorrowing) "Paid Back" else "Received", "₹$totalPaid")
                             LocalSummaryItem("Pending", "₹$balance")
+                        }
+                        // Show interest info if applicable
+                        person?.let { p ->
+                            if (p.totalRepayment > p.amountGiven) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Total with interest: ₹${p.totalRepayment} (Principal ₹${p.amountGiven} + Interest ₹${p.interestAmount})",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+                            }
                         }
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {

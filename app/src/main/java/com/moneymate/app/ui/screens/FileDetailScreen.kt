@@ -424,11 +424,11 @@ fun FileDetailScreen(
         paymentTypeFilter, upiReceivedPersonIds, cashReceivedPersonIds, searchQuery, filePayments,
         paidByPerson
     ) {
-        // Include: not completed AND (amountGiven == 0.0 = white new-loan card, OR balance > 0 = active debt)
-        // NOTE: amountGiven == 0.0 cards MUST NOT be filtered out — they are the white active
-        // cards that appear after a person completes a loan and awaits a new loan entry.
+        // BUG 7 FIX: Use totalRepayment (principal + interest) for the active-balance check.
+        // amountGiven == 0.0 cards (white new-loan placeholder) must never be filtered out.
         var list = persons.filter { person ->
-            val balance = person.amountGiven - (paidByPerson[person.id] ?: 0.0)
+            val effectiveTotal = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
+            val balance = effectiveTotal - (paidByPerson[person.id] ?: 0.0)
             !person.isCompleted && (person.amountGiven == 0.0 || balance > 0.0)
         }
         weekDateRange?.let { (s, e) ->
@@ -469,6 +469,7 @@ fun FileDetailScreen(
 
     // Totals
     val allPersons   = remember(filteredPersons, completedPersons) { filteredPersons + completedPersons }
+    // BUG 2: "Given" = principal only (amountGiven), not totalRepayment
     val allGiven     = remember(allPersons) { allPersons.sumOf { it.amountGiven } }
     val allCashGiven = remember(allPersons) { allPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
     val allUpiGiven  = remember(allPersons) { allPersons.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amountGiven } }
@@ -477,6 +478,7 @@ fun FileDetailScreen(
     val allRecUpi    = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
     val allBalance   = allGiven - allReceived
 
+    // BUG 2: "Given" = principal only (amountGiven)
     val pageGiven     = remember(pagePersons) { pagePersons.sumOf { it.amountGiven } }
     val pageCashGiven = remember(pagePersons) { pagePersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
     val pageUpiGiven  = remember(pagePersons) { pagePersons.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amountGiven } }
@@ -1186,7 +1188,9 @@ fun FileDetailScreen(
                                             val elevation  = if (isDragging) 8.dp else 2.dp
                                             val isSelected = person.id in selectedIds
                                             val paid       = paidByPerson[person.id] ?: 0.0
-                                            val pending    = person.amountGiven - paid
+                                            // BUG 7: Pending = totalRepayment - paid (principal + interest minus payments)
+                                            val effectiveTotal = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
+                                            val pending    = effectiveTotal - paid
                                             SwipeablePersonCard(
                                                 person = person, serialNumber = serial,
                                                 totalPaid = paid, pending = pending,
@@ -1711,6 +1715,10 @@ fun FileDetailScreen(
     }
 
 // Edit Person dialog
+    // BUG 1 FIX: Track pending edit person for the interest dialog, mirroring add flow.
+    var pendingEditForInterest  by remember { mutableStateOf<Person?>(null) }
+    var showEditInterestDialog  by remember { mutableStateOf(false) }
+
     personToEdit?.let { orig ->
         var editName   by remember { mutableStateOf(orig.name) }
         var editPlace  by remember { mutableStateOf(orig.place ?: "") }
@@ -1736,6 +1744,25 @@ fun FileDetailScreen(
             val name = editMoveAfterName.trim()
             if (name.isNotBlank()) return persons.firstOrNull { it.name.equals(name, ignoreCase = true) }?.sortOrder
             return null
+        }
+
+        // BUG 6 FIX: Proper move-after logic.
+        // Before shifting positions after the target slot, we first compact the gap
+        // left by the person being moved by decrementing all sortOrders above its
+        // current position. This prevents duplicate sort-order collisions.
+        fun doMoveAfter(updatedPerson: Person, afterSortOrder: Int) {
+            coroutineScope.launch {
+                // 1. Remove person from current position: shift everything above it down by 1
+                personViewModel.shiftSortOrdersDown(fileId, updatedPerson.sortOrder)
+                // 2. After compaction the target slot may have shifted down by 1 if it was
+                //    above the original position — recalculate
+                val adjustedAfter = if (afterSortOrder > updatedPerson.sortOrder)
+                    afterSortOrder - 1 else afterSortOrder
+                // 3. Open a slot at adjustedAfter + 1 by shifting everything above up by 1
+                personViewModel.shiftSortOrdersAfterSync(fileId, adjustedAfter)
+                // 4. Place the person in the newly opened slot
+                personViewModel.updatePerson(updatedPerson.copy(sortOrder = adjustedAfter + 1))
+            }
         }
 
         AlertDialog(
@@ -1769,6 +1796,61 @@ fun FileDetailScreen(
                         Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(dateFormat.format(Date(editDate)))
+                    }
+                    // BUG 1 FIX / FEATURE 2: Show current interest summary and offer to edit
+                    if (orig.interestRate > 0 || orig.totalRepayment > orig.amountGiven) {
+                        HorizontalDivider()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Interest", style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "Rate: ${orig.interestRate}% • Total: ₹${orig.totalRepayment}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            TextButton(onClick = {
+                                val amt = editAmount.toDoubleOrNull()
+                                if (editName.isNotBlank() && amt != null) {
+                                    // Stage the basic edits so the interest dialog can show correct principal
+                                    pendingEditForInterest = orig.copy(
+                                        name = editName.trim(),
+                                        place = editPlace.trim().ifEmpty { null },
+                                        mobileNumber = editMobile.trim().ifEmpty { null },
+                                        amountGiven = amt, mode = editMode,
+                                        dateGiven = editDate, recordType = editType
+                                    )
+                                    showEditInterestDialog = true
+                                }
+                            }) { Text("Edit Interest") }
+                        }
+                    } else {
+                        HorizontalDivider()
+                        OutlinedButton(
+                            onClick = {
+                                val amt = editAmount.toDoubleOrNull()
+                                if (editName.isNotBlank() && amt != null) {
+                                    pendingEditForInterest = orig.copy(
+                                        name = editName.trim(),
+                                        place = editPlace.trim().ifEmpty { null },
+                                        mobileNumber = editMobile.trim().ifEmpty { null },
+                                        amountGiven = amt, mode = editMode,
+                                        dateGiven = editDate, recordType = editType
+                                    )
+                                    showEditInterestDialog = true
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Percent, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add Interest")
+                        }
                     }
                     HorizontalDivider()
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1810,19 +1892,33 @@ fun FileDetailScreen(
                 TextButton(onClick = {
                     val amt = editAmount.toDoubleOrNull()
                     if (editName.isNotBlank() && amt != null) {
+                        // BUG 1 FIX: Recalculate interest when amount changes.
+                        // If interest was set previously, recompute interestAmount and totalRepayment
+                        // based on the new principal to keep them consistent.
+                        val newInterestAmount = when {
+                            orig.interestType == "FIXED_AMOUNT" -> orig.interestAmount
+                            orig.interestRate > 0 && orig.isDurationBased && orig.durationDays != null ->
+                                calcDurationInterest(amt, orig.interestRate, orig.durationDays)
+                            orig.interestRate > 0 ->
+                                calcFlatInterest(amt, orig.interestRate)
+                            else -> 0.0
+                        }
+                        val newTotalRepayment = if (newInterestAmount > 0) amt + newInterestAmount else amt
+                        val newPerInstallment = if (orig.numberOfInstallments > 0) newTotalRepayment / orig.numberOfInstallments else newTotalRepayment
+
                         val updatedPerson = orig.copy(
                             name = editName.trim(),
                             place = editPlace.trim().ifEmpty { null },
                             mobileNumber = editMobile.trim().ifEmpty { null },
                             amountGiven = amt, mode = editMode,
-                            dateGiven = editDate, recordType = editType
+                            dateGiven = editDate, recordType = editType,
+                            interestAmount = newInterestAmount,
+                            totalRepayment = newTotalRepayment,
+                            perInstallmentAmount = newPerInstallment
                         )
                         val moveAfter = resolveMoveAfterSortOrder()
                         if (moveAfter != null) {
-                            coroutineScope.launch {
-                                personViewModel.shiftSortOrdersAfterSync(fileId, moveAfter)
-                                personViewModel.updatePerson(updatedPerson.copy(sortOrder = moveAfter + 1))
-                            }
+                            doMoveAfter(updatedPerson, moveAfter)
                         } else {
                             personViewModel.updatePerson(updatedPerson)
                         }
@@ -1841,6 +1937,43 @@ fun FileDetailScreen(
                 dismissButton = { TextButton(onClick = { showEditDatePicker = false }) { Text("Cancel") } }
             ) { DatePicker(state = state) }
         }
+    }
+
+    // BUG 1 FIX / FEATURE 2: Interest editing dialog for edit-person flow
+    if (showEditInterestDialog && pendingEditForInterest != null) {
+        val editingPerson = pendingEditForInterest!!
+        val defaultRate = file?.defaultInterestRate ?: 25.0
+        val defaultMode = file?.defaultCalculationMode ?: CalculationMode.FLAT
+        LoanAmountInterestDialog(
+            fileDefaultRate = if (editingPerson.interestRate > 0) editingPerson.interestRate else defaultRate,
+            fileDefaultMode = defaultMode,
+            initialAmount   = editingPerson.amountGiven.let { if (it > 0.0) it.toString() else "" },
+            onConfirm = { result ->
+                val finalPerson = editingPerson.copy(
+                    amountGiven          = result.principal,
+                    interestRate         = result.interestRate,
+                    interestType         = result.interestType,
+                    interestAmount       = result.interestAmount,
+                    totalRepayment       = result.totalRepayment,
+                    loanType             = result.loanType,
+                    numberOfInstallments = result.numberOfInstallments,
+                    perInstallmentAmount = result.perInstallmentAmount,
+                    isDurationBased      = result.isDurationBased,
+                    durationDays         = result.durationDays
+                )
+                personViewModel.updatePerson(finalPerson)
+                pendingEditForInterest = null
+                showEditInterestDialog = false
+                personToEdit = null
+            },
+            onDismiss = {
+                // User cancelled interest re-edit — save without changing interest fields
+                personViewModel.updatePerson(editingPerson)
+                pendingEditForInterest = null
+                showEditInterestDialog = false
+                personToEdit = null
+            }
+        )
     }
 
     if (showFileInterestSettingsDialog && file != null) {
@@ -2294,26 +2427,22 @@ fun FileDetailScreen(
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.width(70.dp)
                             )
-                            // Add-payment button: shown for active persons and pending-new-loan
-                            // placeholders, but not for completed persons (none are shown as rows)
-                            if (!person.isPendingNewLoan || (receivedOnDateById[person.id] != null)) {
-                                IconButton(
-                                    onClick = {
-                                        viewAddPaymentPerson = person
-                                        viewAddPaymentAmount = ""
-                                        viewAddPaymentMode = PaymentMode.CASH
-                                        viewAddPaymentType = "RECEIVED"
-                                    },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Add, "Add Payment",
-                                        modifier = Modifier.size(18.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            } else {
-                                Spacer(Modifier.width(32.dp))
+                            // BUG 4 FIX: Add-payment button shown for ALL persons in the view,
+                            // including pending-new-loan rows (they can receive payments too).
+                            IconButton(
+                                onClick = {
+                                    viewAddPaymentPerson = person
+                                    viewAddPaymentAmount = ""
+                                    viewAddPaymentMode = PaymentMode.CASH
+                                    viewAddPaymentType = "RECEIVED"
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Add, "Add Payment",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)

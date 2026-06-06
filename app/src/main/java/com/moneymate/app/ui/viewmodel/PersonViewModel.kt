@@ -111,6 +111,10 @@ class PersonViewModel @Inject constructor(
         return repository.getPersonById(id)
     }
 
+    /** Reactive Flow variant — for screens that need live person updates (BUG 5 fix). */
+    fun getPersonByIdFlow(id: String): kotlinx.coroutines.flow.Flow<Person?> =
+        repository.getPersonByIdFlow(id)
+
     fun updateSortOrder(id: String, sortOrder: Int) = viewModelScope.launch {
         repository.updateSortOrder(id, sortOrder)
     }
@@ -127,6 +131,14 @@ class PersonViewModel @Inject constructor(
 
     suspend fun shiftSortOrdersAfterSync(fileId: String, afterSortOrder: Int) {
         repository.shiftSortOrdersAfter(fileId, afterSortOrder)
+    }
+
+    /**
+     * BUG 6 FIX: Decrements sortOrder for all persons whose sortOrder is strictly
+     * greater than [currentSortOrder], closing the gap left by a person being moved.
+     */
+    fun shiftSortOrdersDown(fileId: String, currentSortOrder: Int) = viewModelScope.launch {
+        repository.shiftSortOrdersDown(fileId, currentSortOrder)
     }
 
     /**

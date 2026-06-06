@@ -77,7 +77,8 @@ object AppModule {
                     database.execSQL("DELETE FROM default_persons")
                 }
             },
-            AppDatabase.MIGRATION_8_9
+            AppDatabase.MIGRATION_8_9,
+            AppDatabase.MIGRATION_9_10
         ).build()
     }
 

@@ -28,6 +28,10 @@ interface PersonDao {
     @Query("SELECT * FROM persons WHERE id = :id")
     suspend fun getPersonById(id: String): Person?
 
+    /** Reactive variant — emits a new value whenever the row changes (BUG 5 fix). */
+    @Query("SELECT * FROM persons WHERE id = :id")
+    fun getPersonByIdFlow(id: String): kotlinx.coroutines.flow.Flow<Person?>
+
     // ── Completed persons ─────────────────────────────────────────────────────
     @Query("SELECT * FROM persons WHERE fileId = :fileId AND isCompleted = 1 AND isDeleted = 0 ORDER BY completedAt DESC")
     fun getCompletedPersonsByFile(fileId: String): Flow<List<Person>>
@@ -47,6 +51,11 @@ interface PersonDao {
 
     @Query("UPDATE persons SET sortOrder = sortOrder + 1 WHERE fileId = :fileId AND sortOrder > :afterSortOrder AND isDeleted = 0")
     suspend fun shiftSortOrdersAfter(fileId: String, afterSortOrder: Int)
+
+    /** BUG 6 FIX: Decrements sortOrder for all rows strictly above [currentSortOrder],
+     * closing the gap when a person is removed from its current list position. */
+    @Query("UPDATE persons SET sortOrder = sortOrder - 1 WHERE fileId = :fileId AND sortOrder > :currentSortOrder AND isDeleted = 0")
+    suspend fun shiftSortOrdersDown(fileId: String, currentSortOrder: Int)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPerson(person: Person)
@@ -121,6 +130,19 @@ interface PersonDao {
     @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND mode = 'UPI'")
     suspend fun getTotalGivenUpiInFile(fileId: String): Double?
 
+    // ── Insights queries ───────────────────────────────────────────────────────
+    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND dateGiven >= :startOfDay AND dateGiven < :endOfDay")
+    suspend fun getTotalGivenToday(fileId: String, startOfDay: Long, endOfDay: Long): Double?
+
+    @Query("SELECT COUNT(*) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0")
+    suspend fun getActiveLoanCount(fileId: String): Int
+
+    @Query("SELECT COUNT(*) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 1")
+    suspend fun getCompletedLoanCount(fileId: String): Int
+
+    @Query("SELECT COALESCE(SUM(totalRepayment), 0) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0")
+    suspend fun getTotalOutstanding(fileId: String): Double
+
     // Delete the pending-new-loan pink card for a given name + fileId.
     @Query("DELETE FROM persons WHERE name = :name AND fileId = :fileId AND amountGiven = 0.0 AND isCompleted = 0 AND isPendingNewLoan = 1")
     suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String)
@@ -175,6 +197,7 @@ interface PersonDao {
     @Query("""
         UPDATE persons SET
             interestRate         = :interestRate,
+            interestType         = :interestType,
             interestAmount       = :interestAmount,
             totalRepayment       = :totalRepayment,
             loanType             = :loanType,
@@ -187,6 +210,7 @@ interface PersonDao {
     suspend fun updateInterestFields(
         id: String,
         interestRate: Double,
+        interestType: String = "PERCENTAGE",
         interestAmount: Double,
         totalRepayment: Double,
         loanType: String,

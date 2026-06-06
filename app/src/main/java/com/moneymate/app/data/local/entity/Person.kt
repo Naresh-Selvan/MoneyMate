@@ -47,7 +47,9 @@ data class Person(
     // ── Interest fields (Part 4) ──────────────────────────────────────────────
     // Per-person interest rate (inherited from file default, but user can override)
     val interestRate: Double = 0.0,
-    // Calculated flat interest amount = principal × (rate/100)
+    // Interest type: "PERCENTAGE" for flat %, "FIXED_AMOUNT" for custom fixed amount
+    val interestType: String = "PERCENTAGE",
+    // Calculated flat interest amount = principal × (rate/100) or custom fixed amount
     val interestAmount: Double = 0.0,
     // Total repayment = principal + interestAmount
     val totalRepayment: Double = 0.0,

@@ -77,4 +77,11 @@ class PaymentRepository @Inject constructor(
 
     fun getPaymentsForFileIncludingCompleted(fileId: String): Flow<List<Payment>> =
         paymentDao.getPaymentsForFileIncludingCompleted(fileId)
+
+    // ── Insights ───────────────────────────────────────────────────────────────
+    suspend fun getTotalReceivedToday(fileId: String, startOfDay: Long, endOfDay: Long): Double =
+        paymentDao.getTotalReceivedToday(fileId, startOfDay, endOfDay)
+
+    suspend fun getTotalReceivedThisWeek(fileId: String, weekStart: Long, weekEnd: Long): Double =
+        paymentDao.getTotalReceivedThisWeek(fileId, weekStart, weekEnd)
 }

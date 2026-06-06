@@ -35,6 +35,12 @@ class PersonViewModel @Inject constructor(
     val deletedCompletedPersons: StateFlow<List<Person>> = repository.getDeletedCompletedPersons()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allDeletedPersons: StateFlow<List<Person>> = repository.getAllDeletedPersons()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allPersonsIncludingDeleted: StateFlow<List<Person>> = repository.getAllPersonsIncludingDeleted()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Completed persons (fully repaid; visible in Completed sheet for 180 days)
     val completedPersons: StateFlow<List<Person>> = _currentFileId
         .flatMapLatest { fileId ->
@@ -43,18 +49,18 @@ class PersonViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // ── Loan history ───────────────────────────────────────────────────────
-    private val _loanHistoryName = MutableStateFlow<Pair<String, String>?>(null)
+    // ── Loan history by personId ──────────────────────────────────────────────
+    private val _loanHistoryPersonId = MutableStateFlow<String?>(null)
 
-    val loanHistory: StateFlow<List<Person>> = _loanHistoryName
-        .flatMapLatest { pair ->
-            if (pair != null) repository.getLoanHistoryByName(pair.first, pair.second)
+    val loanHistoryById: StateFlow<List<Person>> = _loanHistoryPersonId
+        .flatMapLatest { personId ->
+            if (personId != null) repository.getLoanHistoryByPersonId(personId)
             else kotlinx.coroutines.flow.flowOf(emptyList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun loadLoanHistory(fileId: String, personName: String) {
-        _loanHistoryName.value = Pair(fileId, personName)
+    fun loadLoanHistoryById(personId: String) {
+        _loanHistoryPersonId.value = personId
     }
 
     // Pink indicator cards (isPendingNewLoan = true)
@@ -151,7 +157,7 @@ class PersonViewModel @Inject constructor(
      * BUG 6 FIX: Decrements sortOrder for all persons whose sortOrder is strictly
      * greater than [currentSortOrder], closing the gap left by a person being moved.
      */
-    fun shiftSortOrdersDown(fileId: String, currentSortOrder: Int) = viewModelScope.launch {
+    suspend fun shiftSortOrdersDown(fileId: String, currentSortOrder: Int) {
         repository.shiftSortOrdersDown(fileId, currentSortOrder)
     }
 

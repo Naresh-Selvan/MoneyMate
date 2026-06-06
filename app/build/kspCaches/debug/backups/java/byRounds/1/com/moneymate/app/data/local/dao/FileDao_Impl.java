@@ -718,6 +718,148 @@ public final class FileDao_Impl implements FileDao {
     }, $completion);
   }
 
+  @Override
+  public Object getExpiredDeletedFiles(final long cutoff,
+      final Continuation<? super List<LoanFile>> $completion) {
+    final String _sql = "SELECT * FROM loan_files WHERE isDeleted = 1 AND deletedAt < ?";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, cutoff);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<List<LoanFile>>() {
+      @Override
+      @NonNull
+      public List<LoanFile> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
+          final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "createdAt");
+          final int _cursorIndexOfSortOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "sortOrder");
+          final int _cursorIndexOfIsDeleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isDeleted");
+          final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
+          final int _cursorIndexOfSyncedToFirebase = CursorUtil.getColumnIndexOrThrow(_cursor, "syncedToFirebase");
+          final int _cursorIndexOfLastUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "lastUploadedAt");
+          final int _cursorIndexOfDefaultInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultInterestRate");
+          final int _cursorIndexOfDefaultCalculationMode = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultCalculationMode");
+          final List<LoanFile> _result = new ArrayList<LoanFile>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final LoanFile _item;
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final String _tmpName;
+            _tmpName = _cursor.getString(_cursorIndexOfName);
+            final long _tmpCreatedAt;
+            _tmpCreatedAt = _cursor.getLong(_cursorIndexOfCreatedAt);
+            final int _tmpSortOrder;
+            _tmpSortOrder = _cursor.getInt(_cursorIndexOfSortOrder);
+            final boolean _tmpIsDeleted;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsDeleted);
+            _tmpIsDeleted = _tmp != 0;
+            final Long _tmpDeletedAt;
+            if (_cursor.isNull(_cursorIndexOfDeletedAt)) {
+              _tmpDeletedAt = null;
+            } else {
+              _tmpDeletedAt = _cursor.getLong(_cursorIndexOfDeletedAt);
+            }
+            final boolean _tmpSyncedToFirebase;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfSyncedToFirebase);
+            _tmpSyncedToFirebase = _tmp_1 != 0;
+            final Long _tmpLastUploadedAt;
+            if (_cursor.isNull(_cursorIndexOfLastUploadedAt)) {
+              _tmpLastUploadedAt = null;
+            } else {
+              _tmpLastUploadedAt = _cursor.getLong(_cursorIndexOfLastUploadedAt);
+            }
+            final double _tmpDefaultInterestRate;
+            _tmpDefaultInterestRate = _cursor.getDouble(_cursorIndexOfDefaultInterestRate);
+            final CalculationMode _tmpDefaultCalculationMode;
+            _tmpDefaultCalculationMode = __CalculationMode_stringToEnum(_cursor.getString(_cursorIndexOfDefaultCalculationMode));
+            _item = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt,_tmpDefaultInterestRate,_tmpDefaultCalculationMode);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Flow<List<LoanFile>> getAllFilesIncludingDeleted() {
+    final String _sql = "SELECT * FROM loan_files";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    return CoroutinesRoom.createFlow(__db, false, new String[] {"loan_files"}, new Callable<List<LoanFile>>() {
+      @Override
+      @NonNull
+      public List<LoanFile> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
+          final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "createdAt");
+          final int _cursorIndexOfSortOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "sortOrder");
+          final int _cursorIndexOfIsDeleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isDeleted");
+          final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
+          final int _cursorIndexOfSyncedToFirebase = CursorUtil.getColumnIndexOrThrow(_cursor, "syncedToFirebase");
+          final int _cursorIndexOfLastUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "lastUploadedAt");
+          final int _cursorIndexOfDefaultInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultInterestRate");
+          final int _cursorIndexOfDefaultCalculationMode = CursorUtil.getColumnIndexOrThrow(_cursor, "defaultCalculationMode");
+          final List<LoanFile> _result = new ArrayList<LoanFile>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final LoanFile _item;
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final String _tmpName;
+            _tmpName = _cursor.getString(_cursorIndexOfName);
+            final long _tmpCreatedAt;
+            _tmpCreatedAt = _cursor.getLong(_cursorIndexOfCreatedAt);
+            final int _tmpSortOrder;
+            _tmpSortOrder = _cursor.getInt(_cursorIndexOfSortOrder);
+            final boolean _tmpIsDeleted;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsDeleted);
+            _tmpIsDeleted = _tmp != 0;
+            final Long _tmpDeletedAt;
+            if (_cursor.isNull(_cursorIndexOfDeletedAt)) {
+              _tmpDeletedAt = null;
+            } else {
+              _tmpDeletedAt = _cursor.getLong(_cursorIndexOfDeletedAt);
+            }
+            final boolean _tmpSyncedToFirebase;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfSyncedToFirebase);
+            _tmpSyncedToFirebase = _tmp_1 != 0;
+            final Long _tmpLastUploadedAt;
+            if (_cursor.isNull(_cursorIndexOfLastUploadedAt)) {
+              _tmpLastUploadedAt = null;
+            } else {
+              _tmpLastUploadedAt = _cursor.getLong(_cursorIndexOfLastUploadedAt);
+            }
+            final double _tmpDefaultInterestRate;
+            _tmpDefaultInterestRate = _cursor.getDouble(_cursorIndexOfDefaultInterestRate);
+            final CalculationMode _tmpDefaultCalculationMode;
+            _tmpDefaultCalculationMode = __CalculationMode_stringToEnum(_cursor.getString(_cursorIndexOfDefaultCalculationMode));
+            _item = new LoanFile(_tmpId,_tmpName,_tmpCreatedAt,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpSyncedToFirebase,_tmpLastUploadedAt,_tmpDefaultInterestRate,_tmpDefaultCalculationMode);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+        }
+      }
+
+      @Override
+      protected void finalize() {
+        _statement.release();
+      }
+    });
+  }
+
   @NonNull
   public static List<Class<?>> getRequiredConverters() {
     return Collections.emptyList();

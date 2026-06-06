@@ -1109,7 +1109,7 @@ public final class PaymentDao_Impl implements PaymentDao {
     final String _sql = "\n"
             + "        SELECT p.* FROM payments p\n"
             + "        INNER JOIN persons pr ON p.personId = pr.id\n"
-            + "        WHERE pr.fileId = ? AND p.isDeleted = 0 AND pr.isDeleted = 0\n"
+            + "        WHERE pr.fileId = ? AND p.isDeleted = 0 AND pr.isDeleted = 0 AND pr.isCompleted = 0\n"
             + "    ";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
@@ -1340,6 +1340,82 @@ public final class PaymentDao_Impl implements PaymentDao {
             _result = _tmp;
           } else {
             _result = 0.0;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object getExpiredDeletedPayments(final long cutoff,
+      final Continuation<? super List<Payment>> $completion) {
+    final String _sql = "SELECT * FROM payments WHERE isDeleted = 1 AND deletedAt < ?";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, cutoff);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<List<Payment>>() {
+      @Override
+      @NonNull
+      public List<Payment> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "personId");
+          final int _cursorIndexOfAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "amount");
+          final int _cursorIndexOfMode = CursorUtil.getColumnIndexOrThrow(_cursor, "mode");
+          final int _cursorIndexOfDate = CursorUtil.getColumnIndexOrThrow(_cursor, "date");
+          final int _cursorIndexOfIsDeleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isDeleted");
+          final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
+          final int _cursorIndexOfIsRollover = CursorUtil.getColumnIndexOrThrow(_cursor, "isRollover");
+          final int _cursorIndexOfUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "uploadedAt");
+          final int _cursorIndexOfEditPermissionGranted = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionGranted");
+          final int _cursorIndexOfEditPermissionScope = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionScope");
+          final List<Payment> _result = new ArrayList<Payment>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final Payment _item;
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final String _tmpPersonId;
+            _tmpPersonId = _cursor.getString(_cursorIndexOfPersonId);
+            final double _tmpAmount;
+            _tmpAmount = _cursor.getDouble(_cursorIndexOfAmount);
+            final PaymentMode _tmpMode;
+            _tmpMode = __PaymentMode_stringToEnum(_cursor.getString(_cursorIndexOfMode));
+            final long _tmpDate;
+            _tmpDate = _cursor.getLong(_cursorIndexOfDate);
+            final boolean _tmpIsDeleted;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsDeleted);
+            _tmpIsDeleted = _tmp != 0;
+            final Long _tmpDeletedAt;
+            if (_cursor.isNull(_cursorIndexOfDeletedAt)) {
+              _tmpDeletedAt = null;
+            } else {
+              _tmpDeletedAt = _cursor.getLong(_cursorIndexOfDeletedAt);
+            }
+            final boolean _tmpIsRollover;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsRollover);
+            _tmpIsRollover = _tmp_1 != 0;
+            final Long _tmpUploadedAt;
+            if (_cursor.isNull(_cursorIndexOfUploadedAt)) {
+              _tmpUploadedAt = null;
+            } else {
+              _tmpUploadedAt = _cursor.getLong(_cursorIndexOfUploadedAt);
+            }
+            final boolean _tmpEditPermissionGranted;
+            final int _tmp_2;
+            _tmp_2 = _cursor.getInt(_cursorIndexOfEditPermissionGranted);
+            _tmpEditPermissionGranted = _tmp_2 != 0;
+            final EditPermissionScope _tmpEditPermissionScope;
+            _tmpEditPermissionScope = __EditPermissionScope_stringToEnum(_cursor.getString(_cursorIndexOfEditPermissionScope));
+            _item = new Payment(_tmpId,_tmpPersonId,_tmpAmount,_tmpMode,_tmpDate,_tmpIsDeleted,_tmpDeletedAt,_tmpIsRollover,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope);
+            _result.add(_item);
           }
           return _result;
         } finally {

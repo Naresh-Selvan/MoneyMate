@@ -1,15 +1,23 @@
 package com.moneymate.app.data.repository
 
+import android.util.Log
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.moneymate.app.data.local.dao.PaymentDao
+import com.moneymate.app.data.local.dao.PersonDao
 import com.moneymate.app.data.local.entity.EditPermissionScope
 import com.moneymate.app.data.local.entity.Payment
+import com.moneymate.app.utils.FirestorePathProvider
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class PaymentRepository @Inject constructor(
-    private val paymentDao: PaymentDao
+    private val paymentDao: PaymentDao,
+    private val personDao: PersonDao,
+    private val paths: FirestorePathProvider
 ) {
     fun getPaymentsForPerson(personId: String): Flow<List<Payment>> =
         paymentDao.getPaymentsForPerson(personId)
@@ -36,14 +44,77 @@ class PaymentRepository @Inject constructor(
     suspend fun updatePayment(payment: Payment) =
         paymentDao.updatePayment(payment)
 
-    suspend fun softDeletePayment(id: String, deletedAt: Long) =
+    suspend fun softDeletePayment(id: String, deletedAt: Long) {
         paymentDao.softDeletePayment(id, deletedAt)
+        val payment = paymentDao.getPaymentById(id)
+        if (payment != null) {
+            val person = personDao.getPersonById(payment.personId)
+            if (person != null) {
+                try {
+                    val db = FirebaseFirestore.getInstance()
+                    val docRef = db.collection(paths.paymentsCollection(person.fileId, payment.personId)).document(id)
+                    docRef.set(
+                        mapOf(
+                            "isDeleted" to true,
+                            "deletedAt" to deletedAt,
+                            "purged" to false,
+                            "permanentlyDeleted" to false
+                        ),
+                        SetOptions.merge()
+                    ).await()
+                } catch (e: Exception) {
+                    Log.e("PaymentRepository", "Firestore softDeletePayment failed for $id", e)
+                }
+            }
+        }
+    }
 
-    suspend fun restorePayment(id: String) =
+    suspend fun restorePayment(id: String) {
         paymentDao.restorePayment(id)
+        val payment = paymentDao.getPaymentById(id)
+        if (payment != null) {
+            val person = personDao.getPersonById(payment.personId)
+            if (person != null) {
+                try {
+                    val db = FirebaseFirestore.getInstance()
+                    val docRef = db.collection(paths.paymentsCollection(person.fileId, payment.personId)).document(id)
+                    docRef.set(
+                        mapOf(
+                            "isDeleted" to false,
+                            "deletedAt" to null
+                        ),
+                        SetOptions.merge()
+                    ).await()
+                } catch (e: Exception) {
+                    Log.e("PaymentRepository", "Firestore restorePayment failed for $id", e)
+                }
+            }
+        }
+    }
 
-    suspend fun hardDeletePayment(id: String) =
+    suspend fun hardDeletePayment(id: String) {
+        val payment = paymentDao.getPaymentById(id)
         paymentDao.hardDeletePayment(id)
+        if (payment != null) {
+            val person = personDao.getPersonById(payment.personId)
+            if (person != null) {
+                try {
+                    val db = FirebaseFirestore.getInstance()
+                    val docRef = db.collection(paths.paymentsCollection(person.fileId, payment.personId)).document(id)
+                    docRef.set(
+                        mapOf(
+                            "isDeleted" to true,
+                            "permanentlyDeleted" to true,
+                            "permanentlyDeletedAt" to System.currentTimeMillis()
+                        ),
+                        SetOptions.merge()
+                    ).await()
+                } catch (e: Exception) {
+                    Log.e("PaymentRepository", "Firestore hardDeletePayment failed for $id", e)
+                }
+            }
+        }
+    }
 
     suspend fun purgeExpiredPayments(cutoff: Long) =
         paymentDao.purgeExpiredPayments(cutoff)

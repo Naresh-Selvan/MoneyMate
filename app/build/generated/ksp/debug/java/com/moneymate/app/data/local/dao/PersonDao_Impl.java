@@ -77,6 +77,8 @@ public final class PersonDao_Impl implements PersonDao {
 
   private final SharedSQLiteStatement __preparedStmtOfUpdateAmountAndDate;
 
+  private final SharedSQLiteStatement __preparedStmtOfUpdateAmountAndDateResetInterest;
+
   private final SharedSQLiteStatement __preparedStmtOfActivatePendingNewLoan;
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteZeroCloneByNameAndFile;
@@ -372,11 +374,48 @@ public final class PersonDao_Impl implements PersonDao {
         return _query;
       }
     };
+    this.__preparedStmtOfUpdateAmountAndDateResetInterest = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "\n"
+                + "        UPDATE persons SET\n"
+                + "            amountGiven      = ?,\n"
+                + "            dateGiven        = ?,\n"
+                + "            interestRate     = 0.0,\n"
+                + "            interestType     = 'PERCENTAGE',\n"
+                + "            interestAmount   = 0.0,\n"
+                + "            totalRepayment   = 0.0,\n"
+                + "            loanType         = 'MONTHLY',\n"
+                + "            numberOfInstallments = 10,\n"
+                + "            perInstallmentAmount = 0.0,\n"
+                + "            isDurationBased  = 0,\n"
+                + "            durationDays     = NULL\n"
+                + "        WHERE id = ?\n"
+                + "    ";
+        return _query;
+      }
+    };
     this.__preparedStmtOfActivatePendingNewLoan = new SharedSQLiteStatement(__db) {
       @Override
       @NonNull
       public String createQuery() {
-        final String _query = "UPDATE persons SET isPendingNewLoan = 0, amountGiven = ?, dateGiven = ? WHERE id = ?";
+        final String _query = "\n"
+                + "        UPDATE persons SET\n"
+                + "            isPendingNewLoan  = 0,\n"
+                + "            amountGiven       = ?,\n"
+                + "            dateGiven         = ?,\n"
+                + "            interestRate      = 0.0,\n"
+                + "            interestType      = 'PERCENTAGE',\n"
+                + "            interestAmount    = 0.0,\n"
+                + "            totalRepayment    = 0.0,\n"
+                + "            loanType          = 'MONTHLY',\n"
+                + "            numberOfInstallments = 10,\n"
+                + "            perInstallmentAmount = 0.0,\n"
+                + "            isDurationBased   = 0,\n"
+                + "            durationDays      = NULL\n"
+                + "        WHERE id = ?\n"
+                + "    ";
         return _query;
       }
     };
@@ -915,6 +954,36 @@ public final class PersonDao_Impl implements PersonDao {
           }
         } finally {
           __preparedStmtOfUpdateAmountAndDate.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object updateAmountAndDateResetInterest(final String id, final double amount,
+      final long dateGiven, final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdateAmountAndDateResetInterest.acquire();
+        int _argIndex = 1;
+        _stmt.bindDouble(_argIndex, amount);
+        _argIndex = 2;
+        _stmt.bindLong(_argIndex, dateGiven);
+        _argIndex = 3;
+        _stmt.bindString(_argIndex, id);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfUpdateAmountAndDateResetInterest.release(_stmt);
         }
       }
     }, $completion);
@@ -2841,7 +2910,7 @@ public final class PersonDao_Impl implements PersonDao {
 
   @Override
   public Flow<List<Person>> getDeletedPersons() {
-    final String _sql = "SELECT * FROM persons WHERE isDeleted = 1 AND isPendingNewLoan = 0 ORDER BY deletedAt DESC";
+    final String _sql = "SELECT * FROM persons WHERE isDeleted = 1 AND isCompleted = 0 AND isPendingNewLoan = 0 ORDER BY deletedAt DESC";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     return CoroutinesRoom.createFlow(__db, false, new String[] {"persons"}, new Callable<List<Person>>() {
       @Override
@@ -3158,7 +3227,7 @@ public final class PersonDao_Impl implements PersonDao {
   @Override
   public Object getTotalGivenInFile(final String fileId,
       final Continuation<? super Double> $completion) {
-    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0";
+    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0 AND isCompleted = 0";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
     _statement.bindString(_argIndex, fileId);
@@ -3193,7 +3262,7 @@ public final class PersonDao_Impl implements PersonDao {
   @Override
   public Object getTotalGivenCashInFile(final String fileId,
       final Continuation<? super Double> $completion) {
-    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0 AND mode = 'CASH'";
+    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0 AND isCompleted = 0 AND mode = 'CASH'";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
     _statement.bindString(_argIndex, fileId);
@@ -3228,7 +3297,7 @@ public final class PersonDao_Impl implements PersonDao {
   @Override
   public Object getTotalGivenUpiInFile(final String fileId,
       final Continuation<? super Double> $completion) {
-    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0 AND mode = 'UPI'";
+    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0 AND isCompleted = 0 AND mode = 'UPI'";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
     _statement.bindString(_argIndex, fileId);
@@ -3263,7 +3332,7 @@ public final class PersonDao_Impl implements PersonDao {
   @Override
   public Object getTotalGivenToday(final String fileId, final long startOfDay, final long endOfDay,
       final Continuation<? super Double> $completion) {
-    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0 AND dateGiven >= ? AND dateGiven < ?";
+    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0 AND isCompleted = 0 AND dateGiven >= ? AND dateGiven < ?";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 3);
     int _argIndex = 1;
     _statement.bindString(_argIndex, fileId);
@@ -3475,13 +3544,494 @@ public final class PersonDao_Impl implements PersonDao {
   }
 
   @Override
-  public Flow<List<Person>> getLoanHistoryByName(final String fileId, final String name) {
-    final String _sql = "SELECT * FROM persons WHERE fileId = ? AND LOWER(name) = LOWER(?) AND isDeleted = 0 ORDER BY dateGiven DESC";
+  public Flow<List<Person>> getLoanHistoryByPersonId(final String personId) {
+    final String _sql = "\n"
+            + "        SELECT * FROM persons\n"
+            + "        WHERE fileId = (SELECT fileId FROM persons WHERE id = ?)\n"
+            + "          AND LOWER(name) = LOWER((SELECT name FROM persons WHERE id = ?))\n"
+            + "          AND isDeleted = 0\n"
+            + "          AND isPendingNewLoan = 0\n"
+            + "        ORDER BY dateGiven ASC\n"
+            + "    ";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 2);
     int _argIndex = 1;
-    _statement.bindString(_argIndex, fileId);
+    _statement.bindString(_argIndex, personId);
     _argIndex = 2;
-    _statement.bindString(_argIndex, name);
+    _statement.bindString(_argIndex, personId);
+    return CoroutinesRoom.createFlow(__db, false, new String[] {"persons"}, new Callable<List<Person>>() {
+      @Override
+      @NonNull
+      public List<Person> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfFileId = CursorUtil.getColumnIndexOrThrow(_cursor, "fileId");
+          final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
+          final int _cursorIndexOfPlace = CursorUtil.getColumnIndexOrThrow(_cursor, "place");
+          final int _cursorIndexOfMobileNumber = CursorUtil.getColumnIndexOrThrow(_cursor, "mobileNumber");
+          final int _cursorIndexOfAmountGiven = CursorUtil.getColumnIndexOrThrow(_cursor, "amountGiven");
+          final int _cursorIndexOfMode = CursorUtil.getColumnIndexOrThrow(_cursor, "mode");
+          final int _cursorIndexOfDateGiven = CursorUtil.getColumnIndexOrThrow(_cursor, "dateGiven");
+          final int _cursorIndexOfSortOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "sortOrder");
+          final int _cursorIndexOfIsDeleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isDeleted");
+          final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
+          final int _cursorIndexOfUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "uploadedAt");
+          final int _cursorIndexOfEditPermissionGranted = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionGranted");
+          final int _cursorIndexOfEditPermissionScope = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionScope");
+          final int _cursorIndexOfRecordType = CursorUtil.getColumnIndexOrThrow(_cursor, "recordType");
+          final int _cursorIndexOfIsCompleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isCompleted");
+          final int _cursorIndexOfCompletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "completedAt");
+          final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
+          final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
+          final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestType = CursorUtil.getColumnIndexOrThrow(_cursor, "interestType");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
+          final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final Person _item;
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final String _tmpFileId;
+            _tmpFileId = _cursor.getString(_cursorIndexOfFileId);
+            final String _tmpName;
+            _tmpName = _cursor.getString(_cursorIndexOfName);
+            final String _tmpPlace;
+            if (_cursor.isNull(_cursorIndexOfPlace)) {
+              _tmpPlace = null;
+            } else {
+              _tmpPlace = _cursor.getString(_cursorIndexOfPlace);
+            }
+            final String _tmpMobileNumber;
+            if (_cursor.isNull(_cursorIndexOfMobileNumber)) {
+              _tmpMobileNumber = null;
+            } else {
+              _tmpMobileNumber = _cursor.getString(_cursorIndexOfMobileNumber);
+            }
+            final double _tmpAmountGiven;
+            _tmpAmountGiven = _cursor.getDouble(_cursorIndexOfAmountGiven);
+            final PaymentMode _tmpMode;
+            _tmpMode = __PaymentMode_stringToEnum(_cursor.getString(_cursorIndexOfMode));
+            final long _tmpDateGiven;
+            _tmpDateGiven = _cursor.getLong(_cursorIndexOfDateGiven);
+            final int _tmpSortOrder;
+            _tmpSortOrder = _cursor.getInt(_cursorIndexOfSortOrder);
+            final boolean _tmpIsDeleted;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsDeleted);
+            _tmpIsDeleted = _tmp != 0;
+            final Long _tmpDeletedAt;
+            if (_cursor.isNull(_cursorIndexOfDeletedAt)) {
+              _tmpDeletedAt = null;
+            } else {
+              _tmpDeletedAt = _cursor.getLong(_cursorIndexOfDeletedAt);
+            }
+            final Long _tmpUploadedAt;
+            if (_cursor.isNull(_cursorIndexOfUploadedAt)) {
+              _tmpUploadedAt = null;
+            } else {
+              _tmpUploadedAt = _cursor.getLong(_cursorIndexOfUploadedAt);
+            }
+            final boolean _tmpEditPermissionGranted;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfEditPermissionGranted);
+            _tmpEditPermissionGranted = _tmp_1 != 0;
+            final EditPermissionScope _tmpEditPermissionScope;
+            _tmpEditPermissionScope = __EditPermissionScope_stringToEnum(_cursor.getString(_cursorIndexOfEditPermissionScope));
+            final LoanType _tmpRecordType;
+            _tmpRecordType = __LoanType_stringToEnum(_cursor.getString(_cursorIndexOfRecordType));
+            final boolean _tmpIsCompleted;
+            final int _tmp_2;
+            _tmp_2 = _cursor.getInt(_cursorIndexOfIsCompleted);
+            _tmpIsCompleted = _tmp_2 != 0;
+            final Long _tmpCompletedAt;
+            if (_cursor.isNull(_cursorIndexOfCompletedAt)) {
+              _tmpCompletedAt = null;
+            } else {
+              _tmpCompletedAt = _cursor.getLong(_cursorIndexOfCompletedAt);
+            }
+            final String _tmpLinkedNewPersonId;
+            if (_cursor.isNull(_cursorIndexOfLinkedNewPersonId)) {
+              _tmpLinkedNewPersonId = null;
+            } else {
+              _tmpLinkedNewPersonId = _cursor.getString(_cursorIndexOfLinkedNewPersonId);
+            }
+            final boolean _tmpIsPendingNewLoan;
+            final int _tmp_3;
+            _tmp_3 = _cursor.getInt(_cursorIndexOfIsPendingNewLoan);
+            _tmpIsPendingNewLoan = _tmp_3 != 0;
+            final String _tmpPreviousPersonId;
+            if (_cursor.isNull(_cursorIndexOfPreviousPersonId)) {
+              _tmpPreviousPersonId = null;
+            } else {
+              _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
+            }
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final String _tmpInterestType;
+            _tmpInterestType = _cursor.getString(_cursorIndexOfInterestType);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestType,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+        }
+      }
+
+      @Override
+      protected void finalize() {
+        _statement.release();
+      }
+    });
+  }
+
+  @Override
+  public Object getExpiredDeletedPersons(final long cutoff,
+      final Continuation<? super List<Person>> $completion) {
+    final String _sql = "SELECT * FROM persons WHERE isDeleted = 1 AND deletedAt < ?";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, cutoff);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<List<Person>>() {
+      @Override
+      @NonNull
+      public List<Person> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfFileId = CursorUtil.getColumnIndexOrThrow(_cursor, "fileId");
+          final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
+          final int _cursorIndexOfPlace = CursorUtil.getColumnIndexOrThrow(_cursor, "place");
+          final int _cursorIndexOfMobileNumber = CursorUtil.getColumnIndexOrThrow(_cursor, "mobileNumber");
+          final int _cursorIndexOfAmountGiven = CursorUtil.getColumnIndexOrThrow(_cursor, "amountGiven");
+          final int _cursorIndexOfMode = CursorUtil.getColumnIndexOrThrow(_cursor, "mode");
+          final int _cursorIndexOfDateGiven = CursorUtil.getColumnIndexOrThrow(_cursor, "dateGiven");
+          final int _cursorIndexOfSortOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "sortOrder");
+          final int _cursorIndexOfIsDeleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isDeleted");
+          final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
+          final int _cursorIndexOfUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "uploadedAt");
+          final int _cursorIndexOfEditPermissionGranted = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionGranted");
+          final int _cursorIndexOfEditPermissionScope = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionScope");
+          final int _cursorIndexOfRecordType = CursorUtil.getColumnIndexOrThrow(_cursor, "recordType");
+          final int _cursorIndexOfIsCompleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isCompleted");
+          final int _cursorIndexOfCompletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "completedAt");
+          final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
+          final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
+          final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestType = CursorUtil.getColumnIndexOrThrow(_cursor, "interestType");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
+          final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final Person _item;
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final String _tmpFileId;
+            _tmpFileId = _cursor.getString(_cursorIndexOfFileId);
+            final String _tmpName;
+            _tmpName = _cursor.getString(_cursorIndexOfName);
+            final String _tmpPlace;
+            if (_cursor.isNull(_cursorIndexOfPlace)) {
+              _tmpPlace = null;
+            } else {
+              _tmpPlace = _cursor.getString(_cursorIndexOfPlace);
+            }
+            final String _tmpMobileNumber;
+            if (_cursor.isNull(_cursorIndexOfMobileNumber)) {
+              _tmpMobileNumber = null;
+            } else {
+              _tmpMobileNumber = _cursor.getString(_cursorIndexOfMobileNumber);
+            }
+            final double _tmpAmountGiven;
+            _tmpAmountGiven = _cursor.getDouble(_cursorIndexOfAmountGiven);
+            final PaymentMode _tmpMode;
+            _tmpMode = __PaymentMode_stringToEnum(_cursor.getString(_cursorIndexOfMode));
+            final long _tmpDateGiven;
+            _tmpDateGiven = _cursor.getLong(_cursorIndexOfDateGiven);
+            final int _tmpSortOrder;
+            _tmpSortOrder = _cursor.getInt(_cursorIndexOfSortOrder);
+            final boolean _tmpIsDeleted;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsDeleted);
+            _tmpIsDeleted = _tmp != 0;
+            final Long _tmpDeletedAt;
+            if (_cursor.isNull(_cursorIndexOfDeletedAt)) {
+              _tmpDeletedAt = null;
+            } else {
+              _tmpDeletedAt = _cursor.getLong(_cursorIndexOfDeletedAt);
+            }
+            final Long _tmpUploadedAt;
+            if (_cursor.isNull(_cursorIndexOfUploadedAt)) {
+              _tmpUploadedAt = null;
+            } else {
+              _tmpUploadedAt = _cursor.getLong(_cursorIndexOfUploadedAt);
+            }
+            final boolean _tmpEditPermissionGranted;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfEditPermissionGranted);
+            _tmpEditPermissionGranted = _tmp_1 != 0;
+            final EditPermissionScope _tmpEditPermissionScope;
+            _tmpEditPermissionScope = __EditPermissionScope_stringToEnum(_cursor.getString(_cursorIndexOfEditPermissionScope));
+            final LoanType _tmpRecordType;
+            _tmpRecordType = __LoanType_stringToEnum(_cursor.getString(_cursorIndexOfRecordType));
+            final boolean _tmpIsCompleted;
+            final int _tmp_2;
+            _tmp_2 = _cursor.getInt(_cursorIndexOfIsCompleted);
+            _tmpIsCompleted = _tmp_2 != 0;
+            final Long _tmpCompletedAt;
+            if (_cursor.isNull(_cursorIndexOfCompletedAt)) {
+              _tmpCompletedAt = null;
+            } else {
+              _tmpCompletedAt = _cursor.getLong(_cursorIndexOfCompletedAt);
+            }
+            final String _tmpLinkedNewPersonId;
+            if (_cursor.isNull(_cursorIndexOfLinkedNewPersonId)) {
+              _tmpLinkedNewPersonId = null;
+            } else {
+              _tmpLinkedNewPersonId = _cursor.getString(_cursorIndexOfLinkedNewPersonId);
+            }
+            final boolean _tmpIsPendingNewLoan;
+            final int _tmp_3;
+            _tmp_3 = _cursor.getInt(_cursorIndexOfIsPendingNewLoan);
+            _tmpIsPendingNewLoan = _tmp_3 != 0;
+            final String _tmpPreviousPersonId;
+            if (_cursor.isNull(_cursorIndexOfPreviousPersonId)) {
+              _tmpPreviousPersonId = null;
+            } else {
+              _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
+            }
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final String _tmpInterestType;
+            _tmpInterestType = _cursor.getString(_cursorIndexOfInterestType);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestType,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Flow<List<Person>> getAllDeletedPersons() {
+    final String _sql = "SELECT * FROM persons WHERE isDeleted = 1 ORDER BY deletedAt DESC";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    return CoroutinesRoom.createFlow(__db, false, new String[] {"persons"}, new Callable<List<Person>>() {
+      @Override
+      @NonNull
+      public List<Person> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfFileId = CursorUtil.getColumnIndexOrThrow(_cursor, "fileId");
+          final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
+          final int _cursorIndexOfPlace = CursorUtil.getColumnIndexOrThrow(_cursor, "place");
+          final int _cursorIndexOfMobileNumber = CursorUtil.getColumnIndexOrThrow(_cursor, "mobileNumber");
+          final int _cursorIndexOfAmountGiven = CursorUtil.getColumnIndexOrThrow(_cursor, "amountGiven");
+          final int _cursorIndexOfMode = CursorUtil.getColumnIndexOrThrow(_cursor, "mode");
+          final int _cursorIndexOfDateGiven = CursorUtil.getColumnIndexOrThrow(_cursor, "dateGiven");
+          final int _cursorIndexOfSortOrder = CursorUtil.getColumnIndexOrThrow(_cursor, "sortOrder");
+          final int _cursorIndexOfIsDeleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isDeleted");
+          final int _cursorIndexOfDeletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "deletedAt");
+          final int _cursorIndexOfUploadedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "uploadedAt");
+          final int _cursorIndexOfEditPermissionGranted = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionGranted");
+          final int _cursorIndexOfEditPermissionScope = CursorUtil.getColumnIndexOrThrow(_cursor, "editPermissionScope");
+          final int _cursorIndexOfRecordType = CursorUtil.getColumnIndexOrThrow(_cursor, "recordType");
+          final int _cursorIndexOfIsCompleted = CursorUtil.getColumnIndexOrThrow(_cursor, "isCompleted");
+          final int _cursorIndexOfCompletedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "completedAt");
+          final int _cursorIndexOfLinkedNewPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "linkedNewPersonId");
+          final int _cursorIndexOfIsPendingNewLoan = CursorUtil.getColumnIndexOrThrow(_cursor, "isPendingNewLoan");
+          final int _cursorIndexOfPreviousPersonId = CursorUtil.getColumnIndexOrThrow(_cursor, "previousPersonId");
+          final int _cursorIndexOfInterestRate = CursorUtil.getColumnIndexOrThrow(_cursor, "interestRate");
+          final int _cursorIndexOfInterestType = CursorUtil.getColumnIndexOrThrow(_cursor, "interestType");
+          final int _cursorIndexOfInterestAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "interestAmount");
+          final int _cursorIndexOfTotalRepayment = CursorUtil.getColumnIndexOrThrow(_cursor, "totalRepayment");
+          final int _cursorIndexOfLoanType = CursorUtil.getColumnIndexOrThrow(_cursor, "loanType");
+          final int _cursorIndexOfNumberOfInstallments = CursorUtil.getColumnIndexOrThrow(_cursor, "numberOfInstallments");
+          final int _cursorIndexOfPerInstallmentAmount = CursorUtil.getColumnIndexOrThrow(_cursor, "perInstallmentAmount");
+          final int _cursorIndexOfIsDurationBased = CursorUtil.getColumnIndexOrThrow(_cursor, "isDurationBased");
+          final int _cursorIndexOfDurationDays = CursorUtil.getColumnIndexOrThrow(_cursor, "durationDays");
+          final List<Person> _result = new ArrayList<Person>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final Person _item;
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final String _tmpFileId;
+            _tmpFileId = _cursor.getString(_cursorIndexOfFileId);
+            final String _tmpName;
+            _tmpName = _cursor.getString(_cursorIndexOfName);
+            final String _tmpPlace;
+            if (_cursor.isNull(_cursorIndexOfPlace)) {
+              _tmpPlace = null;
+            } else {
+              _tmpPlace = _cursor.getString(_cursorIndexOfPlace);
+            }
+            final String _tmpMobileNumber;
+            if (_cursor.isNull(_cursorIndexOfMobileNumber)) {
+              _tmpMobileNumber = null;
+            } else {
+              _tmpMobileNumber = _cursor.getString(_cursorIndexOfMobileNumber);
+            }
+            final double _tmpAmountGiven;
+            _tmpAmountGiven = _cursor.getDouble(_cursorIndexOfAmountGiven);
+            final PaymentMode _tmpMode;
+            _tmpMode = __PaymentMode_stringToEnum(_cursor.getString(_cursorIndexOfMode));
+            final long _tmpDateGiven;
+            _tmpDateGiven = _cursor.getLong(_cursorIndexOfDateGiven);
+            final int _tmpSortOrder;
+            _tmpSortOrder = _cursor.getInt(_cursorIndexOfSortOrder);
+            final boolean _tmpIsDeleted;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsDeleted);
+            _tmpIsDeleted = _tmp != 0;
+            final Long _tmpDeletedAt;
+            if (_cursor.isNull(_cursorIndexOfDeletedAt)) {
+              _tmpDeletedAt = null;
+            } else {
+              _tmpDeletedAt = _cursor.getLong(_cursorIndexOfDeletedAt);
+            }
+            final Long _tmpUploadedAt;
+            if (_cursor.isNull(_cursorIndexOfUploadedAt)) {
+              _tmpUploadedAt = null;
+            } else {
+              _tmpUploadedAt = _cursor.getLong(_cursorIndexOfUploadedAt);
+            }
+            final boolean _tmpEditPermissionGranted;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfEditPermissionGranted);
+            _tmpEditPermissionGranted = _tmp_1 != 0;
+            final EditPermissionScope _tmpEditPermissionScope;
+            _tmpEditPermissionScope = __EditPermissionScope_stringToEnum(_cursor.getString(_cursorIndexOfEditPermissionScope));
+            final LoanType _tmpRecordType;
+            _tmpRecordType = __LoanType_stringToEnum(_cursor.getString(_cursorIndexOfRecordType));
+            final boolean _tmpIsCompleted;
+            final int _tmp_2;
+            _tmp_2 = _cursor.getInt(_cursorIndexOfIsCompleted);
+            _tmpIsCompleted = _tmp_2 != 0;
+            final Long _tmpCompletedAt;
+            if (_cursor.isNull(_cursorIndexOfCompletedAt)) {
+              _tmpCompletedAt = null;
+            } else {
+              _tmpCompletedAt = _cursor.getLong(_cursorIndexOfCompletedAt);
+            }
+            final String _tmpLinkedNewPersonId;
+            if (_cursor.isNull(_cursorIndexOfLinkedNewPersonId)) {
+              _tmpLinkedNewPersonId = null;
+            } else {
+              _tmpLinkedNewPersonId = _cursor.getString(_cursorIndexOfLinkedNewPersonId);
+            }
+            final boolean _tmpIsPendingNewLoan;
+            final int _tmp_3;
+            _tmp_3 = _cursor.getInt(_cursorIndexOfIsPendingNewLoan);
+            _tmpIsPendingNewLoan = _tmp_3 != 0;
+            final String _tmpPreviousPersonId;
+            if (_cursor.isNull(_cursorIndexOfPreviousPersonId)) {
+              _tmpPreviousPersonId = null;
+            } else {
+              _tmpPreviousPersonId = _cursor.getString(_cursorIndexOfPreviousPersonId);
+            }
+            final double _tmpInterestRate;
+            _tmpInterestRate = _cursor.getDouble(_cursorIndexOfInterestRate);
+            final String _tmpInterestType;
+            _tmpInterestType = _cursor.getString(_cursorIndexOfInterestType);
+            final double _tmpInterestAmount;
+            _tmpInterestAmount = _cursor.getDouble(_cursorIndexOfInterestAmount);
+            final double _tmpTotalRepayment;
+            _tmpTotalRepayment = _cursor.getDouble(_cursorIndexOfTotalRepayment);
+            final String _tmpLoanType;
+            _tmpLoanType = _cursor.getString(_cursorIndexOfLoanType);
+            final int _tmpNumberOfInstallments;
+            _tmpNumberOfInstallments = _cursor.getInt(_cursorIndexOfNumberOfInstallments);
+            final double _tmpPerInstallmentAmount;
+            _tmpPerInstallmentAmount = _cursor.getDouble(_cursorIndexOfPerInstallmentAmount);
+            final boolean _tmpIsDurationBased;
+            final int _tmp_4;
+            _tmp_4 = _cursor.getInt(_cursorIndexOfIsDurationBased);
+            _tmpIsDurationBased = _tmp_4 != 0;
+            final Integer _tmpDurationDays;
+            if (_cursor.isNull(_cursorIndexOfDurationDays)) {
+              _tmpDurationDays = null;
+            } else {
+              _tmpDurationDays = _cursor.getInt(_cursorIndexOfDurationDays);
+            }
+            _item = new Person(_tmpId,_tmpFileId,_tmpName,_tmpPlace,_tmpMobileNumber,_tmpAmountGiven,_tmpMode,_tmpDateGiven,_tmpSortOrder,_tmpIsDeleted,_tmpDeletedAt,_tmpUploadedAt,_tmpEditPermissionGranted,_tmpEditPermissionScope,_tmpRecordType,_tmpIsCompleted,_tmpCompletedAt,_tmpLinkedNewPersonId,_tmpIsPendingNewLoan,_tmpPreviousPersonId,_tmpInterestRate,_tmpInterestType,_tmpInterestAmount,_tmpTotalRepayment,_tmpLoanType,_tmpNumberOfInstallments,_tmpPerInstallmentAmount,_tmpIsDurationBased,_tmpDurationDays);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+        }
+      }
+
+      @Override
+      protected void finalize() {
+        _statement.release();
+      }
+    });
+  }
+
+  @Override
+  public Flow<List<Person>> getAllPersonsIncludingDeleted() {
+    final String _sql = "SELECT * FROM persons";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     return CoroutinesRoom.createFlow(__db, false, new String[] {"persons"}, new Callable<List<Person>>() {
       @Override
       @NonNull

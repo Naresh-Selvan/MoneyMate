@@ -748,6 +748,15 @@ fun NewLoanStepSheet(
                                         )
                                     }
                                 )
+                                // Live interest computation below the input
+                                if (principal > 0.0 && rate > 0.0) {
+                                    Text(
+                                        "Interest = ${formatMoney(principal)} × ${"%.2f".format(rate).trimEnd('0').trimEnd('.')}% ÷ 100 = ${formatMoney(interestAmount)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
                             } else {
                                 OutlinedTextField(
                                     value = fixedInterestText,
@@ -772,7 +781,7 @@ fun NewLoanStepSheet(
                                 )
                             }
 
-                            // Live preview
+                            // Live preview: Total = ₹X (Principal ₹Y + Interest ₹Z)
                             if (principal > 0.0) {
                                 Card(
                                     colors = CardDefaults.cardColors(
@@ -783,23 +792,11 @@ fun NewLoanStepSheet(
                                         modifier = Modifier.padding(12.dp),
                                         verticalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        InterestRow(
-                                            "Principal",
-                                            formatMoney(principal)
-                                        )
-                                        InterestRow(
-                                            "Interest",
-                                            formatMoney(interestAmount)
-                                        )
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(
-                                                vertical = 4.dp
-                                            )
-                                        )
-                                        InterestRow(
-                                            "Total",
-                                            formatMoney(totalRepayment),
-                                            bold = true
+                                        Text(
+                                            "Total = ${formatMoney(totalRepayment)} (Principal ${formatMoney(principal)} + Interest ${formatMoney(interestAmount)})",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
                                     }
                                 }

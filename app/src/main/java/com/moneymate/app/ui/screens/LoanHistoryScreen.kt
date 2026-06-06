@@ -24,18 +24,18 @@ import java.util.*
 @Composable
 fun LoanHistoryScreen(
     navController: NavHostController,
-    fileId: String,
+    personId: String,
     personName: String,
     personViewModel: PersonViewModel = hiltViewModel(),
     paymentViewModel: PaymentViewModel = hiltViewModel()
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
 
-    LaunchedEffect(fileId, personName) {
-        personViewModel.loadLoanHistory(fileId, personName)
+    LaunchedEffect(personId) {
+        personViewModel.loadLoanHistoryById(personId)
     }
 
-    val loanRecords by personViewModel.loanHistory.collectAsState()
+    val loanRecords by personViewModel.loanHistoryById.collectAsState()
     // Load total paid for all loan records at once (bulk query)
     var totalPaidByPerson by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     LaunchedEffect(loanRecords) {
@@ -51,17 +51,10 @@ fun LoanHistoryScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
-                            Text(
-                                "Loan History",
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                personName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            "$personName's Loan History",
+                            fontWeight = FontWeight.Bold
+                        )
                     },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
@@ -83,14 +76,15 @@ fun LoanHistoryScreen(
                     )
                 }
             } else {
-                val reversedRecords = loanRecords.reversed()
+                // loanRecords is ordered oldest-first (ASC) for correct numbering.
+                // Display newest-first by iterating in reverse; loan number uses total count.
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    itemsIndexed(reversedRecords) { index, record ->
-                        val loanNumber = index + 1
+                    itemsIndexed(loanRecords.reversed()) { index, record ->
+                        val loanNumber = loanRecords.size - index
                         val totalPaid = totalPaidByPerson[record.id] ?: 0.0
                         val isActive = !record.isCompleted && record.amountGiven > 0.0
                         val effectiveTotal = if (record.totalRepayment > 0) record.totalRepayment else record.amountGiven

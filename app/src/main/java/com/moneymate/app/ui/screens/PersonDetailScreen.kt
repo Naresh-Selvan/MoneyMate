@@ -37,6 +37,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.detectDragGestures
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -58,6 +59,7 @@ fun PersonDetailScreen(
 
     val isBorrowing = person?.recordType == LoanType.BORROWING
     val defaultPaymentDate: Long = remember { System.currentTimeMillis() }
+    val coroutineScope = rememberCoroutineScope()
 
     var showAddDialog      by remember { mutableStateOf(false) }
     var paymentToEdit      by remember { mutableStateOf<Payment?>(null) }
@@ -124,7 +126,7 @@ fun PersonDetailScreen(
                             person?.let { p ->
                                 IconButton(onClick = {
                                     navController.navigate(
-                                        "loan_history/${p.fileId}/${java.net.URLEncoder.encode(p.name, "UTF-8")}"
+                                        "loan_history/${p.id}/${java.net.URLEncoder.encode(p.name, "UTF-8")}"
                                     )
                                 }) {
                                     Icon(Icons.Default.History, contentDescription = "Loan History",
@@ -313,14 +315,20 @@ fun PersonDetailScreen(
                 TextButton(onClick = {
                     val amt = newAmount.toDoubleOrNull()
                     if (amt != null && amt > 0) {
-                        paymentViewModel.insertPayment(Payment(personId = personId, amount = amt, mode = newMode, date = newDate))
-                        // Auto-complete: if new payment brings remaining balance to zero,
-                        // mark as completed and spawn a fresh zero-amount clone.
-                        val remainingBalance = balance - amt
-                        if (remainingBalance <= 0 && amountGiven > 0) {
-                            personViewModel.markPersonAsCompleted(personId)
+                        coroutineScope.launch {
+                            // Await the Room write so the reactive flows update before
+                            // we check the balance and potentially mark as completed.
+                            paymentViewModel.insertPaymentAwait(
+                                Payment(personId = personId, amount = amt, mode = newMode, date = newDate)
+                            )
+                            // Auto-complete: if new payment brings remaining balance to zero,
+                            // mark as completed and spawn a fresh zero-amount clone.
+                            val remainingBalance = balance - amt
+                            if (remainingBalance <= 0 && amountGiven > 0) {
+                                personViewModel.markPersonAsCompleted(personId)
+                            }
+                            newAmount = ""; newMode = PaymentMode.CASH; newDate = defaultPaymentDate; showAddDialog = false
                         }
-                        newAmount = ""; newMode = PaymentMode.CASH; newDate = defaultPaymentDate; showAddDialog = false
                     }
                 }) { Text("Add") }
             },

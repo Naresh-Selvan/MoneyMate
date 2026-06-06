@@ -206,7 +206,8 @@ fun OverduePersonCard(
                             )
                         }
                     } else {
-                        val pendingTotal = person.amountGiven - totalPaidAllTime
+                        val effTotal = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
+                        val pendingTotal = (effTotal - totalPaidAllTime).coerceAtLeast(0.0)
                         Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(110.dp)) {
                             AmountCell(label = "Given", value = "₹${person.amountGiven}", color = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.height(4.dp))

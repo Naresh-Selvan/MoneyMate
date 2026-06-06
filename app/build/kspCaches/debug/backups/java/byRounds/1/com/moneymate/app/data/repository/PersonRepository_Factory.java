@@ -1,6 +1,7 @@
 package com.moneymate.app.data.repository;
 
 import com.moneymate.app.data.local.dao.PersonDao;
+import com.moneymate.app.utils.FirestorePathProvider;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
@@ -25,20 +26,25 @@ import javax.inject.Provider;
 public final class PersonRepository_Factory implements Factory<PersonRepository> {
   private final Provider<PersonDao> personDaoProvider;
 
-  public PersonRepository_Factory(Provider<PersonDao> personDaoProvider) {
+  private final Provider<FirestorePathProvider> pathsProvider;
+
+  public PersonRepository_Factory(Provider<PersonDao> personDaoProvider,
+      Provider<FirestorePathProvider> pathsProvider) {
     this.personDaoProvider = personDaoProvider;
+    this.pathsProvider = pathsProvider;
   }
 
   @Override
   public PersonRepository get() {
-    return newInstance(personDaoProvider.get());
+    return newInstance(personDaoProvider.get(), pathsProvider.get());
   }
 
-  public static PersonRepository_Factory create(Provider<PersonDao> personDaoProvider) {
-    return new PersonRepository_Factory(personDaoProvider);
+  public static PersonRepository_Factory create(Provider<PersonDao> personDaoProvider,
+      Provider<FirestorePathProvider> pathsProvider) {
+    return new PersonRepository_Factory(personDaoProvider, pathsProvider);
   }
 
-  public static PersonRepository newInstance(PersonDao personDao) {
-    return new PersonRepository(personDao);
+  public static PersonRepository newInstance(PersonDao personDao, FirestorePathProvider paths) {
+    return new PersonRepository(personDao, paths);
   }
 }

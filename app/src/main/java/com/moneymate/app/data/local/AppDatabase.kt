@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import android.database.Cursor
 import com.moneymate.app.data.local.dao.*
 import com.moneymate.app.data.local.entity.*
 
@@ -15,7 +16,7 @@ import com.moneymate.app.data.local.entity.*
         EditRequest::class,
         DefaultPerson::class   // Table kept in schema; all rows purged by migration 7→8
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -94,6 +95,53 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE persons ADD COLUMN interestType TEXT NOT NULL DEFAULT 'PERCENTAGE'"
                 )
+            }
+        }
+
+        /**
+         * Migration 10 → 11
+         * Ensures isDeleted and deletedAt exist on loan_files, persons, and payments.
+         */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // loan_files
+                if (!columnExists(database, "loan_files", "isDeleted")) {
+                    database.execSQL("ALTER TABLE loan_files ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!columnExists(database, "loan_files", "deletedAt")) {
+                    database.execSQL("ALTER TABLE loan_files ADD COLUMN deletedAt INTEGER")
+                }
+
+                // persons
+                if (!columnExists(database, "persons", "isDeleted")) {
+                    database.execSQL("ALTER TABLE persons ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!columnExists(database, "persons", "deletedAt")) {
+                    database.execSQL("ALTER TABLE persons ADD COLUMN deletedAt INTEGER")
+                }
+
+                // payments
+                if (!columnExists(database, "payments", "isDeleted")) {
+                    database.execSQL("ALTER TABLE payments ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!columnExists(database, "payments", "deletedAt")) {
+                    database.execSQL("ALTER TABLE payments ADD COLUMN deletedAt INTEGER")
+                }
+            }
+
+            private fun columnExists(database: SupportSQLiteDatabase, tableName: String, columnName: String): Boolean {
+                val cursor = database.query("PRAGMA table_info($tableName)", emptyArray())
+                cursor.use {
+                    val nameIndex = cursor.getColumnIndex("name")
+                    if (nameIndex != -1) {
+                        while (cursor.moveToNext()) {
+                            if (cursor.getString(nameIndex) == columnName) {
+                                return true
+                            }
+                        }
+                    }
+                }
+                return false
             }
         }
     }

@@ -81,7 +81,10 @@ interface PersonDao {
     @Query("SELECT name FROM persons WHERE fileId = :fileId AND isDeleted = 0")
     suspend fun findAllNamesInFile(fileId: String): List<String>
 
-    @Query("SELECT * FROM persons WHERE isDeleted = 1 AND isPendingNewLoan = 0 ORDER BY deletedAt DESC")
+    // Fix: Exclude completed persons — they belong in getDeletedCompletedPersons().
+    // Without this filter a deleted completed person appears in BOTH deletedPersons
+    // AND deletedCompletedPersons, causing the same person to show up on two screens.
+    @Query("SELECT * FROM persons WHERE isDeleted = 1 AND isCompleted = 0 AND isPendingNewLoan = 0 ORDER BY deletedAt DESC")
     fun getDeletedPersons(): Flow<List<Person>>
 
     @Query("DELETE FROM persons WHERE isDeleted = 1 AND deletedAt < :cutoff")
@@ -117,21 +120,55 @@ interface PersonDao {
     @Query("UPDATE persons SET amountGiven = :amount, dateGiven = :dateGiven WHERE id = :id")
     suspend fun updateAmountAndDate(id: String, amount: Double, dateGiven: Long)
 
+    // Update amount, date AND reset all interest fields so old loan data never bleeds into new loan
+    @Query("""
+        UPDATE persons SET
+            amountGiven      = :amount,
+            dateGiven        = :dateGiven,
+            interestRate     = 0.0,
+            interestType     = 'PERCENTAGE',
+            interestAmount   = 0.0,
+            totalRepayment   = 0.0,
+            loanType         = 'MONTHLY',
+            numberOfInstallments = 10,
+            perInstallmentAmount = 0.0,
+            isDurationBased  = 0,
+            durationDays     = NULL
+        WHERE id = :id
+    """)
+    suspend fun updateAmountAndDateResetInterest(id: String, amount: Double, dateGiven: Long)
+
     // Update the pending-new-loan fields when the amount is filled in (legacy path)
-    @Query("UPDATE persons SET isPendingNewLoan = 0, amountGiven = :amount, dateGiven = :dateGiven WHERE id = :id")
+    // Also resets all interest fields so old loan data never bleeds into new loan
+    @Query("""
+        UPDATE persons SET
+            isPendingNewLoan  = 0,
+            amountGiven       = :amount,
+            dateGiven         = :dateGiven,
+            interestRate      = 0.0,
+            interestType      = 'PERCENTAGE',
+            interestAmount    = 0.0,
+            totalRepayment    = 0.0,
+            loanType          = 'MONTHLY',
+            numberOfInstallments = 10,
+            perInstallmentAmount = 0.0,
+            isDurationBased   = 0,
+            durationDays      = NULL
+        WHERE id = :id
+    """)
     suspend fun activatePendingNewLoan(id: String, amount: Double, dateGiven: Long)
 
-    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0")
+    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0")
     suspend fun getTotalGivenInFile(fileId: String): Double?
 
-    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND mode = 'CASH'")
+    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0 AND mode = 'CASH'")
     suspend fun getTotalGivenCashInFile(fileId: String): Double?
 
-    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND mode = 'UPI'")
+    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0 AND mode = 'UPI'")
     suspend fun getTotalGivenUpiInFile(fileId: String): Double?
 
     // ── Insights queries ───────────────────────────────────────────────────────
-    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND dateGiven >= :startOfDay AND dateGiven < :endOfDay")
+    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0 AND dateGiven >= :startOfDay AND dateGiven < :endOfDay")
     suspend fun getTotalGivenToday(fileId: String, startOfDay: Long, endOfDay: Long): Double?
 
     @Query("SELECT COUNT(*) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0")
@@ -172,8 +209,16 @@ interface PersonDao {
     suspend fun countZeroActiveCards(name: String, fileId: String): Int
 
     // ── Loan history queries ───────────────────────────────────────────────
-    @Query("SELECT * FROM persons WHERE fileId = :fileId AND LOWER(name) = LOWER(:name) AND isDeleted = 0 ORDER BY dateGiven DESC")
-    fun getLoanHistoryByName(fileId: String, name: String): Flow<List<Person>>
+    /** Fetch all loan records for a person by their ID (all cycles, oldest first for numbering). */
+    @Query("""
+        SELECT * FROM persons
+        WHERE fileId = (SELECT fileId FROM persons WHERE id = :personId)
+          AND LOWER(name) = LOWER((SELECT name FROM persons WHERE id = :personId))
+          AND isDeleted = 0
+          AND isPendingNewLoan = 0
+        ORDER BY dateGiven ASC
+    """)
+    fun getLoanHistoryByPersonId(personId: String): Flow<List<Person>>
 
     // One-time cleanup — keeps only the most-recently-inserted pending clone per (name, fileId)
     @Query("""
@@ -223,4 +268,13 @@ interface PersonDao {
         isDurationBased: Boolean,
         durationDays: Int?
     )
+
+    @Query("SELECT * FROM persons WHERE isDeleted = 1 AND deletedAt < :cutoff")
+    suspend fun getExpiredDeletedPersons(cutoff: Long): List<Person>
+
+    @Query("SELECT * FROM persons WHERE isDeleted = 1 ORDER BY deletedAt DESC")
+    fun getAllDeletedPersons(): Flow<List<Person>>
+
+    @Query("SELECT * FROM persons")
+    fun getAllPersonsIncludingDeleted(): Flow<List<Person>>
 }

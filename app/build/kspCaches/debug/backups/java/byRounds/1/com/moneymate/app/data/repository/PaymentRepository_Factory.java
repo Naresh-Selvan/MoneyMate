@@ -1,6 +1,8 @@
 package com.moneymate.app.data.repository;
 
 import com.moneymate.app.data.local.dao.PaymentDao;
+import com.moneymate.app.data.local.dao.PersonDao;
+import com.moneymate.app.utils.FirestorePathProvider;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
@@ -25,20 +27,29 @@ import javax.inject.Provider;
 public final class PaymentRepository_Factory implements Factory<PaymentRepository> {
   private final Provider<PaymentDao> paymentDaoProvider;
 
-  public PaymentRepository_Factory(Provider<PaymentDao> paymentDaoProvider) {
+  private final Provider<PersonDao> personDaoProvider;
+
+  private final Provider<FirestorePathProvider> pathsProvider;
+
+  public PaymentRepository_Factory(Provider<PaymentDao> paymentDaoProvider,
+      Provider<PersonDao> personDaoProvider, Provider<FirestorePathProvider> pathsProvider) {
     this.paymentDaoProvider = paymentDaoProvider;
+    this.personDaoProvider = personDaoProvider;
+    this.pathsProvider = pathsProvider;
   }
 
   @Override
   public PaymentRepository get() {
-    return newInstance(paymentDaoProvider.get());
+    return newInstance(paymentDaoProvider.get(), personDaoProvider.get(), pathsProvider.get());
   }
 
-  public static PaymentRepository_Factory create(Provider<PaymentDao> paymentDaoProvider) {
-    return new PaymentRepository_Factory(paymentDaoProvider);
+  public static PaymentRepository_Factory create(Provider<PaymentDao> paymentDaoProvider,
+      Provider<PersonDao> personDaoProvider, Provider<FirestorePathProvider> pathsProvider) {
+    return new PaymentRepository_Factory(paymentDaoProvider, personDaoProvider, pathsProvider);
   }
 
-  public static PaymentRepository newInstance(PaymentDao paymentDao) {
-    return new PaymentRepository(paymentDao);
+  public static PaymentRepository newInstance(PaymentDao paymentDao, PersonDao personDao,
+      FirestorePathProvider paths) {
+    return new PaymentRepository(paymentDao, personDao, paths);
   }
 }

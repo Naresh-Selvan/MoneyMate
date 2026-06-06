@@ -30,9 +30,9 @@ sealed class Screen(val route: String) {
     object Collection : Screen("collection")
     object EditRequests : Screen("edit_requests")
     object Settings : Screen("settings")
-    object LoanHistory : Screen("loan_history/{fileId}/{personName}") {
-        fun createRoute(fileId: String, personName: String) =
-            "loan_history/$fileId/${java.net.URLEncoder.encode(personName, "UTF-8")}"
+    object LoanHistory : Screen("loan_history/{personId}/{personName}") {
+        fun createRoute(personId: String, personName: String) =
+            "loan_history/$personId/${java.net.URLEncoder.encode(personName, "UTF-8")}"
     }
 }
 
@@ -83,18 +83,18 @@ fun NavGraph(
         composable(
             route = Screen.LoanHistory.route,
             arguments = listOf(
-                navArgument("fileId") { type = NavType.StringType },
+                navArgument("personId") { type = NavType.StringType },
                 navArgument("personName") { type = NavType.StringType }
             )
         ) { backStack ->
-            val fileId = backStack.arguments?.getString("fileId") ?: return@composable
+            val personId = backStack.arguments?.getString("personId") ?: return@composable
             val personName = java.net.URLDecoder.decode(
                 backStack.arguments?.getString("personName") ?: "",
                 "UTF-8"
             )
             LoanHistoryScreen(
                 navController = navController,
-                fileId = fileId,
+                personId = personId,
                 personName = personName
             )
         }

@@ -121,6 +121,12 @@ class RestoreViewModel @Inject constructor(
                     val d = fileDoc.data
                     if (d == null) { skippedRecords++; continue }
 
+                    val isFilePermDeleted = d.bool("permanentlyDeleted")
+                    val isFilePurged = d.bool("purged")
+                    if (isFilePermDeleted || isFilePurged) {
+                        continue
+                    }
+
                     // ── LoanFile ──────────────────────────────────────────────
                     try {
                         val file = LoanFile(
@@ -144,6 +150,12 @@ class RestoreViewModel @Inject constructor(
                         for (personDoc in personsSnapshot.documents) {
                             val pd = personDoc.data
                             if (pd == null) { skippedRecords++; continue }
+
+                            val isPersonPermDeleted = pd.bool("permanentlyDeleted")
+                            val isPersonPurged = pd.bool("purged")
+                            if (isPersonPermDeleted || isPersonPurged) {
+                                continue
+                            }
 
                             try {
                                 val person = Person(
@@ -179,6 +191,12 @@ class RestoreViewModel @Inject constructor(
                                 for (payDoc in paymentsSnapshot.documents) {
                                     val pay = payDoc.data
                                     if (pay == null) { skippedRecords++; continue }
+
+                                    val isPayPermDeleted = pay.bool("permanentlyDeleted")
+                                    val isPayPurged = pay.bool("purged")
+                                    if (isPayPermDeleted || isPayPurged) {
+                                        continue
+                                    }
 
                                     try {
                                         val payment = Payment(

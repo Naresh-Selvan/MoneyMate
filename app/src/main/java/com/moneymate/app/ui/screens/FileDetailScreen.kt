@@ -63,6 +63,7 @@ import com.moneymate.app.ui.viewmodel.PersonViewModel
 import com.moneymate.app.ui.viewmodel.SettingsViewModel
 import com.moneymate.app.ui.viewmodel.UploadState
 import com.moneymate.app.ui.viewmodel.UploadViewModel
+import com.moneymate.app.ui.screens.ViewByDateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -243,8 +244,11 @@ fun FileDetailScreen(
     var noNumberMode           by remember { mutableStateOf<CallNoNumberMode>(CallNoNumberMode.NONE) }
     val slideToCallEnabled     by settingsViewModel.isSlideToCallEnabled.collectAsState()
     // View-by-date dialog
+    var showNewViewByDateSheet by remember { mutableStateOf(false) }
     var showViewDatePicker2    by remember { mutableStateOf(false) }
     var viewDate               by remember { mutableStateOf(System.currentTimeMillis()) }
+    var viewEndDate            by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showViewEndDatePicker  by remember { mutableStateOf(false) }
     var showViewSheet          by remember { mutableStateOf(false) }
     var viewPersonFilter       by remember { mutableStateOf<Person?>(null) } // null = all persons
     // Add missed payment inside View sheet
@@ -426,10 +430,12 @@ fun FileDetailScreen(
     ) {
         // BUG 7 FIX: Use totalRepayment (principal + interest) for the active-balance check.
         // amountGiven == 0.0 cards (white new-loan placeholder) must never be filtered out.
+        // IMPORTANT: Do NOT filter by balance > 0 here — that would remove zero-balance
+        // persons BEFORE they are marked complete, creating a gap where the person is
+        // invisible in both the active list AND the completed list. The completion flow
+        // (markAsCompleted) moves them to the completed list atomically.
         var list = persons.filter { person ->
-            val effectiveTotal = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
-            val balance = effectiveTotal - (paidByPerson[person.id] ?: 0.0)
-            !person.isCompleted && (person.amountGiven == 0.0 || balance > 0.0)
+            !person.isCompleted
         }
         weekDateRange?.let { (s, e) ->
             val personIdsWithPaymentInRange = filePayments
@@ -475,10 +481,10 @@ fun FileDetailScreen(
     val allGiven     = remember(allPersons) { allPersons.sumOf { it.amountGiven } }
     val allCashGiven = remember(allPersons) { allPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
     val allUpiGiven  = remember(allPersons) { allPersons.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amountGiven } }
-    val allReceived  = remember(filePaymentsAll) { filePaymentsAll.sumOf { it.amount } }
-    val allRecCash   = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount } }
-    val allRecUpi    = remember(filePaymentsAll) { filePaymentsAll.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
-    val allBalance   = allGiven - allReceived
+    val allReceived  = remember(filePayments) { filePayments.sumOf { it.amount } }
+    val allRecCash   = remember(filePayments) { filePayments.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount } }
+    val allRecUpi    = remember(filePayments) { filePayments.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount } }
+    val allBalance   = (allGiven - allReceived).coerceAtLeast(0.0)
 
     // BUG 2: "Given" = principal only (amountGiven)
     val pageGiven     = remember(pagePersons) { pagePersons.sumOf { it.amountGiven } }
@@ -487,7 +493,7 @@ fun FileDetailScreen(
     val pageReceived  = remember(pagePersonIds, filePayments) { filePayments.filter { it.personId in pagePersonIds }.sumOf { it.amount } }
     val pageRecCash   = remember(pagePersonIds, filePayments) { filePayments.filter { it.personId in pagePersonIds && it.mode == PaymentMode.CASH }.sumOf { it.amount } }
     val pageRecUpi    = remember(pagePersonIds, filePayments) { filePayments.filter { it.personId in pagePersonIds && it.mode == PaymentMode.UPI  }.sumOf { it.amount } }
-    val pageBalance   = pageGiven - pageReceived
+    val pageBalance   = (pageGiven - pageReceived).coerceAtLeast(0.0)
 
     @Suppress("UNUSED_VARIABLE")
     val totalGiven    = if (showOverallTotal) allGiven    else pageGiven
@@ -526,12 +532,12 @@ fun FileDetailScreen(
                 cal.add(Calendar.WEEK_OF_YEAR, 1) // move forward one week
             }
             return@remember days.map { (s, e) ->
-                val dayPayments  = filePaymentsAll.filter { it.date in s..e }
+                val dayPayments  = filePayments.filter { it.date in s..e }
                 val dayPersonIds = dayPayments.map { it.personId }.toSet()
                 val dayPersons   = allPersons.filter { it.id in dayPersonIds }
                 val given    = dayPersons.sumOf { it.amountGiven }
                 val received = dayPayments.sumOf { it.amount }
-                DayBreakdown(dayFmt.format(Date(s)), given, received, given - received, weekStart = s, weekEnd = e)
+                DayBreakdown(dayFmt.format(Date(s)), given, received, (given - received).coerceAtLeast(0.0), weekStart = s, weekEnd = e)
             }
         }
 
@@ -781,7 +787,7 @@ fun FileDetailScreen(
                                         onClick = {
                                             showThreeDotMenu = false
                                             viewPersonFilter = null
-                                            showViewDatePicker2 = true
+                                            showNewViewByDateSheet = true
                                         }
                                     )
                                     HorizontalDivider()
@@ -1223,7 +1229,12 @@ fun FileDetailScreen(
                                                 onCallNow = { launchCall(person) },
                                                 onQuickPayment = { amount, mode ->
                                                     coroutineScope.launch {
-                                                        paymentViewModel.insertPayment(
+                                                        // Await the Room write so the reactive flows update before
+                                                        // we check the balance and potentially mark as completed.
+                                                        // This prevents the race where the person is filtered out of
+                                                        // the active list (balance = 0) before the completed list
+                                                        // picks them up (isCompleted still false).
+                                                        paymentViewModel.insertPaymentAwait(
                                                             Payment(
                                                                 personId = person.id,
                                                                 amount   = amount,
@@ -1235,7 +1246,8 @@ fun FileDetailScreen(
                                                         // markAsCompleted handles both marking completed AND creating
                                                         // the fresh 0-amount pending-new-loan placeholder internally.
                                                         val newTotalPaid = (paidByPerson[person.id] ?: 0.0) + amount
-                                                        val remainingBalance = person.amountGiven - newTotalPaid
+                                                        val effTotal = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
+                                                        val remainingBalance = (effTotal - newTotalPaid).coerceAtLeast(0.0)
                                                         if (remainingBalance <= 0.0 && person.amountGiven > 0) {
                                                             personViewModel.markAsCompleted(person)
                                                         }
@@ -1274,6 +1286,22 @@ fun FileDetailScreen(
             }
         }
     }
+
+    // ── View by Date — new date-range flow ──────────────────────────────────────
+    ViewByDateFlow(
+        show = showNewViewByDateSheet,
+        fileId = fileId,
+        persons = persons,
+        completedPersons = completedPersons,
+        pendingNewLoanPersons = pendingNewLoanPersons,
+        filePaymentsAll = filePaymentsAll,
+        personViewModel = personViewModel,
+        paymentViewModel = paymentViewModel,
+        paidByPerson = paidByPerson,
+        file = file,
+        coroutineScope = coroutineScope,
+        onDismiss = { showNewViewByDateSheet = false }
+    )
 
 // ── Mark as Completed dialog ──────────────────────────────────────────────
     personToMarkComplete?.let { p ->
@@ -1396,7 +1424,7 @@ fun FileDetailScreen(
                                 val compBalance = (compTotalRepayment - compTotalPaid).coerceAtLeast(0.0)
                                 val daysLeft = 180 - ((System.currentTimeMillis() - (comp.completedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
                                 Box(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
-                                    DraggableCompletedPersonCard(
+                                    DraggableCompletedPersonCardFixed(
                                         person = comp,
                                         balance = compBalance,
                                         daysLeft = daysLeft,

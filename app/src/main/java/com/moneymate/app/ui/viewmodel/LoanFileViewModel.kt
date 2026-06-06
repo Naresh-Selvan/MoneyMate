@@ -6,6 +6,7 @@ import com.moneymate.app.data.local.entity.CalculationMode
 import com.moneymate.app.data.local.entity.LoanFile
 import com.moneymate.app.data.repository.LoanFileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -23,6 +24,9 @@ class LoanFileViewModel @Inject constructor(
     val trashedFiles: StateFlow<List<LoanFile>> = repository.getTrashedFiles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allFilesIncludingDeleted: StateFlow<List<LoanFile>> = repository.getAllFilesIncludingDeleted()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     /**
      * Insert a new file. The file is always created completely empty — no names,
      * no template data, no pre-populated persons. The user adds entries manually.
@@ -37,10 +41,16 @@ class LoanFileViewModel @Inject constructor(
     fun softDeleteFile(id: String) = viewModelScope.launch { repository.softDeleteFile(id, System.currentTimeMillis()) }
     fun restoreFile(id: String) = viewModelScope.launch { repository.restoreFile(id) }
     fun hardDeleteFile(id: String) = viewModelScope.launch { repository.hardDeleteFile(id) }
+    
     fun purgeExpiredFiles() = viewModelScope.launch {
         val cutoff = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
         repository.purgeExpiredFiles(cutoff)
     }
+
+    fun autoPurge() = viewModelScope.launch {
+        repository.autoPurge()
+    }
+
     fun markSynced(id: String) = viewModelScope.launch { repository.markSynced(id, true, System.currentTimeMillis()) }
     fun updateSortOrder(id: String, sortOrder: Int) = viewModelScope.launch { repository.updateSortOrder(id, sortOrder) }
 

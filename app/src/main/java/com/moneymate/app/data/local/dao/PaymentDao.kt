@@ -86,15 +86,15 @@ interface PaymentDao {
     """)
     suspend fun getTotalReceivedUpiInFile(fileId: String): Double?
 
+    // Active persons only — used for per-person balance and file-level balance
     @Query("""
         SELECT p.* FROM payments p
         INNER JOIN persons pr ON p.personId = pr.id
-        WHERE pr.fileId = :fileId AND p.isDeleted = 0 AND pr.isDeleted = 0
+        WHERE pr.fileId = :fileId AND p.isDeleted = 0 AND pr.isDeleted = 0 AND pr.isCompleted = 0
     """)
     fun getPaymentsForFile(fileId: String): Flow<List<Payment>>
 
-    // Includes completed persons — used for file-level received totals so
-    // marking someone complete doesn't reduce the received amount.
+    // Includes completed persons — used for completed section and file-level received totals
     @Query("""
         SELECT p.* FROM payments p
         INNER JOIN persons pr ON p.personId = pr.id
@@ -118,4 +118,7 @@ interface PaymentDao {
           AND p.date >= :weekStart AND p.date < :weekEnd
     """)
     suspend fun getTotalReceivedThisWeek(fileId: String, weekStart: Long, weekEnd: Long): Double
+
+    @Query("SELECT * FROM payments WHERE isDeleted = 1 AND deletedAt < :cutoff")
+    suspend fun getExpiredDeletedPayments(cutoff: Long): List<Payment>
 }

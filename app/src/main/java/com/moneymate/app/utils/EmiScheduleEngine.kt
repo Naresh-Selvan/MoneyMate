@@ -127,7 +127,8 @@ object EmiScheduleEngine {
         val totalCollected = payments
             .filter { !it.isDeleted }
             .sumOf { it.amount }
-        return (person.totalRepayment - totalCollected).coerceAtLeast(0.0)
+        val effectiveTotal = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
+        return (effectiveTotal - totalCollected).coerceAtLeast(0.0)
     }
 
     /**

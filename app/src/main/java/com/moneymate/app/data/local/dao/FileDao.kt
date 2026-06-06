@@ -45,4 +45,10 @@ interface FileDao {
 
     @Query("UPDATE loan_files SET sortOrder = :sortOrder WHERE id = :id")
     suspend fun updateSortOrder(id: String, sortOrder: Int)
+
+    @Query("SELECT * FROM loan_files WHERE isDeleted = 1 AND deletedAt < :cutoff")
+    suspend fun getExpiredDeletedFiles(cutoff: Long): List<LoanFile>
+
+    @Query("SELECT * FROM loan_files")
+    fun getAllFilesIncludingDeleted(): Flow<List<LoanFile>>
 }

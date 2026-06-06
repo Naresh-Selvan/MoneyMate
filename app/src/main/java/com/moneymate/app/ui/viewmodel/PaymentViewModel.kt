@@ -39,6 +39,16 @@ class PaymentViewModel @Inject constructor(
         repository.insertPayment(payment)
     }
 
+    /**
+     * Suspend variant that awaits the Room write to complete.
+     * Use this instead of [insertPayment] when the caller needs to guarantee
+     * the payment is committed before proceeding (e.g., before checking whether
+     * the balance is zero and marking a loan as completed).
+     */
+    suspend fun insertPaymentAwait(payment: Payment) {
+        repository.insertPayment(payment)
+    }
+
     fun updatePayment(payment: Payment) = viewModelScope.launch {
         repository.updatePayment(payment)
     }

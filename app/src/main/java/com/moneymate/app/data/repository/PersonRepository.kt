@@ -1,16 +1,22 @@
 package com.moneymate.app.data.repository
 
+import android.util.Log
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.moneymate.app.data.local.dao.PersonDao
 import com.moneymate.app.data.local.entity.EditPermissionScope
 import com.moneymate.app.data.local.entity.Person
+import com.moneymate.app.utils.FirestorePathProvider
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class PersonRepository @Inject constructor(
-    private val personDao: PersonDao
+    private val personDao: PersonDao,
+    private val paths: FirestorePathProvider
 ) {
     fun getPersonsByFile(fileId: String): Flow<List<Person>> =
         personDao.getPersonsByFile(fileId)
@@ -31,6 +37,12 @@ class PersonRepository @Inject constructor(
     fun getDeletedCompletedPersons(): Flow<List<Person>> =
         personDao.getDeletedCompletedPersons()
 
+    fun getAllDeletedPersons(): Flow<List<Person>> =
+        personDao.getAllDeletedPersons()
+
+    fun getAllPersonsIncludingDeleted(): Flow<List<Person>> =
+        personDao.getAllPersonsIncludingDeleted()
+
     fun getCompletedPersonsByFile(fileId: String): Flow<List<Person>> =
         personDao.getCompletedPersonsByFile(fileId)
 
@@ -46,9 +58,9 @@ class PersonRepository @Inject constructor(
     suspend fun findDuplicateByNameAndPlace(fileId: String, name: String, place: String): List<Person> =
         personDao.findDuplicateByNameAndPlace(fileId, name, place)
 
-    /** Returns all loan records for a person by name in a file — for loan history screen. */
-    fun getLoanHistoryByName(fileId: String, name: String): kotlinx.coroutines.flow.Flow<List<Person>> =
-        personDao.getLoanHistoryByName(fileId, name)
+    /** Returns all loan records for a person by their ID — for loan history screen. */
+    fun getLoanHistoryByPersonId(personId: String): Flow<List<Person>> =
+        personDao.getLoanHistoryByPersonId(personId)
 
     suspend fun shiftSortOrdersAfter(fileId: String, afterSortOrder: Int) =
         personDao.shiftSortOrdersAfter(fileId, afterSortOrder)
@@ -62,7 +74,7 @@ class PersonRepository @Inject constructor(
         personDao.getPersonById(id)
 
     /** Reactive variant — emits updates whenever the person row changes. */
-    fun getPersonByIdFlow(id: String): kotlinx.coroutines.flow.Flow<Person?> =
+    fun getPersonByIdFlow(id: String): Flow<Person?> =
         personDao.getPersonByIdFlow(id)
 
     suspend fun insertPerson(person: Person) =
@@ -74,17 +86,90 @@ class PersonRepository @Inject constructor(
     suspend fun updateNameAndPlace(id: String, name: String, place: String?) =
         personDao.updateNameAndPlace(id, name, place)
 
-    suspend fun softDeletePerson(id: String, deletedAt: Long) =
+    suspend fun softDeletePerson(id: String, deletedAt: Long) {
         personDao.softDeletePerson(id, deletedAt)
+        val person = personDao.getPersonById(id)
+        if (person != null) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val docRef = db.collection(paths.personsCollection(person.fileId)).document(id)
+                docRef.set(
+                    mapOf(
+                        "isDeleted" to true,
+                        "deletedAt" to deletedAt,
+                        "purged" to false,
+                        "permanentlyDeleted" to false
+                    ),
+                    SetOptions.merge()
+                ).await()
+            } catch (e: Exception) {
+                Log.e("PersonRepository", "Firestore softDeletePerson failed for $id", e)
+            }
+        }
+    }
 
-    suspend fun softDeleteCompletedPerson(id: String, deletedAt: Long) =
+    suspend fun softDeleteCompletedPerson(id: String, deletedAt: Long) {
         personDao.softDeleteCompletedPerson(id, deletedAt)
+        val person = personDao.getPersonById(id)
+        if (person != null) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val docRef = db.collection(paths.personsCollection(person.fileId)).document(id)
+                docRef.set(
+                    mapOf(
+                        "isDeleted" to true,
+                        "deletedAt" to deletedAt,
+                        "purged" to false,
+                        "permanentlyDeleted" to false
+                    ),
+                    SetOptions.merge()
+                ).await()
+            } catch (e: Exception) {
+                Log.e("PersonRepository", "Firestore softDeleteCompletedPerson failed for $id", e)
+            }
+        }
+    }
 
-    suspend fun restorePerson(id: String) =
+    suspend fun restorePerson(id: String) {
         personDao.restorePerson(id)
+        val person = personDao.getPersonById(id)
+        if (person != null) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val docRef = db.collection(paths.personsCollection(person.fileId)).document(id)
+                docRef.set(
+                    mapOf(
+                        "isDeleted" to false,
+                        "deletedAt" to null
+                    ),
+                    SetOptions.merge()
+                ).await()
+            } catch (e: Exception) {
+                Log.e("PersonRepository", "Firestore restorePerson failed for $id", e)
+            }
+        }
+    }
 
-    suspend fun hardDeletePerson(id: String) =
+    suspend fun hardDeletePerson(id: String) {
+        val person = personDao.getPersonById(id)
         personDao.hardDeletePerson(id)
+        if (person != null) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val docRef = db.collection(paths.personsCollection(person.fileId)).document(id)
+                docRef.set(
+                    mapOf(
+                        "isDeleted" to true,
+                        "permanentlyDeleted" to true,
+                        "permanentlyDeletedAt" to System.currentTimeMillis()
+                    ),
+                    SetOptions.merge()
+                ).await()
+            } catch (e: Exception) {
+                Log.e("PersonRepository", "Firestore hardDeletePerson failed for $id", e)
+            }
+        }
+    }
 
     suspend fun purgeExpiredPersons(cutoff: Long) =
         personDao.purgeExpiredPersons(cutoff)
@@ -118,15 +203,6 @@ class PersonRepository @Inject constructor(
      * (amountGiven = 0.0, isPendingNewLoan = false) that stays visible in the main
      * list, and a pink indicator card (isPendingNewLoan = true) — BUT only if those
      * rows don't already exist for this name + fileId.
-     *
-     * Three-step atomic sequence:
-     *   1. Set isCompleted = 1 on the original row   → moves to Completed section
-     *   2. Insert white active card (₹0.0, normal)   → stays in main active list
-     *   3. Insert pink indicator card (pending clone) → shown below as visual indicator
-     *
-     * Guards prevent duplicates on repeated completion cycles.
-     *
-     * Returns the ID of the white active card (new loan placeholder).
      */
     suspend fun markAsCompletedAndCreatePlaceholder(person: Person): String {
         val now       = System.currentTimeMillis()
@@ -137,28 +213,33 @@ class PersonRepository @Inject constructor(
         personDao.markAsCompleted(person.id, now, activeId)
 
         // 2. Insert the white active card only if one doesn't already exist.
-        //    isPendingNewLoan = false → included in getPersonsByFile → visible as white card.
-        //    amountGiven = 0.0 + dateGiven = now → tapping it opens the loan-amount dialog.
         if (personDao.countZeroActiveCards(person.name, person.fileId) == 0) {
             val whiteCard = person.copy(
                 id                    = activeId,
                 amountGiven           = 0.0,
-                dateGiven             = now,          // completion date; updated to today when amount is entered
-                isPendingNewLoan      = false,        // MUST be false so it appears in the normal active list
+                dateGiven             = now,
+                isPendingNewLoan      = false,
                 isCompleted           = false,
                 completedAt           = null,
                 linkedNewPersonId     = null,
                 previousPersonId      = person.id,
                 uploadedAt            = null,
                 editPermissionGranted = false,
-                editPermissionScope   = EditPermissionScope.NONE
+                editPermissionScope   = EditPermissionScope.NONE,
+                interestRate          = 0.0,
+                interestType          = "PERCENTAGE",
+                interestAmount        = 0.0,
+                totalRepayment        = 0.0,
+                loanType              = "MONTHLY",
+                numberOfInstallments  = 10,
+                perInstallmentAmount  = 0.0,
+                isDurationBased       = false,
+                durationDays          = null
             )
             personDao.insertPerson(whiteCard)
         }
 
         // 3. Insert the pink indicator card only if one doesn't already exist.
-        //    isPendingNewLoan = true → excluded from getPersonsByFile, included in
-        //    getPendingNewLoanPersonsByFile → shown as the pink "Pending New Loan" card.
         if (personDao.countPendingClones(person.name, person.fileId) == 0) {
             val pinkCard = person.copy(
                 id                    = pinkId,
@@ -171,7 +252,16 @@ class PersonRepository @Inject constructor(
                 previousPersonId      = person.id,
                 uploadedAt            = null,
                 editPermissionGranted = false,
-                editPermissionScope   = EditPermissionScope.NONE
+                editPermissionScope   = EditPermissionScope.NONE,
+                interestRate          = 0.0,
+                interestType          = "PERCENTAGE",
+                interestAmount        = 0.0,
+                totalRepayment        = 0.0,
+                loanType              = "MONTHLY",
+                numberOfInstallments  = 10,
+                perInstallmentAmount  = 0.0,
+                isDurationBased       = false,
+                durationDays          = null
             )
             personDao.insertPerson(pinkCard)
         }
@@ -188,7 +278,7 @@ class PersonRepository @Inject constructor(
      * Updates amount + dateGiven to TODAY on the white card, then deletes the pink clone.
      */
     suspend fun activateZeroActiveCard(person: Person, amount: Double) {
-        personDao.updateAmountAndDate(person.id, amount, System.currentTimeMillis())
+        personDao.updateAmountAndDateResetInterest(person.id, amount, System.currentTimeMillis())
         personDao.deleteZeroCloneByNameAndFile(person.name, person.fileId)
     }
 

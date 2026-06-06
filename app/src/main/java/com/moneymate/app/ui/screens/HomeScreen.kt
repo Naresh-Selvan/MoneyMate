@@ -54,6 +54,10 @@ fun HomeScreen(
     var newFileName by remember { mutableStateOf("") }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        viewModel.autoPurge()
+    }
+
     // ── Drag-to-dustbin state ─────────────────────────────────────────
     var draggingFile       by remember { mutableStateOf<LoanFile?>(null) }
     var dragOffset         by remember { mutableStateOf(Offset.Zero) }

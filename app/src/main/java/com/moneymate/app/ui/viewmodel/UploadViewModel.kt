@@ -58,7 +58,11 @@ class UploadViewModel @Inject constructor(
                     "isDeleted"        to file.isDeleted,
                     "deletedAt"        to file.deletedAt,
                     "syncedToFirebase" to file.syncedToFirebase,
-                    "lastUploadedAt"   to file.lastUploadedAt
+                    "lastUploadedAt"   to file.lastUploadedAt,
+                    "permanentlyDeleted" to false,
+                    "permanentlyDeletedAt" to null,
+                    "purged"           to false,
+                    "purgedAt"         to null
                 )
                 db.collection(paths.loanFilesCollection)
                     .document(file.id)
@@ -98,7 +102,11 @@ class UploadViewModel @Inject constructor(
                         "isPendingNewLoan"      to person.isPendingNewLoan,
                         "previousPersonId"      to person.previousPersonId,
                         "totalReceived"         to activePaymentTotal,
-                        "balance"               to (person.amountGiven - activePaymentTotal)
+                        "balance"               to ((if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven) - activePaymentTotal).coerceAtLeast(0.0),
+                        "permanentlyDeleted"    to false,
+                        "permanentlyDeletedAt"  to null,
+                        "purged"                to false,
+                        "purgedAt"              to null
                     )
 
                     db.collection(paths.personsCollection(file.id))
@@ -122,7 +130,11 @@ class UploadViewModel @Inject constructor(
                             "isRollover"            to payment.isRollover,
                             "uploadedAt"            to payment.uploadedAt,
                             "editPermissionGranted" to payment.editPermissionGranted,
-                            "editPermissionScope"   to payment.editPermissionScope.name
+                            "editPermissionScope"   to payment.editPermissionScope.name,
+                            "permanentlyDeleted"    to false,
+                            "permanentlyDeletedAt"  to null,
+                            "purged"                to false,
+                            "purgedAt"              to null
                         )
                         db.collection(paths.paymentsCollection(file.id, person.id))
                             .document(payment.id)

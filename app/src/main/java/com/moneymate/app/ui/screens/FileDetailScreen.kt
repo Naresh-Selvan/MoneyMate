@@ -467,8 +467,10 @@ fun FileDetailScreen(
     val filteredPersonIds = remember(filteredPersons) { filteredPersons.map { it.id }.toSet() }
     val pagePersonIds     = remember(pagePersons) { pagePersons.map { it.id }.toSet() }
 
-    // Totals
-    val allPersons   = remember(filteredPersons, completedPersons) { filteredPersons + completedPersons }
+    // Totals — BUG 3 FIX: do NOT include completedPersons in allPersons totals.
+    // Completed loans are history; their amounts must not inflate the "current" totals.
+    // allGiven = sum of amountGiven for active (non-completed) filtered persons only.
+    val allPersons   = remember(filteredPersons) { filteredPersons }
     // BUG 2: "Given" = principal only (amountGiven), not totalRepayment
     val allGiven     = remember(allPersons) { allPersons.sumOf { it.amountGiven } }
     val allCashGiven = remember(allPersons) { allPersons.filter { it.mode == PaymentMode.CASH }.sumOf { it.amountGiven } }
@@ -1188,9 +1190,10 @@ fun FileDetailScreen(
                                             val elevation  = if (isDragging) 8.dp else 2.dp
                                             val isSelected = person.id in selectedIds
                                             val paid       = paidByPerson[person.id] ?: 0.0
-                                            // BUG 7: Pending = totalRepayment - paid (principal + interest minus payments)
+                                            // BUG 1 FIX + BUG 7: Pending = totalRepayment - paid,
+                                            // clamped to ≥0 so a fully-paid card never shows negative.
                                             val effectiveTotal = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
-                                            val pending    = effectiveTotal - paid
+                                            val pending    = (effectiveTotal - paid).coerceAtLeast(0.0)
                                             SwipeablePersonCard(
                                                 person = person, serialNumber = serial,
                                                 totalPaid = paid, pending = pending,
@@ -1275,7 +1278,8 @@ fun FileDetailScreen(
 // ── Mark as Completed dialog ──────────────────────────────────────────────
     personToMarkComplete?.let { p ->
         val paid    = (paymentsByPerson[p.id] ?: emptyList()).sumOf { it.amount }
-        val balance = p.amountGiven - paid
+        val effectiveTotal = if (p.totalRepayment > 0) p.totalRepayment else p.amountGiven
+        val balance = (effectiveTotal - paid).coerceAtLeast(0.0)
         AlertDialog(
             onDismissRequest = { personToMarkComplete = null },
             title = { Text("Mark ${p.name} as Completed?") },
@@ -1496,48 +1500,43 @@ fun FileDetailScreen(
             }
         }
 
-        // BUG 2 FIX: New loan dialog for a completed person
+        // BUG 2 FIX: 2-step bottom sheet — Step 1: Amount, Step 2: Interest
         completedPersonForNewLoan?.let { completedPerson ->
-            val defaultRate = file?.defaultInterestRate ?: 25.0
-            val defaultMode = file?.defaultCalculationMode ?: CalculationMode.FLAT
-            LoanAmountInterestDialog(
-                fileDefaultRate = defaultRate,
-                fileDefaultMode = defaultMode,
-                initialAmount   = "",
-                onConfirm = { result ->
-                    // BUG 2 & 3: Create a brand-new active Person record for this person.
-                    // The old completed record is preserved untouched in Room.
-                    // The new record gets a fresh UUID, amountGiven = new principal,
-                    // totalRepayment = principal + interest so the card shows the correct total.
+            NewLoanStepSheet(
+                personName = completedPerson.name,
+                fileDefaultRate = file?.defaultInterestRate ?: 25.0,
+                fileDefaultMode = file?.defaultCalculationMode ?: CalculationMode.FLAT,
+                onConfirm = { principal, interestType, interestRate, interestAmount, totalRepayment, loanType, installments, perInstallment, isDurationBased, durationDays ->
+                    // Create a brand-new active Person record. Old completed record untouched.
+                    // Interest fields saved directly on the new record — never derived from file default.
                     val newPerson = completedPerson.copy(
                         id                    = java.util.UUID.randomUUID().toString(),
-                        amountGiven           = result.principal,
-                        interestRate         = result.interestRate,
-                        interestType         = result.interestType,
-                        interestAmount       = result.interestAmount,
-                        totalRepayment       = result.totalRepayment,
-                        loanType             = result.loanType,
-                        numberOfInstallments = result.numberOfInstallments,
-                        perInstallmentAmount = result.perInstallmentAmount,
-                        isDurationBased      = result.isDurationBased,
-                        durationDays         = result.durationDays,
-                        dateGiven            = System.currentTimeMillis(),
-                        isCompleted          = false,
-                        completedAt          = null,
-                        linkedNewPersonId    = null,
-                        isPendingNewLoan     = false,
-                        previousPersonId     = completedPerson.id,
-                        isDeleted            = false,
-                        deletedAt            = null,
-                        uploadedAt           = null,
-                        sortOrder            = persons.size,
+                        amountGiven           = principal,
+                        interestRate          = interestRate,
+                        interestType          = interestType,
+                        interestAmount        = interestAmount,
+                        totalRepayment        = totalRepayment,
+                        loanType              = loanType,
+                        numberOfInstallments  = installments,
+                        perInstallmentAmount  = perInstallment,
+                        isDurationBased       = isDurationBased,
+                        durationDays          = durationDays,
+                        dateGiven             = System.currentTimeMillis(),
+                        isCompleted           = false,
+                        completedAt           = null,
+                        linkedNewPersonId     = null,
+                        isPendingNewLoan      = false,
+                        previousPersonId      = completedPerson.id,
+                        isDeleted             = false,
+                        deletedAt             = null,
+                        uploadedAt            = null,
+                        sortOrder             = persons.size,
                         editPermissionGranted = false,
-                        editPermissionScope  = com.moneymate.app.data.local.entity.EditPermissionScope.NONE
+                        editPermissionScope   = com.moneymate.app.data.local.entity.EditPermissionScope.NONE
                     )
                     coroutineScope.launch {
                         personViewModel.insertPerson(newPerson)
-                        // Delete the white ₹0 placeholder for this person if one exists,
-                        // since we just created a real active record.
+                        // Remove any leftover ₹0 placeholder for this person
                         personViewModel.deleteZeroPlaceholderByNameAndFile(completedPerson.name, fileId)
                     }
                     completedPersonForNewLoan = null

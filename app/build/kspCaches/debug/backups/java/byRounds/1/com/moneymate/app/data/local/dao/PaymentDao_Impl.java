@@ -12,6 +12,7 @@ import androidx.room.RoomSQLiteQuery;
 import androidx.room.SharedSQLiteStatement;
 import androidx.room.util.CursorUtil;
 import androidx.room.util.DBUtil;
+import androidx.room.util.StringUtil;
 import androidx.sqlite.db.SupportSQLiteStatement;
 import com.moneymate.app.data.local.entity.EditPermissionScope;
 import com.moneymate.app.data.local.entity.Payment;
@@ -24,6 +25,7 @@ import java.lang.Long;
 import java.lang.Object;
 import java.lang.Override;
 import java.lang.String;
+import java.lang.StringBuilder;
 import java.lang.SuppressWarnings;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -370,6 +372,50 @@ public final class PaymentDao_Impl implements PaymentDao {
           }
         } finally {
           __preparedStmtOfSetEditPermission.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object getTotalPaidByPersonIds(final List<String> personIds,
+      final Continuation<? super List<PersonTotalPaid>> $completion) {
+    final StringBuilder _stringBuilder = StringUtil.newStringBuilder();
+    _stringBuilder.append("SELECT personId, SUM(amount) as totalPaid FROM payments WHERE personId IN (");
+    final int _inputSize = personIds.size();
+    StringUtil.appendPlaceholders(_stringBuilder, _inputSize);
+    _stringBuilder.append(") AND isDeleted = 0 GROUP BY personId");
+    final String _sql = _stringBuilder.toString();
+    final int _argCount = 0 + _inputSize;
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, _argCount);
+    int _argIndex = 1;
+    for (String _item : personIds) {
+      _statement.bindString(_argIndex, _item);
+      _argIndex++;
+    }
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<List<PersonTotalPaid>>() {
+      @Override
+      @NonNull
+      public List<PersonTotalPaid> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfPersonId = 0;
+          final int _cursorIndexOfTotalPaid = 1;
+          final List<PersonTotalPaid> _result = new ArrayList<PersonTotalPaid>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final PersonTotalPaid _item_1;
+            final String _tmpPersonId;
+            _tmpPersonId = _cursor.getString(_cursorIndexOfPersonId);
+            final double _tmpTotalPaid;
+            _tmpTotalPaid = _cursor.getDouble(_cursorIndexOfTotalPaid);
+            _item_1 = new PersonTotalPaid(_tmpPersonId,_tmpTotalPaid);
+            _result.add(_item_1);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
         }
       }
     }, $completion);

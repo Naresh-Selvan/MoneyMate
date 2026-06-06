@@ -1,13 +1,21 @@
 package com.moneymate.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -506,6 +514,337 @@ private fun InterestRow(label: String, value: String, bold: Boolean = false) {
             fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSecondaryContainer
         )
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Part 4 — New Loan Step-by-Step Bottom Sheet (for completed person cards)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 2-step bottom sheet for creating a new loan after a person is marked completed.
+ *
+ * STEP 1 — New Loan Amount
+ *   Full screen bottom sheet
+ *   Title: "New Loan for [Person Name]"
+ *   Single input field: "Enter Amount" (numeric, with ₹ prefix)
+ *   Button: "Next"
+ *   Validate: amount must be greater than zero before allowing Next
+ *
+ * STEP 2 — Interest
+ *   Same bottom sheet, animates to next page
+ *   Title: "Set Interest"
+ *   Pre-fill with file default interest rate for convenience ONLY
+ *   Toggle between: Flat Rate (%) / Custom Fixed Amount
+ *   Live preview computes interest and shows total
+ *   Buttons: "Back" and "Confirm"
+ *
+ * @param personName      Name of the person getting the new loan
+ * @param fileDefaultRate Pre-fill rate from file settings (convenience only)
+ * @param fileDefaultMode Pre-fill calculation mode from file settings
+ * @param onConfirm       Called with all loan fields when user taps Confirm
+ * @param onDismiss       Cancel callback
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NewLoanStepSheet(
+    personName: String,
+    fileDefaultRate: Double,
+    fileDefaultMode: CalculationMode,
+    onConfirm: (
+        principal: Double,
+        interestType: String,
+        interestRate: Double,
+        interestAmount: Double,
+        totalRepayment: Double,
+        loanType: String,
+        installments: Int,
+        perInstallment: Double,
+        isDurationBased: Boolean,
+        durationDays: Int?
+    ) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var currentStep by remember { mutableIntStateOf(1) }
+
+    // Step 1 state
+    var amountText by remember { mutableStateOf("") }
+
+    // Step 2 state — pre-fill from file default
+    var rateText by remember {
+        mutableStateOf(
+            fileDefaultRate.toBigDecimal().stripTrailingZeros().toPlainString()
+        )
+    }
+    var interestType by remember { mutableStateOf("PERCENTAGE") }
+    var fixedInterestText by remember { mutableStateOf("") }
+
+    // Live calculations for Step 2
+    val principal by remember { derivedStateOf { amountText.toDoubleOrNull() ?: 0.0 } }
+    val rate by remember { derivedStateOf { rateText.toDoubleOrNull() ?: 0.0 } }
+    val fixedInterestVal by remember { derivedStateOf { fixedInterestText.toDoubleOrNull() ?: 0.0 } }
+
+    val interestAmount by remember {
+        derivedStateOf {
+            if (interestType == "FIXED_AMOUNT") {
+                fixedInterestVal
+            } else {
+                calcFlatInterest(principal, rate)
+            }
+        }
+    }
+    val totalRepayment by remember { derivedStateOf { principal + interestAmount } }
+
+    fun formatMoney(v: Double): String {
+        if (v == 0.0) return "₹0"
+        val s = "%.2f".format(v).trimEnd('0').trimEnd('.')
+        return "₹$s"
+    }
+
+    val canProceedStep1 = amountText.toDoubleOrNull()?.let { it > 0.0 } == true
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AnimatedContent(
+                targetState = currentStep,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) togetherWith
+                            slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300))
+                    } else {
+                        slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)) togetherWith
+                            slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
+                    }
+                },
+                label = "loanStep"
+            ) { step ->
+                when (step) {
+                    1 -> {
+                        // ── STEP 1: Loan Amount ────────────────────────────
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                "New Loan for $personName",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                "Enter the loan amount",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = amountText,
+                                onValueChange = {
+                                    amountText = it.filter { c -> c.isDigit() || c == '.' }
+                                },
+                                label = { Text("Enter Amount") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                ),
+                                leadingIcon = {
+                                    Text(
+                                        "₹",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                }
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                onClick = { currentStep = 2 },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = canProceedStep1
+                            ) {
+                                Text("Next")
+                            }
+                            TextButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Cancel")
+                            }
+                        }
+                    }
+
+                    2 -> {
+                        // ── STEP 2: Interest ───────────────────────────────
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = { currentStep = 1 }) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back"
+                                    )
+                                }
+                                Text(
+                                    "Set Interest",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Text(
+                                "Interest type",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(
+                                    selected = interestType == "PERCENTAGE",
+                                    onClick = { interestType = "PERCENTAGE" },
+                                    label = { Text("Flat Rate (%)") }
+                                )
+                                FilterChip(
+                                    selected = interestType == "FIXED_AMOUNT",
+                                    onClick = { interestType = "FIXED_AMOUNT" },
+                                    label = { Text("Custom Fixed Amount") }
+                                )
+                            }
+
+                            if (interestType == "PERCENTAGE") {
+                                OutlinedTextField(
+                                    value = rateText,
+                                    onValueChange = {
+                                        rateText = it.filter { c ->
+                                            c.isDigit() || c == '.'
+                                        }
+                                    },
+                                    label = { Text("Interest Rate (%)") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal
+                                    ),
+                                    trailingIcon = {
+                                        Text(
+                                            "%",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            modifier = Modifier.padding(end = 8.dp)
+                                        )
+                                    }
+                                )
+                            } else {
+                                OutlinedTextField(
+                                    value = fixedInterestText,
+                                    onValueChange = {
+                                        fixedInterestText = it.filter { c ->
+                                            c.isDigit() || c == '.'
+                                        }
+                                    },
+                                    label = { Text("Fixed Interest Amount (₹)") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal
+                                    ),
+                                    leadingIcon = {
+                                        Text(
+                                            "₹",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        )
+                                    }
+                                )
+                            }
+
+                            // Live preview
+                            if (principal > 0.0) {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        InterestRow(
+                                            "Principal",
+                                            formatMoney(principal)
+                                        )
+                                        InterestRow(
+                                            "Interest",
+                                            formatMoney(interestAmount)
+                                        )
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(
+                                                vertical = 4.dp
+                                            )
+                                        )
+                                        InterestRow(
+                                            "Total",
+                                            formatMoney(totalRepayment),
+                                            bold = true
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { currentStep = 1 },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Back")
+                                }
+                                Button(
+                                    onClick = {
+                                        val p =
+                                            amountText.toDoubleOrNull()
+                                                ?: return@Button
+                                        if (p <= 0.0) return@Button
+                                        onConfirm(
+                                            p,
+                                            interestType,
+                                            rate,
+                                            interestAmount,
+                                            totalRepayment,
+                                            "MONTHLY",
+                                            10,
+                                            totalRepayment / 10,
+                                            false,
+                                            null
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Confirm")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

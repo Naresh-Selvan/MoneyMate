@@ -88,4 +88,9 @@ class PaymentViewModel @Inject constructor(
     fun loadPaymentsForFile(fileId: String) {
         _currentFileId.value = fileId
     }
+
+    /** Returns total paid per person for a list of IDs — used by LoanHistoryScreen. */
+    suspend fun getTotalPaidByPersonIds(personIds: List<String>): Map<String, Double> {
+        return repository.getTotalPaidByPersonIds(personIds)
+    }
 }

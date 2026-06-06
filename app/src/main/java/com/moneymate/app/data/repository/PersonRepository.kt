@@ -46,6 +46,10 @@ class PersonRepository @Inject constructor(
     suspend fun findDuplicateByNameAndPlace(fileId: String, name: String, place: String): List<Person> =
         personDao.findDuplicateByNameAndPlace(fileId, name, place)
 
+    /** Returns all loan records for a person by name in a file — for loan history screen. */
+    fun getLoanHistoryByName(fileId: String, name: String): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getLoanHistoryByName(fileId, name)
+
     suspend fun shiftSortOrdersAfter(fileId: String, afterSortOrder: Int) =
         personDao.shiftSortOrdersAfter(fileId, afterSortOrder)
 

@@ -5,8 +5,13 @@ import com.moneymate.app.data.local.entity.EditPermissionScope
 import com.moneymate.app.data.local.entity.Payment
 import kotlinx.coroutines.flow.Flow
 
+data class PersonTotalPaid(val personId: String, val totalPaid: Double)
+
 @Dao
 interface PaymentDao {
+
+    @Query("SELECT personId, SUM(amount) as totalPaid FROM payments WHERE personId IN (:personIds) AND isDeleted = 0 GROUP BY personId")
+    suspend fun getTotalPaidByPersonIds(personIds: List<String>): List<PersonTotalPaid>
 
     @Query("SELECT * FROM payments WHERE personId = :personId AND isDeleted = 0 ORDER BY date DESC")
     fun getPaymentsForPerson(personId: String): Flow<List<Payment>>

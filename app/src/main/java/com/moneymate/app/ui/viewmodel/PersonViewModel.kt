@@ -43,6 +43,20 @@ class PersonViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // ── Loan history ───────────────────────────────────────────────────────
+    private val _loanHistoryName = MutableStateFlow<Pair<String, String>?>(null)
+
+    val loanHistory: StateFlow<List<Person>> = _loanHistoryName
+        .flatMapLatest { pair ->
+            if (pair != null) repository.getLoanHistoryByName(pair.first, pair.second)
+            else kotlinx.coroutines.flow.flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun loadLoanHistory(fileId: String, personName: String) {
+        _loanHistoryName.value = Pair(fileId, personName)
+    }
+
     // Pink indicator cards (isPendingNewLoan = true)
     val pendingNewLoanPersons: StateFlow<List<Person>> = _currentFileId
         .flatMapLatest { fileId ->

@@ -171,6 +171,10 @@ interface PersonDao {
     """)
     suspend fun countZeroActiveCards(name: String, fileId: String): Int
 
+    // ── Loan history queries ───────────────────────────────────────────────
+    @Query("SELECT * FROM persons WHERE fileId = :fileId AND LOWER(name) = LOWER(:name) AND isDeleted = 0 ORDER BY dateGiven DESC")
+    fun getLoanHistoryByName(fileId: String, name: String): Flow<List<Person>>
+
     // One-time cleanup — keeps only the most-recently-inserted pending clone per (name, fileId)
     @Query("""
         DELETE FROM persons

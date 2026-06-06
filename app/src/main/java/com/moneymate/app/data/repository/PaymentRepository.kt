@@ -78,6 +78,10 @@ class PaymentRepository @Inject constructor(
     fun getPaymentsForFileIncludingCompleted(fileId: String): Flow<List<Payment>> =
         paymentDao.getPaymentsForFileIncludingCompleted(fileId)
 
+    /** Returns total paid per person for a list of person IDs — for loan history screen. */
+    suspend fun getTotalPaidByPersonIds(personIds: List<String>): Map<String, Double> =
+        paymentDao.getTotalPaidByPersonIds(personIds).associate { it.personId to it.totalPaid }
+
     // ── Insights ───────────────────────────────────────────────────────────────
     suspend fun getTotalReceivedToday(fileId: String, startOfDay: Long, endOfDay: Long): Double =
         paymentDao.getTotalReceivedToday(fileId, startOfDay, endOfDay)

@@ -77,10 +77,12 @@ fun PersonDetailScreen(
     val totalPaidCash = payments.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount }
     val totalPaidUpi  = payments.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amount }
     val amountGiven   = person?.amountGiven ?: 0.0
-    val totalRepayment = person?.totalRepayment ?: amountGiven
-    // BUG 2: Given = principal only
-    // BUG 3: Pending = totalRepayment - totalPaid (principal + interest minus what's been paid)
-    val balance       = totalRepayment - totalPaid
+    // Use totalRepayment (principal + interest) as the full obligation.
+    // Fall back to amountGiven for loans with no interest configured.
+    // BUG 1 FIX: clamp to zero — balance can never be negative.
+    val personTotalRepayment = person?.totalRepayment ?: 0.0
+    val totalRepayment = if (personTotalRepayment > 0.0) personTotalRepayment else amountGiven
+    val balance = (totalRepayment - totalPaid).coerceAtLeast(0.0)
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -116,6 +118,19 @@ fun PersonDetailScreen(
                             IconButton(onClick = { navController.popBackStack() }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                             }
+                        },
+                        actions = {
+                            // Loan History button — navigates to LoanHistoryScreen
+                            person?.let { p ->
+                                IconButton(onClick = {
+                                    navController.navigate(
+                                        "loan_history/${p.fileId}/${java.net.URLEncoder.encode(p.name, "UTF-8")}"
+                                    )
+                                }) {
+                                    Icon(Icons.Default.History, contentDescription = "Loan History",
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
                         }
                     )
                 }
@@ -148,10 +163,10 @@ fun PersonDetailScreen(
                             Spacer(Modifier.height(12.dp))
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            // BUG 2: Given shows principal only
+                            // Given = principal only (amountGiven, not totalRepayment)
                             LocalSummaryItem(if (isBorrowing) "Borrowed" else "Given", "₹$amountGiven")
-                            // BUG 3: Pending shows totalRepayment - paid
                             LocalSummaryItem(if (isBorrowing) "Paid Back" else "Received", "₹$totalPaid")
+                            // BUG 1 FIX: balance is already clamped to ≥0
                             LocalSummaryItem("Pending", "₹$balance")
                         }
                         // Show interest info if applicable

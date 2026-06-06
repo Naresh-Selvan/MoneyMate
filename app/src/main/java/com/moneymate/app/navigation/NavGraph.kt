@@ -11,6 +11,7 @@ import androidx.navigation.navArgument
 import com.moneymate.app.ui.screens.CollectionScreen
 import com.moneymate.app.ui.screens.FileDetailScreen
 import com.moneymate.app.ui.screens.HomeScreen
+import com.moneymate.app.ui.screens.LoanHistoryScreen
 import com.moneymate.app.ui.screens.PersonDetailScreen
 import com.moneymate.app.ui.screens.SettingsScreen
 import com.moneymate.app.ui.screens.TrashScreen
@@ -29,6 +30,10 @@ sealed class Screen(val route: String) {
     object Collection : Screen("collection")
     object EditRequests : Screen("edit_requests")
     object Settings : Screen("settings")
+    object LoanHistory : Screen("loan_history/{fileId}/{personName}") {
+        fun createRoute(fileId: String, personName: String) =
+            "loan_history/$fileId/${java.net.URLEncoder.encode(personName, "UTF-8")}"
+    }
 }
 
 @Composable
@@ -74,6 +79,24 @@ fun NavGraph(
         }
         composable(Screen.Settings.route) {
             SettingsScreen(navController, viewModel = settingsViewModel, authViewModel = authViewModel)
+        }
+        composable(
+            route = Screen.LoanHistory.route,
+            arguments = listOf(
+                navArgument("fileId") { type = NavType.StringType },
+                navArgument("personName") { type = NavType.StringType }
+            )
+        ) { backStack ->
+            val fileId = backStack.arguments?.getString("fileId") ?: return@composable
+            val personName = java.net.URLDecoder.decode(
+                backStack.arguments?.getString("personName") ?: "",
+                "UTF-8"
+            )
+            LoanHistoryScreen(
+                navController = navController,
+                fileId = fileId,
+                personName = personName
+            )
         }
     }
 }

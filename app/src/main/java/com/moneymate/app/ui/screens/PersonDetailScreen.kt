@@ -1,6 +1,8 @@
 package com.moneymate.app.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -64,6 +66,11 @@ fun PersonDetailScreen(
     var showMultiDeleteDialog by remember { mutableStateOf(false) }
     var showSingleDeleteConfirm by remember { mutableStateOf<Payment?>(null) }
     var showPaymentActionsSheet by remember { mutableStateOf<Payment?>(null) }
+    var showDeletedPayments by remember { mutableStateOf(false) }
+    val allDeletedPayments by paymentViewModel.deletedPayments.collectAsState()
+    val personDeletedPayments = remember(allDeletedPayments, personId) {
+        allDeletedPayments.filter { it.personId == personId }
+    }
     val isSelecting = selectedIds.isNotEmpty()
 
     var sliderActionTarget by remember { mutableStateOf<Pair<String, Payment>?>(null) }
@@ -215,8 +222,117 @@ fun PersonDetailScreen(
                                     } else {
                                         selectedIds = if (payment.id in selectedIds) selectedIds - payment.id else selectedIds + payment.id
                                     }
+                                },
+                                onEdit = {
+                                    editAmount = payment.amount.toBigDecimal().stripTrailingZeros().toPlainString()
+                                    editMode = payment.mode
+                                    editDate = payment.date
+                                    paymentToEdit = payment
+                                },
+                                onDelete = {
+                                    showSingleDeleteConfirm = payment
                                 }
                             )
+                        }
+
+                        // ── Recently Deleted Payments section ──────────────────
+                        if (personDeletedPayments.isNotEmpty()) {
+                            item {
+                                Spacer(Modifier.height(8.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                                    )
+                                ) {
+                                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .combinedClickable(
+                                                    onClick = { showDeletedPayments = !showDeletedPayments }
+                                                ),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.DeleteSweep, null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                "Recently Deleted Payments (${personDeletedPayments.size})",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Icon(
+                                                if (showDeletedPayments) Icons.Default.ExpandLess
+                                                else Icons.Default.ExpandMore,
+                                                null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+
+                                        if (showDeletedPayments) {
+                                            Spacer(Modifier.height(8.dp))
+                                            HorizontalDivider()
+                                            Spacer(Modifier.height(8.dp))
+                                            Text(
+                                                "Deleted payments can be restored within 180 days.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        personDeletedPayments.forEach { deletedPayment ->
+                                            if (showDeletedPayments) {
+                                                Spacer(Modifier.height(6.dp))
+                                                Card(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    colors = CardDefaults.cardColors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                                    )
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Column(Modifier.weight(1f)) {
+                                                            Text(
+                                                                "₹${deletedPayment.amount} • ${deletedPayment.mode.name}",
+                                                                fontWeight = FontWeight.Medium,
+                                                                style = MaterialTheme.typography.bodyMedium
+                                                            )
+                                                            Text(
+                                                                dtFormat.format(Date(deletedPayment.date)),
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                            if (deletedPayment.deletedAt != null) {
+                                                                Text(
+                                                                    "Deleted: ${dtFormat.format(Date(deletedPayment.deletedAt))}",
+                                                                    style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                                                                )
+                                                            }
+                                                        }
+                                                        FilledTonalButton(
+                                                            onClick = { paymentViewModel.restorePayment(deletedPayment.id) },
+                                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                                        ) {
+                                                            Icon(Icons.Default.Restore, null, modifier = Modifier.size(16.dp))
+                                                            Spacer(Modifier.width(4.dp))
+                                                            Text("Restore", style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -505,7 +621,7 @@ fun LocalSummaryItem(label: String, value: String) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PaymentCardItem(
     payment: Payment,
@@ -515,39 +631,121 @@ fun PaymentCardItem(
     isSelecting: Boolean,
     onActionSelect: (String) -> Unit,
     onToggleSelection: () -> Unit,
-    onCardClick: () -> Unit = {}
+    onCardClick: () -> Unit = {},
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {}
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = { onCardClick() },
-                onLongClick = { onActionSelect("DELETE") }
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (isSelecting) {
-                Checkbox(checked = isSelected, onCheckedChange = { onToggleSelection() })
-                Spacer(Modifier.width(8.dp))
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                false // snap back, don't dismiss permanently
+            } else if (dismissValue == SwipeToDismissBoxValue.StartToEnd) {
+                onEdit()
+                false // snap back, don't dismiss permanently
+            } else {
+                true
             }
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "₹${payment.amount}", fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    AssistChip(onClick = {}, label = { Text(payment.mode.name, style = MaterialTheme.typography.labelSmall) })
-                    Spacer(Modifier.width(4.dp))
-                    AssistChip(onClick = {}, label = {
-                        Text(if (isBorrowing) "Repayment" else "Received", style = MaterialTheme.typography.labelSmall)
-                    })
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val color by animateColorAsState(
+                targetValue = when (dismissState.targetValue) {
+                    SwipeToDismissBoxValue.StartToEnd -> Color(0xFF4CAF50) // Green for edit
+                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error // Red for delete
+                    SwipeToDismissBoxValue.Settled -> Color.Transparent
+                },
+                animationSpec = tween(300),
+                label = "swipeBg"
+            )
+            if (direction != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(color, shape = RoundedCornerShape(12.dp))
+                        .padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = if (direction == SwipeToDismissBoxValue.StartToEnd)
+                        Arrangement.Start else Arrangement.End
+                ) {
+                    if (direction == SwipeToDismissBoxValue.StartToEnd) {
+                        Icon(Icons.Default.Edit, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Edit", color = Color.White, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall)
+                    } else {
+                        Icon(Icons.Default.Delete, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Delete", color = Color.White, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall)
+                    }
                 }
-                Text(dtFormat.format(Date(payment.date)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        enableDismissFromStartToEnd = !isSelecting,
+        enableDismissFromEndToStart = !isSelecting,
+        gestureEnabled = !isSelecting
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = { onCardClick() },
+                    onLongClick = { onActionSelect("DELETE") }
+                ),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (isSelecting) {
+                    Checkbox(checked = isSelected, onCheckedChange = { onToggleSelection() })
+                    Spacer(Modifier.width(8.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "₹${payment.amount}", fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        AssistChip(onClick = {}, label = { Text(payment.mode.name, style = MaterialTheme.typography.labelSmall) })
+                        Spacer(Modifier.width(4.dp))
+                        AssistChip(onClick = {}, label = {
+                            Text(if (isBorrowing) "Repayment" else "Received", style = MaterialTheme.typography.labelSmall)
+                        })
+                    }
+                    Text(dtFormat.format(Date(payment.date)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (!isSelecting) {
+                    // 3-dot menu matching OverduePersonCard pattern
+                    var showPaymentMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { showPaymentMenu = true }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.MoreVert, null, modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        DropdownMenu(expanded = showPaymentMenu, onDismissRequest = { showPaymentMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Edit") },
+                                leadingIcon = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary) },
+                                onClick = { showPaymentMenu = false; onEdit() }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = { showPaymentMenu = false; onDelete() }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

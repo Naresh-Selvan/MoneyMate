@@ -1,20 +1,20 @@
 -- Merging decision tree log ---
 provider#androidx.core.content.FileProvider
-INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:36:9-44:20
+INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:37:9-45:20
 	android:grantUriPermissions
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:40:13-47
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:41:13-47
 	android:authorities
 		INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:38:13-67
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:39:13-67
 	android:exported
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:39:13-37
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:40:13-37
 	android:name
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:37:13-62
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:38:13-62
 manifest
-ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:2:1-48:12
-INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:2:1-48:12
-INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:2:1-48:12
-INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:2:1-48:12
+ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:2:1-49:12
+INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:2:1-49:12
+INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:2:1-49:12
+INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:2:1-49:12
 MERGED from [androidx.biometric:biometric:1.2.0-alpha05] C:\Users\Naresh\.gradle\caches\9.3.1\transforms\ab3e299ce1309f1d00f4f0948a18fbae\workspace\transformed\biometric-1.2.0-alpha05\AndroidManifest.xml:17:1-27:12
 MERGED from [com.google.firebase:firebase-auth-ktx:23.1.0] C:\Users\Naresh\.gradle\caches\9.3.1\transforms\99cc28603980c6afa00cbfb86c25b727\workspace\transformed\firebase-auth-ktx-23.1.0\AndroidManifest.xml:2:1-17:12
 MERGED from [com.google.firebase:firebase-auth:23.1.0] C:\Users\Naresh\.gradle\caches\9.3.1\transforms\4912e888849ce3d92c971670108c7715\workspace\transformed\firebase-auth-23.1.0\AndroidManifest.xml:17:1-75:12
@@ -182,9 +182,13 @@ uses-permission#android.permission.READ_CONTACTS
 ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:11:5-72
 	android:name
 		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:11:22-69
+uses-permission#android.permission.CALL_PHONE
+ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:12:5-69
+	android:name
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:12:22-66
 application
-ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:13:5-46:19
-INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:13:5-46:19
+ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:14:5-47:19
+INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:14:5-47:19
 MERGED from [com.google.firebase:firebase-auth-ktx:23.1.0] C:\Users\Naresh\.gradle\caches\9.3.1\transforms\99cc28603980c6afa00cbfb86c25b727\workspace\transformed\firebase-auth-ktx-23.1.0\AndroidManifest.xml:7:5-15:19
 MERGED from [com.google.firebase:firebase-auth-ktx:23.1.0] C:\Users\Naresh\.gradle\caches\9.3.1\transforms\99cc28603980c6afa00cbfb86c25b727\workspace\transformed\firebase-auth-ktx-23.1.0\AndroidManifest.xml:7:5-15:19
 MERGED from [com.google.firebase:firebase-auth:23.1.0] C:\Users\Naresh\.gradle\caches\9.3.1\transforms\4912e888849ce3d92c971670108c7715\workspace\transformed\firebase-auth-23.1.0\AndroidManifest.xml:28:5-73:19
@@ -256,49 +260,49 @@ MERGED from [com.google.android.play:core-common:2.0.3] C:\Users\Naresh\.gradle\
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.15.0] C:\Users\Naresh\.gradle\caches\9.3.1\transforms\db1cbe03f16ab2f7cc0dc2791607e261\workspace\transformed\core-1.15.0\AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:21:9-35
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:22:9-35
 	android:label
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:19:9-41
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:20:9-41
 	android:fullBackupContent
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:17:9-54
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:18:9-54
 	android:roundIcon
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:20:9-54
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:21:9-54
 	android:icon
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:18:9-43
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:19:9-43
 	android:allowBackup
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:15:9-35
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:16:9-35
 	android:theme
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:22:9-47
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:23:9-47
 	android:dataExtractionRules
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:16:9-65
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:17:9-65
 	android:name
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:14:9-45
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:15:9-45
 activity#com.moneymate.app.MainActivity
-ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:24:9-33:20
+ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:25:9-34:20
 	android:label
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:27:13-45
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:28:13-45
 	android:exported
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:26:13-36
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:27:13-36
 	android:theme
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:28:13-51
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:29:13-51
 	android:name
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:25:13-41
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:26:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:29:13-32:29
+ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:30:13-33:29
 action#android.intent.action.MAIN
-ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:30:17-69
+ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:31:17-69
 	android:name
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:30:25-66
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:31:25-66
 category#android.intent.category.LAUNCHER
-ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:31:17-77
+ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:32:17-77
 	android:name
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:31:27-74
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:32:27-74
 meta-data#android.support.FILE_PROVIDER_PATHS
-ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:41:13-43:61
+ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:42:13-44:61
 	android:resource
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:43:17-58
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:44:17-58
 	android:name
-		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:42:17-67
+		ADDED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml:43:17-67
 uses-sdk
 INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from C:\Users\Naresh\AndroidStudioProjects\MoneyMate\app\src\main\AndroidManifest.xml

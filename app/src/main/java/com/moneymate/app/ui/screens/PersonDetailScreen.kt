@@ -62,6 +62,8 @@ fun PersonDetailScreen(
     var paymentToEdit by remember { mutableStateOf<Payment?>(null) }
     var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showMultiDeleteDialog by remember { mutableStateOf(false) }
+    var showSingleDeleteConfirm by remember { mutableStateOf<Payment?>(null) }
+    var showPaymentActionsSheet by remember { mutableStateOf<Payment?>(null) }
     val isSelecting = selectedIds.isNotEmpty()
 
     var sliderActionTarget by remember { mutableStateOf<Pair<String, Payment>?>(null) }
@@ -69,6 +71,12 @@ fun PersonDetailScreen(
     var newMode by remember { mutableStateOf(PaymentMode.CASH) }
     var newDate by remember(defaultPaymentDate) { mutableLongStateOf(defaultPaymentDate) }
     var showNewDatePicker by remember { mutableStateOf(false) }
+
+    // Edit payment fields
+    var editAmount by remember { mutableStateOf("") }
+    var editMode by remember { mutableStateOf(PaymentMode.CASH) }
+    var editDate by remember { mutableLongStateOf(defaultPaymentDate) }
+    var showEditDatePicker by remember { mutableStateOf(false) }
 
     val totalPaid = payments.sumOf { it.amount }
     val totalPaidCash = payments.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount }
@@ -200,6 +208,13 @@ fun PersonDetailScreen(
                                 onActionSelect = { actionType -> sliderActionTarget = Pair(actionType, payment) },
                                 onToggleSelection = {
                                     selectedIds = if (payment.id in selectedIds) selectedIds - payment.id else selectedIds + payment.id
+                                },
+                                onCardClick = {
+                                    if (!isSelecting) {
+                                        showPaymentActionsSheet = payment
+                                    } else {
+                                        selectedIds = if (payment.id in selectedIds) selectedIds - payment.id else selectedIds + payment.id
+                                    }
                                 }
                             )
                         }
@@ -298,9 +313,186 @@ fun PersonDetailScreen(
                         personViewModel.markPersonAsCompleted(personId)
                         showForceCloseDialog = false
                     }
-                }) { Text("Confirm", color = MaterialTheme.colorScheme.error) }
-            },
+                }) { Text("Confirm", color = MaterialTheme.colorScheme.error) }                    },
             dismissButton = { TextButton(onClick = { showForceCloseDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    // ── Payment Actions Bottom Sheet ────────────────────────────────────────────
+    showPaymentActionsSheet?.let { payment ->
+        ModalBottomSheet(
+            onDismissRequest = { showPaymentActionsSheet = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Payment Actions",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "₹${payment.amount} • ${payment.mode.name} • ${dtFormat.format(Date(payment.date))}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        editAmount = payment.amount.toBigDecimal().stripTrailingZeros().toPlainString()
+                        editMode = payment.mode
+                        editDate = payment.date
+                        paymentToEdit = payment
+                        showPaymentActionsSheet = null
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Edit Payment")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        showSingleDeleteConfirm = payment
+                        showPaymentActionsSheet = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Default.Delete, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Delete Payment")
+                }
+
+                TextButton(
+                    onClick = { showPaymentActionsSheet = null },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancel")
+                }
+            }
+        }
+    }
+
+    // ── Edit Payment Dialog ─────────────────────────────────────────────────────
+    if (paymentToEdit != null) {
+        AlertDialog(
+            onDismissRequest = { paymentToEdit = null },
+            title = { Text("Edit Payment") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = editAmount,
+                        onValueChange = { editAmount = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Amount") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = editMode == PaymentMode.CASH,
+                            onClick = { editMode = PaymentMode.CASH },
+                            label = { Text("Cash") }
+                        )
+                        FilterChip(
+                            selected = editMode == PaymentMode.UPI,
+                            onClick = { editMode = PaymentMode.UPI },
+                            label = { Text("UPI") }
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { showEditDatePicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(dateFormat.format(Date(editDate)))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val amt = editAmount.toDoubleOrNull()
+                    if (amt != null && amt > 0) {
+                        paymentViewModel.updatePayment(
+                            paymentToEdit!!.copy(amount = amt, mode = editMode, date = editDate)
+                        )
+                        paymentToEdit = null
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { paymentToEdit = null }) { Text("Cancel") } }
+        )
+    }
+
+    // Edit date picker
+    if (showEditDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = editDate)
+        DatePickerDialog(
+            onDismissRequest = { showEditDatePicker = false },
+            confirmButton = { TextButton(onClick = { editDate = datePickerState.selectedDateMillis ?: editDate; showEditDatePicker = false }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { showEditDatePicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    // ── Single Delete Confirmation Dialog ───────────────────────────────────────
+    showSingleDeleteConfirm?.let { payment ->
+        AlertDialog(
+            onDismissRequest = { showSingleDeleteConfirm = null },
+            title = { Text("Delete Payment?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Are you sure you want to delete this payment?",
+                        style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "₹${payment.amount} • ${payment.mode.name} • ${dtFormat.format(Date(payment.date))}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text("It can be restored from Recently Deleted within 180 days.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    paymentViewModel.softDeletePayment(payment.id)
+                    showSingleDeleteConfirm = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showSingleDeleteConfirm = null }) { Text("Cancel") } }
+        )
+    }
+
+    // ── Multi Delete Confirmation Dialog ────────────────────────────────────────
+    if (showMultiDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showMultiDeleteDialog = false },
+            title = { Text("Delete ${selectedIds.size} payments?") },
+            text = {
+                Text("Are you sure you want to delete ${selectedIds.size} selected payments?",
+                    style = MaterialTheme.typography.bodyMedium)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedIds.forEach { id -> paymentViewModel.softDeletePayment(id) }
+                    selectedIds = emptySet()
+                    showMultiDeleteDialog = false
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showMultiDeleteDialog = false }) { Text("Cancel") } }
         )
     }
 }
@@ -322,13 +514,14 @@ fun PaymentCardItem(
     isSelected: Boolean,
     isSelecting: Boolean,
     onActionSelect: (String) -> Unit,
-    onToggleSelection: () -> Unit
+    onToggleSelection: () -> Unit,
+    onCardClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = { if (isSelecting) onToggleSelection() },
+                onClick = { onCardClick() },
                 onLongClick = { onActionSelect("DELETE") }
             ),
         colors = CardDefaults.cardColors(

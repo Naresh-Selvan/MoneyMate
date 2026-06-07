@@ -178,7 +178,16 @@ class RestoreViewModel @Inject constructor(
                                     completedAt           = pd.longOrNull("completedAt"),
                                     linkedNewPersonId     = pd.strOrNull("linkedNewPersonId"),
                                     isPendingNewLoan      = pd.bool("isPendingNewLoan"),
-                                    previousPersonId      = pd.strOrNull("previousPersonId")
+                                    previousPersonId      = pd.strOrNull("previousPersonId"),
+                                    interestRate           = pd.double("interestRate"),
+                                    interestType           = pd.str("interestType", "PERCENTAGE"),
+                                    interestAmount         = pd.double("interestAmount"),
+                                    totalRepayment         = pd.double("totalRepayment"),
+                                    loanType               = pd.str("loanType", "MONTHLY"),
+                                    numberOfInstallments   = pd.int("numberOfInstallments", 10),
+                                    perInstallmentAmount   = pd.double("perInstallmentAmount"),
+                                    isDurationBased        = pd.bool("isDurationBased"),
+                                    durationDays           = pd.longOrNull("durationDays")?.toInt()
                                 )
                                 personRepository.insertPerson(person)
                                 restoredPersons++

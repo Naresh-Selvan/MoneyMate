@@ -98,8 +98,8 @@ class LoanFileRepository @Inject constructor(
         val db = FirebaseFirestore.getInstance()
         val now = System.currentTimeMillis()
 
-        // 1. Purge Payments (retention: 30 days)
-        val paymentCutoff = now - (30L * 24 * 60 * 60 * 1000)
+        // 1. Purge Payments (retention: 180 days)
+        val paymentCutoff = now - (180L * 24 * 60 * 60 * 1000)
         try {
             val expiredPayments = paymentDao.getExpiredDeletedPayments(paymentCutoff)
             for (payment in expiredPayments) {

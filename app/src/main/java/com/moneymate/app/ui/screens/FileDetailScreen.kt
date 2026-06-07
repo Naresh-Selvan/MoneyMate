@@ -314,22 +314,31 @@ fun FileDetailScreen(
         if (uri != null) {
             var number = ""
             try {
-                val contactId = uri.lastPathSegment
-
-                // Query via Unified Data URI to resolve the phone number correctly on modern Android versions
-                val cursor = context.contentResolver.query(
-                    android.provider.ContactsContract.Data.CONTENT_URI,
-                    arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
-                    "${android.provider.ContactsContract.Data.CONTACT_ID} = ? AND ${android.provider.ContactsContract.Data.MIMETYPE} = ?",
-                    arrayOf(contactId, android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE),
-                    null
-                )
-
-                cursor?.use { c ->
+                // Step 1: Resolve the contact ID from the returned URI
+                val idCursor = context.contentResolver.query(uri, arrayOf(ContactsContract.Contacts._ID), null, null, null)
+                var contactId: String? = null
+                idCursor?.use { c ->
                     if (c.moveToFirst()) {
-                        val index = c.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER)
-                        if (index >= 0) {
-                            number = c.getString(index)?.filter { ch -> ch.isDigit() || ch == '+' } ?: ""
+                        val idx = c.getColumnIndex(ContactsContract.Contacts._ID)
+                        if (idx >= 0) contactId = c.getString(idx)
+                    }
+                }
+
+                // Step 2: Query phone numbers using the resolved contact ID
+                if (contactId != null) {
+                    val phoneCursor = context.contentResolver.query(
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                        "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                        arrayOf(contactId),
+                        null
+                    )
+                    phoneCursor?.use { c ->
+                        if (c.moveToFirst()) {
+                            val idx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                            if (idx >= 0) {
+                                number = c.getString(idx)?.filter { ch -> ch.isDigit() || ch == '+' } ?: ""
+                            }
                         }
                     }
                 }

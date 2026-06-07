@@ -79,7 +79,8 @@ object AppModule {
             },
             AppDatabase.MIGRATION_8_9,
             AppDatabase.MIGRATION_9_10,
-            AppDatabase.MIGRATION_10_11
+            AppDatabase.MIGRATION_10_11,
+            AppDatabase.MIGRATION_11_12
         ).build()
     }
 
@@ -87,6 +88,7 @@ object AppModule {
     @Provides fun providePersonDao(db: AppDatabase): PersonDao = db.personDao()
     @Provides fun providePaymentDao(db: AppDatabase): PaymentDao = db.paymentDao()
     @Provides fun provideEditRequestDao(db: AppDatabase): EditRequestDao = db.editRequestDao()
+    @Provides fun provideBookAdjustmentDao(db: AppDatabase): BookAdjustmentDao = db.bookAdjustmentDao()
 
     // DefaultPersonDao / DefaultPersonRepository are kept in the DI graph so any
     // existing injection sites compile without changes. The table is now always empty.

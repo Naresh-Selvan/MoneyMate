@@ -11,6 +11,8 @@ import androidx.room.util.DBUtil;
 import androidx.room.util.TableInfo;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.sqlite.db.SupportSQLiteOpenHelper;
+import com.moneymate.app.data.local.dao.BookAdjustmentDao;
+import com.moneymate.app.data.local.dao.BookAdjustmentDao_Impl;
 import com.moneymate.app.data.local.dao.DefaultPersonDao;
 import com.moneymate.app.data.local.dao.DefaultPersonDao_Impl;
 import com.moneymate.app.data.local.dao.EditRequestDao;
@@ -47,10 +49,12 @@ public final class AppDatabase_Impl extends AppDatabase {
 
   private volatile DefaultPersonDao _defaultPersonDao;
 
+  private volatile BookAdjustmentDao _bookAdjustmentDao;
+
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(11) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(12) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `loan_files` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `isDeleted` INTEGER NOT NULL, `deletedAt` INTEGER, `syncedToFirebase` INTEGER NOT NULL, `lastUploadedAt` INTEGER, `defaultInterestRate` REAL NOT NULL, `defaultCalculationMode` TEXT NOT NULL, PRIMARY KEY(`id`))");
@@ -60,8 +64,9 @@ public final class AppDatabase_Impl extends AppDatabase {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_payments_personId` ON `payments` (`personId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `edit_requests` (`id` TEXT NOT NULL, `recordId` TEXT NOT NULL, `recordType` TEXT NOT NULL, `requestedAt` INTEGER NOT NULL, `status` TEXT NOT NULL, `resolvedAt` INTEGER, `scope` TEXT NOT NULL, `firestoreRequestId` TEXT, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `default_persons` (`id` TEXT NOT NULL, `nlrKey` TEXT NOT NULL, `name` TEXT NOT NULL, `place` TEXT, `mobileNumber` TEXT, `amountGiven` REAL NOT NULL, `mode` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, `recordType` TEXT NOT NULL, `isSeeded` INTEGER NOT NULL, PRIMARY KEY(`id`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `book_adjustments` (`id` TEXT NOT NULL, `personId` TEXT NOT NULL, `fileId` TEXT NOT NULL, `discrepancyAmount` REAL NOT NULL, `type` TEXT NOT NULL, `reason` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `approvedByAdmin` INTEGER NOT NULL, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ff38ad60148d5cf88c9f172b26e2b158')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5a2d907f08b64f53ff4a7611dafd5681')");
       }
 
       @Override
@@ -71,6 +76,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         db.execSQL("DROP TABLE IF EXISTS `payments`");
         db.execSQL("DROP TABLE IF EXISTS `edit_requests`");
         db.execSQL("DROP TABLE IF EXISTS `default_persons`");
+        db.execSQL("DROP TABLE IF EXISTS `book_adjustments`");
         final List<? extends RoomDatabase.Callback> _callbacks = mCallbacks;
         if (_callbacks != null) {
           for (RoomDatabase.Callback _callback : _callbacks) {
@@ -237,9 +243,27 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoDefaultPersons + "\n"
                   + " Found:\n" + _existingDefaultPersons);
         }
+        final HashMap<String, TableInfo.Column> _columnsBookAdjustments = new HashMap<String, TableInfo.Column>(8);
+        _columnsBookAdjustments.put("id", new TableInfo.Column("id", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBookAdjustments.put("personId", new TableInfo.Column("personId", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBookAdjustments.put("fileId", new TableInfo.Column("fileId", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBookAdjustments.put("discrepancyAmount", new TableInfo.Column("discrepancyAmount", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBookAdjustments.put("type", new TableInfo.Column("type", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBookAdjustments.put("reason", new TableInfo.Column("reason", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBookAdjustments.put("createdAt", new TableInfo.Column("createdAt", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBookAdjustments.put("approvedByAdmin", new TableInfo.Column("approvedByAdmin", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        final HashSet<TableInfo.ForeignKey> _foreignKeysBookAdjustments = new HashSet<TableInfo.ForeignKey>(0);
+        final HashSet<TableInfo.Index> _indicesBookAdjustments = new HashSet<TableInfo.Index>(0);
+        final TableInfo _infoBookAdjustments = new TableInfo("book_adjustments", _columnsBookAdjustments, _foreignKeysBookAdjustments, _indicesBookAdjustments);
+        final TableInfo _existingBookAdjustments = TableInfo.read(db, "book_adjustments");
+        if (!_infoBookAdjustments.equals(_existingBookAdjustments)) {
+          return new RoomOpenHelper.ValidationResult(false, "book_adjustments(com.moneymate.app.data.local.entity.BookAdjustment).\n"
+                  + " Expected:\n" + _infoBookAdjustments + "\n"
+                  + " Found:\n" + _existingBookAdjustments);
+        }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "ff38ad60148d5cf88c9f172b26e2b158", "d4c2efdce49f189d764d03903092ade0");
+    }, "5a2d907f08b64f53ff4a7611dafd5681", "6fae6c5fbe1f969abccf0572c68e8c72");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;
@@ -250,7 +274,7 @@ public final class AppDatabase_Impl extends AppDatabase {
   protected InvalidationTracker createInvalidationTracker() {
     final HashMap<String, String> _shadowTablesMap = new HashMap<String, String>(0);
     final HashMap<String, Set<String>> _viewTables = new HashMap<String, Set<String>>(0);
-    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "loan_files","persons","payments","edit_requests","default_persons");
+    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "loan_files","persons","payments","edit_requests","default_persons","book_adjustments");
   }
 
   @Override
@@ -271,6 +295,7 @@ public final class AppDatabase_Impl extends AppDatabase {
       _db.execSQL("DELETE FROM `payments`");
       _db.execSQL("DELETE FROM `edit_requests`");
       _db.execSQL("DELETE FROM `default_persons`");
+      _db.execSQL("DELETE FROM `book_adjustments`");
       super.setTransactionSuccessful();
     } finally {
       super.endTransaction();
@@ -293,6 +318,7 @@ public final class AppDatabase_Impl extends AppDatabase {
     _typeConvertersMap.put(PaymentDao.class, PaymentDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(EditRequestDao.class, EditRequestDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(DefaultPersonDao.class, DefaultPersonDao_Impl.getRequiredConverters());
+    _typeConvertersMap.put(BookAdjustmentDao.class, BookAdjustmentDao_Impl.getRequiredConverters());
     return _typeConvertersMap;
   }
 
@@ -377,6 +403,20 @@ public final class AppDatabase_Impl extends AppDatabase {
           _defaultPersonDao = new DefaultPersonDao_Impl(this);
         }
         return _defaultPersonDao;
+      }
+    }
+  }
+
+  @Override
+  public BookAdjustmentDao bookAdjustmentDao() {
+    if (_bookAdjustmentDao != null) {
+      return _bookAdjustmentDao;
+    } else {
+      synchronized(this) {
+        if(_bookAdjustmentDao == null) {
+          _bookAdjustmentDao = new BookAdjustmentDao_Impl(this);
+        }
+        return _bookAdjustmentDao;
       }
     }
   }

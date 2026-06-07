@@ -578,20 +578,14 @@ fun NewLoanStepSheet(
         )
     }
     var interestType by remember { mutableStateOf("PERCENTAGE") }
-    var fixedInterestText by remember { mutableStateOf("") }
 
     // Live calculations for Step 2
     val principal by remember { derivedStateOf { amountText.toDoubleOrNull() ?: 0.0 } }
     val rate by remember { derivedStateOf { rateText.toDoubleOrNull() ?: 0.0 } }
-    val fixedInterestVal by remember { derivedStateOf { fixedInterestText.toDoubleOrNull() ?: 0.0 } }
 
     val interestAmount by remember {
         derivedStateOf {
-            if (interestType == "FIXED_AMOUNT") {
-                fixedInterestVal
-            } else {
-                calcFlatInterest(principal, rate)
-            }
+            calcFlatInterest(principal, rate)
         }
     }
     val totalRepayment by remember { derivedStateOf { principal + interestAmount } }
@@ -691,118 +685,36 @@ fun NewLoanStepSheet(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(onClick = { currentStep = 1 }) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back"
-                                    )
-                                }
-                                Text(
-                                    "Set Interest",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
                             Text(
-                                "Interest type",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "Interest Details",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
                             )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilterChip(
-                                    selected = interestType == "PERCENTAGE",
-                                    onClick = { interestType = "PERCENTAGE" },
-                                    label = { Text("Flat Rate (%)") }
-                                )
-                                FilterChip(
-                                    selected = interestType == "FIXED_AMOUNT",
-                                    onClick = { interestType = "FIXED_AMOUNT" },
-                                    label = { Text("Custom Fixed Amount") }
-                                )
-                            }
 
-                            if (interestType == "PERCENTAGE") {
-                                OutlinedTextField(
-                                    value = rateText,
-                                    onValueChange = {
-                                        rateText = it.filter { c ->
-                                            c.isDigit() || c == '.'
-                                        }
-                                    },
-                                    label = { Text("Interest Rate (%)") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal
-                                    ),
-                                    trailingIcon = {
-                                        Text(
-                                            "%",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            modifier = Modifier.padding(end = 8.dp)
-                                        )
-                                    }
-                                )
-                                // Live interest computation below the input
-                                if (principal > 0.0 && rate > 0.0) {
-                                    Text(
-                                        "Interest = ${formatMoney(principal)} × ${"%.2f".format(rate).trimEnd('0').trimEnd('.')}% ÷ 100 = ${formatMoney(interestAmount)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                            } else {
-                                OutlinedTextField(
-                                    value = fixedInterestText,
-                                    onValueChange = {
-                                        fixedInterestText = it.filter { c ->
-                                            c.isDigit() || c == '.'
-                                        }
-                                    },
-                                    label = { Text("Fixed Interest Amount (₹)") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal
-                                    ),
-                                    leadingIcon = {
-                                        Text(
-                                            "₹",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            modifier = Modifier.padding(start = 8.dp)
-                                        )
-                                    }
-                                )
-                            }
+                            // Principal
+                            InterestRow("Principal:", formatMoney(principal))
 
-                            // Live preview: Total = ₹X (Principal ₹Y + Interest ₹Z)
-                            if (principal > 0.0) {
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                    )
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text(
-                                            "Total = ${formatMoney(totalRepayment)} (Principal ${formatMoney(principal)} + Interest ${formatMoney(interestAmount)})",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
-                                }
-                            }
+                            HorizontalDivider()
 
-                            Spacer(Modifier.height(8.dp))
+                            // Interest Rate
+                            OutlinedTextField(
+                                value = rateText,
+                                onValueChange = { rateText = it.filter { c -> c.isDigit() || c == '.' } },
+                                label = { Text("Interest Rate (%)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                trailingIcon = { Text("%") }
+                            )
+
+                            HorizontalDivider()
+
+                            // Calculated Interest and Total
+                            InterestRow("Interest Amount:", formatMoney(interestAmount))
+                            InterestRow("Total Repayment:", formatMoney(totalRepayment), bold = true)
+
+                            Spacer(Modifier.height(16.dp))
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -815,13 +727,9 @@ fun NewLoanStepSheet(
                                 }
                                 Button(
                                     onClick = {
-                                        val p =
-                                            amountText.toDoubleOrNull()
-                                                ?: return@Button
-                                        if (p <= 0.0) return@Button
                                         onConfirm(
-                                            p,
-                                            interestType,
+                                            principal,
+                                            "PERCENTAGE",
                                             rate,
                                             interestAmount,
                                             totalRepayment,

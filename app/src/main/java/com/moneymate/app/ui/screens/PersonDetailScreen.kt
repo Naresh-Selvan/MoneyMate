@@ -3,8 +3,7 @@ package com.moneymate.app.ui.screens
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,16 +27,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.moneymate.app.data.local.entity.LoanType
-import com.moneymate.app.data.local.entity.Payment
-import com.moneymate.app.data.local.entity.PaymentMode
-import com.moneymate.app.ui.viewmodel.PaymentViewModel
-import com.moneymate.app.ui.viewmodel.PersonViewModel
+import com.moneymate.app.data.local.entity.*
+import com.moneymate.app.ui.viewmodel.*
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 import kotlin.math.roundToInt
-import androidx.compose.foundation.gestures.detectDragGestures
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -45,43 +41,38 @@ fun PersonDetailScreen(
     navController: NavHostController,
     personId: String,
     paymentViewModel: PaymentViewModel = hiltViewModel(),
-    personViewModel: PersonViewModel   = hiltViewModel()
+    personViewModel: PersonViewModel = hiltViewModel(),
+    bookAdjustmentViewModel: BookAdjustmentViewModel = hiltViewModel()
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
-    val dtFormat   = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
+    val dtFormat = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
 
     LaunchedEffect(personId) { paymentViewModel.loadPaymentsForPerson(personId) }
 
     val payments by paymentViewModel.payments.collectAsState()
-    // BUG 5 FIX: Use a reactive Flow so the person card updates immediately after
-    // any edit (amount, interest, etc.) without requiring screen re-navigation.
     val person by personViewModel.getPersonByIdFlow(personId).collectAsState(initial = null)
 
     val isBorrowing = person?.recordType == LoanType.BORROWING
     val defaultPaymentDate: Long = remember { System.currentTimeMillis() }
     val coroutineScope = rememberCoroutineScope()
 
-    var showAddDialog      by remember { mutableStateOf(false) }
-    var paymentToEdit      by remember { mutableStateOf<Payment?>(null) }
-
-    var selectedIds           by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var showForceCloseDialog by remember { mutableStateOf(false) }
+    var paymentToEdit by remember { mutableStateOf<Payment?>(null) }
+    var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showMultiDeleteDialog by remember { mutableStateOf(false) }
     val isSelecting = selectedIds.isNotEmpty()
 
     var sliderActionTarget by remember { mutableStateOf<Pair<String, Payment>?>(null) }
-
     var newAmount by remember { mutableStateOf("") }
-    var newMode   by remember { mutableStateOf(PaymentMode.CASH) }
-    var newDate   by remember(defaultPaymentDate) { mutableLongStateOf(defaultPaymentDate) }
+    var newMode by remember { mutableStateOf(PaymentMode.CASH) }
+    var newDate by remember(defaultPaymentDate) { mutableLongStateOf(defaultPaymentDate) }
     var showNewDatePicker by remember { mutableStateOf(false) }
 
-    val totalPaid     = payments.sumOf { it.amount }
+    val totalPaid = payments.sumOf { it.amount }
     val totalPaidCash = payments.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount }
-    val totalPaidUpi  = payments.filter { it.mode == PaymentMode.UPI  }.sumOf { it.amount }
-    val amountGiven   = person?.amountGiven ?: 0.0
-    // Use totalRepayment (principal + interest) as the full obligation.
-    // Fall back to amountGiven for loans with no interest configured.
-    // BUG 1 FIX: clamp to zero — balance can never be negative.
+    val totalPaidUpi = payments.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount }
+    val amountGiven = person?.amountGiven ?: 0.0
     val personTotalRepayment = person?.totalRepayment ?: 0.0
     val totalRepayment = if (personTotalRepayment > 0.0) personTotalRepayment else amountGiven
     val balance = (totalRepayment - totalPaid).coerceAtLeast(0.0)
@@ -122,15 +113,16 @@ fun PersonDetailScreen(
                             }
                         },
                         actions = {
-                            // Loan History button — navigates to LoanHistoryScreen
+                            if (balance > 0 && person?.isCompleted == false) {
+                                IconButton(onClick = { showForceCloseDialog = true }) {
+                                    Icon(Icons.Default.Lock, contentDescription = "Force Close", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
                             person?.let { p ->
                                 IconButton(onClick = {
-                                    navController.navigate(
-                                        "loan_history/${p.id}/${java.net.URLEncoder.encode(p.name, "UTF-8")}"
-                                    )
+                                    navController.navigate("loan_history/${p.id}/${java.net.URLEncoder.encode(p.name, "UTF-8")}")
                                 }) {
-                                    Icon(Icons.Default.History, contentDescription = "Loan History",
-                                        tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Default.History, contentDescription = "Loan History", tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -138,7 +130,7 @@ fun PersonDetailScreen(
                 }
             },
             floatingActionButton = {
-                if (!isSelecting) {
+                if (!isSelecting && person?.isCompleted == false) {
                     FloatingActionButton(onClick = { showAddDialog = true }) {
                         Icon(Icons.Default.Add, null)
                     }
@@ -165,13 +157,10 @@ fun PersonDetailScreen(
                             Spacer(Modifier.height(12.dp))
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            // Given = principal only (amountGiven, not totalRepayment)
                             LocalSummaryItem(if (isBorrowing) "Borrowed" else "Given", "₹$amountGiven")
                             LocalSummaryItem(if (isBorrowing) "Paid Back" else "Received", "₹$totalPaid")
-                            // BUG 1 FIX: balance is already clamped to ≥0
                             LocalSummaryItem("Pending", "₹$balance")
                         }
-                        // Show interest info if applicable
                         person?.let { p ->
                             if (p.totalRepayment > p.amountGiven) {
                                 Spacer(Modifier.height(4.dp))
@@ -186,7 +175,7 @@ fun PersonDetailScreen(
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                             LocalSummaryItem("Cash", "₹$totalPaidCash")
-                            LocalSummaryItem("UPI",  "₹$totalPaidUpi")
+                            LocalSummaryItem("UPI", "₹$totalPaidUpi")
                         }
                     }
                 }
@@ -201,19 +190,15 @@ fun PersonDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(payments, key = { it.id }) { payment ->
-                            val isSelected = payment.id in selectedIds
-
                             PaymentCardItem(
                                 payment = payment,
                                 isBorrowing = isBorrowing,
                                 dtFormat = dtFormat,
-                                isSelected = isSelected,
+                                isSelected = payment.id in selectedIds,
                                 isSelecting = isSelecting,
-                                onActionSelect = { actionType ->
-                                    sliderActionTarget = Pair(actionType, payment)
-                                },
+                                onActionSelect = { actionType -> sliderActionTarget = Pair(actionType, payment) },
                                 onToggleSelection = {
-                                    selectedIds = if (isSelected) selectedIds - payment.id else selectedIds + payment.id
+                                    selectedIds = if (payment.id in selectedIds) selectedIds - payment.id else selectedIds + payment.id
                                 }
                             )
                         }
@@ -223,176 +208,55 @@ fun PersonDetailScreen(
         }
     }
 
-    // ── Slide to Confirm Bottom Sheet ─────────────────────────────────────────
-    if (sliderActionTarget != null) {
-        val target = sliderActionTarget!!
-        ModalBottomSheet(
-            onDismissRequest = { sliderActionTarget = null },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .padding(bottom = 40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (target.first == "DELETE") "Slide to Confirm Delete" else "Slide to Confirm Edit",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Amount: ₹${target.second.amount} (${target.second.mode.name})",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(24.dp))
-
-                NativeActionConfirmationSlider(
-                    accentColor = if (target.first == "DELETE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    icon = if (target.first == "DELETE") Icons.Default.Delete else Icons.Default.Edit,
-                    // Look around line 170 where sliderActionTarget bottom sheet handles onConfirmed:
-                    onConfirmed = {
-                        val targetedAction = target.first
-                        val targetedPayment = target.second
-                        sliderActionTarget = null // Closes bottom sheet overlay
-
-                        if (targetedAction == "DELETE") {
-                            paymentViewModel.softDeletePayment(targetedPayment.id)
-                        } else {
-                            paymentToEdit = targetedPayment // Triggers the Edit AlertDialog layout setup
-                        }
-                    }
-                )
-            }
-        }
-    }
-
-    // ── Dialog Windows ────────────────────────────────────────────────────────
-    if (showMultiDeleteDialog) {
+    // Force Close Dialog
+    if (showForceCloseDialog && person != null) {
+        var collectedAmount by remember { mutableStateOf(balance.toBigDecimal().stripTrailingZeros().toPlainString()) }
         AlertDialog(
-            onDismissRequest = { showMultiDeleteDialog = false },
-            title = { Text("Delete ${selectedIds.size} payments?") },
-            text = { Text("These payments will be moved to Recently Deleted.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    selectedIds.forEach { paymentViewModel.softDeletePayment(it) }
-                    selectedIds = emptySet()
-                    showMultiDeleteDialog = false
-                }) { Text("Delete All", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { showMultiDeleteDialog = false }) { Text("Cancel") } }
-        )
-    }
-
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false; newAmount = ""; newMode = PaymentMode.CASH; newDate = defaultPaymentDate },
-            title = { Text(if (isBorrowing) "Add Repayment" else "Add Payment Received") },
+            onDismissRequest = { showForceCloseDialog = false },
+            title = { Text("Force close loan") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Pending balance: ₹$balance")
                     OutlinedTextField(
-                        value = newAmount,
-                        onValueChange = { newAmount = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        value = collectedAmount,
+                        onValueChange = { collectedAmount = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Amount collected now") },
+                        modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = newMode == PaymentMode.CASH, onClick = { newMode = PaymentMode.CASH }, label = { Text("Cash") })
-                        FilterChip(selected = newMode == PaymentMode.UPI,  onClick = { newMode = PaymentMode.UPI  }, label = { Text("UPI")  })
-                    }
-                    OutlinedButton(onClick = { showNewDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(dateFormat.format(Date(newDate)))
-                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val amt = newAmount.toDoubleOrNull()
-                    if (amt != null && amt > 0) {
-                        coroutineScope.launch {
-                            // Await the Room write so the reactive flows update before
-                            // we check the balance and potentially mark as completed.
-                            paymentViewModel.insertPaymentAwait(
-                                Payment(personId = personId, amount = amt, mode = newMode, date = newDate)
-                            )
-                            // Auto-complete: if new payment brings remaining balance to zero,
-                            // mark as completed and spawn a fresh zero-amount clone.
-                            val remainingBalance = balance - amt
-                            if (remainingBalance <= 0 && amountGiven > 0) {
-                                personViewModel.markPersonAsCompleted(personId)
-                            }
-                            newAmount = ""; newMode = PaymentMode.CASH; newDate = defaultPaymentDate; showAddDialog = false
+                    val collected = collectedAmount.toDoubleOrNull() ?: 0.0
+                    coroutineScope.launch {
+                        paymentViewModel.insertPaymentAwait(Payment(personId = personId, amount = collected, mode = PaymentMode.CASH, date = System.currentTimeMillis()))
+                        val totalPaidWithNew = totalPaid + collected
+                        val discrepancy = totalRepayment - totalPaidWithNew
+                        if (abs(discrepancy) > 0.01) {
+                            bookAdjustmentViewModel.insert(BookAdjustment(
+                                personId = personId,
+                                fileId = person!!.fileId,
+                                discrepancyAmount = abs(discrepancy),
+                                type = if (discrepancy > 0) AdjustmentType.BOOK_LOSS else AdjustmentType.BOOK_PROFIT,
+                                reason = "Force close"
+                            ))
                         }
+                        personViewModel.markPersonAsCompleted(personId)
+                        showForceCloseDialog = false
                     }
-                }) { Text("Add") }
+                }) { Text("Confirm", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showAddDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showForceCloseDialog = false }) { Text("Cancel") } }
         )
     }
+}
 
-    if (showNewDatePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = newDate)
-        DatePickerDialog(
-            onDismissRequest = { showNewDatePicker = false },
-            confirmButton = { TextButton(onClick = { newDate = state.selectedDateMillis ?: newDate; showNewDatePicker = false }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { showNewDatePicker = false }) { Text("Cancel") } }
-        ) { DatePicker(state = state) }
-    }
-
-    paymentToEdit?.let { orig ->
-        var editAmount by remember { mutableStateOf(orig.amount.toBigDecimal().stripTrailingZeros().toPlainString()) }
-        var editMode   by remember { mutableStateOf(orig.mode) }
-        var editDate   by remember { mutableLongStateOf(orig.date) }
-        var showEditDatePicker by remember { mutableStateOf(false) }
-
-        AlertDialog(
-            onDismissRequest = { paymentToEdit = null },
-            title = { Text("Edit Payment") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = editAmount,
-                        onValueChange = { editAmount = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = editMode == PaymentMode.CASH, onClick = { editMode = PaymentMode.CASH }, label = { Text("Cash") })
-                        FilterChip(selected = editMode == PaymentMode.UPI,  onClick = { editMode = PaymentMode.UPI  }, label = { Text("UPI")  })
-                    }
-                    OutlinedButton(onClick = { showEditDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(dateFormat.format(Date(editDate)))
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val amt = editAmount.toDoubleOrNull()
-                    if (amt != null && amt > 0) {
-                        paymentViewModel.updatePayment(orig.copy(amount = amt, mode = editMode, date = editDate))
-                        paymentToEdit = null
-                    }
-                }) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { paymentToEdit = null }) { Text("Cancel") } }
-        )
-
-        if (showEditDatePicker) {
-            val state = rememberDatePickerState(initialSelectedDateMillis = editDate)
-            DatePickerDialog(
-                onDismissRequest = { showEditDatePicker = false },
-                confirmButton = { TextButton(onClick = { editDate = state.selectedDateMillis ?: editDate; showEditDatePicker = false }) { Text("OK") } },
-                dismissButton = { TextButton(onClick = { showEditDatePicker = false }) { Text("Cancel") } }
-            ) { DatePicker(state = state) }
-        }
+@Composable
+fun LocalSummaryItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+        Text(value, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }
 
@@ -407,8 +271,6 @@ fun PaymentCardItem(
     onActionSelect: (String) -> Unit,
     onToggleSelection: () -> Unit
 ) {
-    var contextualMenuExpanded by remember { mutableStateOf(false) }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -440,111 +302,7 @@ fun PaymentCardItem(
                     })
                 }
                 Text(dtFormat.format(Date(payment.date)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (!isSelecting) {
-                    Text(
-                        "Long press row to trash entry quickly",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                    )
-                }
-            }
-
-            if (!isSelecting) {
-                Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
-                    IconButton(onClick = { contextualMenuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Options")
-                    }
-                    DropdownMenu(
-                        expanded = contextualMenuExpanded,
-                        onDismissRequest = { contextualMenuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Edit Entry") },
-                            leadingIcon = { Icon(Icons.Default.Edit, null) },
-                            onClick = {
-                                contextualMenuExpanded = false
-                                onActionSelect("EDIT")
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Delete Entry", color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                            onClick = {
-                                contextualMenuExpanded = false
-                                onActionSelect("DELETE")
-                            }
-                        )
-                    }
-                }
             }
         }
-    }
-}
-
-@Composable
-fun NativeActionConfirmationSlider(
-    accentColor: Color,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onConfirmed: () -> Unit
-) {
-    val trackWidth = 280.dp
-    val thumbSize = 56.dp
-
-    val density = LocalDensity.current
-    val totalSwipeDistancePx = with(density) { (trackWidth - thumbSize).toPx() }
-
-    var thumbPositionX by remember { mutableFloatStateOf(0f) }
-
-    Box(
-        modifier = Modifier
-            .width(trackWidth)
-            .height(thumbSize)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Text(
-            text = "Swipe right to execute",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.align(Alignment.Center)
-        )
-
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(thumbPositionX.roundToInt(), 0) }
-                .size(thumbSize)
-                .padding(4.dp)
-                .background(accentColor, CircleShape)
-                .pointerInput(totalSwipeDistancePx) {
-                    // Changed to detectDragGestures for instantaneous, natural swiping response
-                    detectDragGestures(
-                        onDragStart = {},
-                        onDragEnd = {
-                            if (thumbPositionX >= totalSwipeDistancePx * 0.82f) {
-                                thumbPositionX = totalSwipeDistancePx
-                                onConfirmed()
-                            } else {
-                                thumbPositionX = 0f
-                            }
-                        },
-                        onDragCancel = { thumbPositionX = 0f },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            thumbPositionX = (thumbPositionX + dragAmount.x).coerceIn(0f, totalSwipeDistancePx)
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-        }
-    }
-}
-
-@Composable
-fun LocalSummaryItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
-        Text(value, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }

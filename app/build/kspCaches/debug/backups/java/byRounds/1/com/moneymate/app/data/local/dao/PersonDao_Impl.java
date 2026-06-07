@@ -3450,6 +3450,45 @@ public final class PersonDao_Impl implements PersonDao {
   }
 
   @Override
+  public Object getTotalGivenInWeek(final String fileId, final long weekStart, final long weekEnd,
+      final Continuation<? super Double> $completion) {
+    final String _sql = "SELECT SUM(amountGiven) FROM persons WHERE fileId = ? AND isDeleted = 0 AND isCompleted = 0 AND dateGiven >= ? AND dateGiven < ?";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 3);
+    int _argIndex = 1;
+    _statement.bindString(_argIndex, fileId);
+    _argIndex = 2;
+    _statement.bindLong(_argIndex, weekStart);
+    _argIndex = 3;
+    _statement.bindLong(_argIndex, weekEnd);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<Double>() {
+      @Override
+      @Nullable
+      public Double call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final Double _result;
+          if (_cursor.moveToFirst()) {
+            final Double _tmp;
+            if (_cursor.isNull(0)) {
+              _tmp = null;
+            } else {
+              _tmp = _cursor.getDouble(0);
+            }
+            _result = _tmp;
+          } else {
+            _result = null;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
   public Object getActiveLoanCount(final String fileId,
       final Continuation<? super Integer> $completion) {
     final String _sql = "SELECT COUNT(*) FROM persons WHERE fileId = ? AND isDeleted = 0 AND isCompleted = 0";

@@ -1,7 +1,7 @@
 package com.moneymate.app.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -687,8 +687,7 @@ fun PaymentCardItem(
             }
         },
         enableDismissFromStartToEnd = !isSelecting,
-        enableDismissFromEndToStart = !isSelecting,
-        gestureEnabled = !isSelecting
+        enableDismissFromEndToStart = !isSelecting
     ) {
         Card(
             modifier = Modifier

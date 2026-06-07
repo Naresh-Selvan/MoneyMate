@@ -171,6 +171,9 @@ interface PersonDao {
     @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0 AND dateGiven >= :startOfDay AND dateGiven < :endOfDay")
     suspend fun getTotalGivenToday(fileId: String, startOfDay: Long, endOfDay: Long): Double?
 
+    @Query("SELECT SUM(amountGiven) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0 AND dateGiven >= :weekStart AND dateGiven < :weekEnd")
+    suspend fun getTotalGivenInWeek(fileId: String, weekStart: Long, weekEnd: Long): Double?
+
     @Query("SELECT COUNT(*) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0")
     suspend fun getActiveLoanCount(fileId: String): Int
 

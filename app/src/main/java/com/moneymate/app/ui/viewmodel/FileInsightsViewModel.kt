@@ -68,7 +68,7 @@ class FileInsightsViewModel @Inject constructor(
                 val allTimeReceived = paymentRepository.getTotalReceivedInFile(fileId)
                 val todayGiven = personRepository.getTotalGivenToday(fileId, todayStart, todayEnd)
                 val todayReceived = paymentRepository.getTotalReceivedToday(fileId, todayStart, todayEnd)
-                val weekGivenCalc = personRepository.getTotalGivenToday(fileId, weekStart, weekEnd)
+                val weekGivenCalc = personRepository.getTotalGivenInWeek(fileId, weekStart, weekEnd)
                 val weekReceived = paymentRepository.getTotalReceivedThisWeek(fileId, weekStart, weekEnd)
                 val outstanding = personRepository.getTotalOutstanding(fileId)
                 val activeCount = personRepository.getActiveLoanCount(fileId)

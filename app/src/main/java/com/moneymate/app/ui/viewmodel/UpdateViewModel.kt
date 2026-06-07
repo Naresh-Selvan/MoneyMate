@@ -131,8 +131,8 @@ class UpdateViewModel @Inject constructor(
                     val query  = DownloadManager.Query().setFilterById(downloadId)
                     val cursor = dm.query(query)
                     if (cursor.moveToFirst()) {
-                        val status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS))
-                        val uri    = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
+                        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                        val uri    = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
                         when (status) {
                             DownloadManager.STATUS_SUCCESSFUL -> {
                                 withContext(Dispatchers.Main) { _updateState.value = UpdateState.ReadyToInstall(uri) }

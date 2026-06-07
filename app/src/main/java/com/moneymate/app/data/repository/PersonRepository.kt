@@ -327,6 +327,9 @@ class PersonRepository @Inject constructor(
     suspend fun getTotalGivenToday(fileId: String, startOfDay: Long, endOfDay: Long): Double =
         personDao.getTotalGivenToday(fileId, startOfDay, endOfDay) ?: 0.0
 
+    suspend fun getTotalGivenInWeek(fileId: String, weekStart: Long, weekEnd: Long): Double =
+        personDao.getTotalGivenInWeek(fileId, weekStart, weekEnd) ?: 0.0
+
     suspend fun getActiveLoanCount(fileId: String): Int =
         personDao.getActiveLoanCount(fileId)
 

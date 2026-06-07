@@ -81,6 +81,8 @@ public final class PersonDao_Impl implements PersonDao {
 
   private final SharedSQLiteStatement __preparedStmtOfActivatePendingNewLoan;
 
+  private final SharedSQLiteStatement __preparedStmtOfActivateZeroActiveCardWithInterest;
+
   private final SharedSQLiteStatement __preparedStmtOfDeleteZeroCloneByNameAndFile;
 
   private final SharedSQLiteStatement __preparedStmtOfRemoveDuplicatePendingClones;
@@ -414,6 +416,28 @@ public final class PersonDao_Impl implements PersonDao {
                 + "            perInstallmentAmount = 0.0,\n"
                 + "            isDurationBased   = 0,\n"
                 + "            durationDays      = NULL\n"
+                + "        WHERE id = ?\n"
+                + "    ";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfActivateZeroActiveCardWithInterest = new SharedSQLiteStatement(__db) {
+      @Override
+      @NonNull
+      public String createQuery() {
+        final String _query = "\n"
+                + "        UPDATE persons SET\n"
+                + "            amountGiven            = ?,\n"
+                + "            dateGiven              = ?,\n"
+                + "            interestRate           = ?,\n"
+                + "            interestType           = ?,\n"
+                + "            interestAmount         = ?,\n"
+                + "            totalRepayment         = ?,\n"
+                + "            loanType               = ?,\n"
+                + "            numberOfInstallments   = ?,\n"
+                + "            perInstallmentAmount   = ?,\n"
+                + "            isDurationBased        = ?,\n"
+                + "            durationDays           = ?\n"
                 + "        WHERE id = ?\n"
                 + "    ";
         return _query;
@@ -1014,6 +1038,63 @@ public final class PersonDao_Impl implements PersonDao {
           }
         } finally {
           __preparedStmtOfActivatePendingNewLoan.release(_stmt);
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object activateZeroActiveCardWithInterest(final String id, final double amount,
+      final long dateGiven, final double interestRate, final String interestType,
+      final double interestAmount, final double totalRepayment, final String loanType,
+      final int numberOfInstallments, final double perInstallmentAmount,
+      final boolean isDurationBased, final Integer durationDays,
+      final Continuation<? super Unit> $completion) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      @NonNull
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfActivateZeroActiveCardWithInterest.acquire();
+        int _argIndex = 1;
+        _stmt.bindDouble(_argIndex, amount);
+        _argIndex = 2;
+        _stmt.bindLong(_argIndex, dateGiven);
+        _argIndex = 3;
+        _stmt.bindDouble(_argIndex, interestRate);
+        _argIndex = 4;
+        _stmt.bindString(_argIndex, interestType);
+        _argIndex = 5;
+        _stmt.bindDouble(_argIndex, interestAmount);
+        _argIndex = 6;
+        _stmt.bindDouble(_argIndex, totalRepayment);
+        _argIndex = 7;
+        _stmt.bindString(_argIndex, loanType);
+        _argIndex = 8;
+        _stmt.bindLong(_argIndex, numberOfInstallments);
+        _argIndex = 9;
+        _stmt.bindDouble(_argIndex, perInstallmentAmount);
+        _argIndex = 10;
+        final int _tmp = isDurationBased ? 1 : 0;
+        _stmt.bindLong(_argIndex, _tmp);
+        _argIndex = 11;
+        if (durationDays == null) {
+          _stmt.bindNull(_argIndex);
+        } else {
+          _stmt.bindLong(_argIndex, durationDays);
+        }
+        _argIndex = 12;
+        _stmt.bindString(_argIndex, id);
+        try {
+          __db.beginTransaction();
+          try {
+            _stmt.executeUpdateDelete();
+            __db.setTransactionSuccessful();
+            return Unit.INSTANCE;
+          } finally {
+            __db.endTransaction();
+          }
+        } finally {
+          __preparedStmtOfActivateZeroActiveCardWithInterest.release(_stmt);
         }
       }
     }, $completion);

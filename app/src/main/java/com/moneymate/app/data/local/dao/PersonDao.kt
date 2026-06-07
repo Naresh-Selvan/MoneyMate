@@ -180,6 +180,37 @@ interface PersonDao {
     @Query("SELECT COALESCE(SUM(totalRepayment), 0) FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0")
     suspend fun getTotalOutstanding(fileId: String): Double
 
+    // Updated version that includes ALL interest and loan fields
+    @Query("""
+        UPDATE persons SET
+            amountGiven            = :amount,
+            dateGiven              = :dateGiven,
+            interestRate           = :interestRate,
+            interestType           = :interestType,
+            interestAmount         = :interestAmount,
+            totalRepayment         = :totalRepayment,
+            loanType               = :loanType,
+            numberOfInstallments   = :numberOfInstallments,
+            perInstallmentAmount   = :perInstallmentAmount,
+            isDurationBased        = :isDurationBased,
+            durationDays           = :durationDays
+        WHERE id = :id
+    """)
+    suspend fun activateZeroActiveCardWithInterest(
+        id: String,
+        amount: Double,
+        dateGiven: Long,
+        interestRate: Double,
+        interestType: String,
+        interestAmount: Double,
+        totalRepayment: Double,
+        loanType: String,
+        numberOfInstallments: Int,
+        perInstallmentAmount: Double,
+        isDurationBased: Boolean,
+        durationDays: Int?
+    )
+
     // Delete the pending-new-loan pink card for a given name + fileId.
     @Query("DELETE FROM persons WHERE name = :name AND fileId = :fileId AND amountGiven = 0.0 AND isCompleted = 0 AND isPendingNewLoan = 1")
     suspend fun deleteZeroCloneByNameAndFile(name: String, fileId: String)

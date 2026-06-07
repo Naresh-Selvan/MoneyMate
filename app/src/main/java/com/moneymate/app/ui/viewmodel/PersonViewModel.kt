@@ -189,6 +189,38 @@ class PersonViewModel @Inject constructor(
     }
 
     /**
+     * Called when boss taps the white ₹0.0 active card and confirms a new loan amount + interest.
+     * Updates amount, interest fields, sets dateGiven = TODAY, deletes the pink indicator card.
+     */
+    fun activateZeroActiveCardWithInterest(
+        person: Person,
+        amount: Double,
+        interestRate: Double,
+        interestType: String,
+        interestAmount: Double,
+        totalRepayment: Double,
+        loanType: String = "MONTHLY",
+        numberOfInstallments: Int = 10,
+        perInstallmentAmount: Double = 0.0,
+        isDurationBased: Boolean = false,
+        durationDays: Int? = null
+    ) = viewModelScope.launch {
+        repository.activateZeroActiveCardWithInterest(
+            person,
+            amount,
+            interestRate,
+            interestType,
+            interestAmount,
+            totalRepayment,
+            loanType,
+            numberOfInstallments,
+            perInstallmentAmount,
+            isDurationBased,
+            durationDays
+        )
+    }
+
+    /**
      * Called when boss taps the white ₹0.0 active card and confirms a new loan amount.
      * Updates amountGiven, sets dateGiven = TODAY, deletes the pink indicator card.
      */

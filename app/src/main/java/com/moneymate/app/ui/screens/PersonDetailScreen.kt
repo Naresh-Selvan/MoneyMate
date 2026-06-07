@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -206,6 +207,58 @@ fun PersonDetailScreen(
                 }
             }
         }
+    }
+
+    // Add Payment Dialog
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false; newAmount = ""; newMode = PaymentMode.CASH; newDate = defaultPaymentDate },
+            title = { Text(if (isBorrowing) "Add Repayment" else "Add Payment Received") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newAmount,
+                        onValueChange = { newAmount = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = newMode == PaymentMode.CASH, onClick = { newMode = PaymentMode.CASH }, label = { Text("Cash") })
+                        FilterChip(selected = newMode == PaymentMode.UPI,  onClick = { newMode = PaymentMode.UPI  }, label = { Text("UPI")  })
+                    }
+                    OutlinedButton(onClick = { showNewDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(dateFormat.format(Date(newDate)))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val amt = newAmount.toDoubleOrNull()
+                    if (amt != null && amt > 0) {
+                        coroutineScope.launch {
+                            paymentViewModel.insertPaymentAwait(Payment(personId = personId, amount = amt, mode = newMode, date = newDate))
+                            val remainingBalance = balance - amt
+                            if (remainingBalance <= 0 && amountGiven > 0) {
+                                personViewModel.markPersonAsCompleted(personId)
+                            }
+                            newAmount = ""; newMode = PaymentMode.CASH; newDate = defaultPaymentDate; showAddDialog = false
+                        }
+                    }
+                }) { Text("Add") }
+            },
+            dismissButton = { TextButton(onClick = { showAddDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showNewDatePicker) {
+        val state = rememberDatePickerState(initialSelectedDateMillis = newDate)
+        DatePickerDialog(
+            onDismissRequest = { showNewDatePicker = false },
+            confirmButton = { TextButton(onClick = { newDate = state.selectedDateMillis ?: newDate; showNewDatePicker = false }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { showNewDatePicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = state) }
     }
 
     // Force Close Dialog

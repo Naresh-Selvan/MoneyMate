@@ -9,16 +9,19 @@ import androidx.lifecycle.ViewModel;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.moneymate.app.data.local.AppDatabase;
+import com.moneymate.app.data.local.dao.BookAdjustmentDao;
 import com.moneymate.app.data.local.dao.DefaultPersonDao;
 import com.moneymate.app.data.local.dao.EditRequestDao;
 import com.moneymate.app.data.local.dao.FileDao;
 import com.moneymate.app.data.local.dao.PaymentDao;
 import com.moneymate.app.data.local.dao.PersonDao;
+import com.moneymate.app.data.repository.BookAdjustmentRepository;
 import com.moneymate.app.data.repository.DefaultPersonRepository;
 import com.moneymate.app.data.repository.EditRequestRepository;
 import com.moneymate.app.data.repository.LoanFileRepository;
 import com.moneymate.app.data.repository.PaymentRepository;
 import com.moneymate.app.data.repository.PersonRepository;
+import com.moneymate.app.di.AppModule_ProvideBookAdjustmentDaoFactory;
 import com.moneymate.app.di.AppModule_ProvideDatabaseFactory;
 import com.moneymate.app.di.AppModule_ProvideDefaultPersonDaoFactory;
 import com.moneymate.app.di.AppModule_ProvideDefaultPersonRepositoryFactory;
@@ -29,6 +32,8 @@ import com.moneymate.app.di.AppModule_ProvidePaymentDaoFactory;
 import com.moneymate.app.di.AppModule_ProvidePersonDaoFactory;
 import com.moneymate.app.ui.viewmodel.AuthViewModel;
 import com.moneymate.app.ui.viewmodel.AuthViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.BookAdjustmentViewModel;
+import com.moneymate.app.ui.viewmodel.BookAdjustmentViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.EditRequestViewModel;
 import com.moneymate.app.ui.viewmodel.EditRequestViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.FileInsightsViewModel;
@@ -411,7 +416,7 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
 
     @Override
     public Map<Class<?>, Boolean> getViewModelKeys() {
-      return LazyClassKeyMap.<Boolean>of(ImmutableMap.<String, Boolean>builderWithExpectedSize(12).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_AuthViewModel, AuthViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_EditRequestViewModel, EditRequestViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_FileInsightsViewModel, FileInsightsViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_LoanFileViewModel, LoanFileViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_MigrationViewModel, MigrationViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_PaymentViewModel, PaymentViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_PersonViewModel, PersonViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_RestoreViewModel, RestoreViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_SettingsViewModel, SettingsViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_TemplateViewModel, TemplateViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_UpdateViewModel, UpdateViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_UploadViewModel, UploadViewModel_HiltModules.KeyModule.provide()).build());
+      return LazyClassKeyMap.<Boolean>of(ImmutableMap.<String, Boolean>builderWithExpectedSize(13).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_AuthViewModel, AuthViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_BookAdjustmentViewModel, BookAdjustmentViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_EditRequestViewModel, EditRequestViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_FileInsightsViewModel, FileInsightsViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_LoanFileViewModel, LoanFileViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_MigrationViewModel, MigrationViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_PaymentViewModel, PaymentViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_PersonViewModel, PersonViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_RestoreViewModel, RestoreViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_SettingsViewModel, SettingsViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_TemplateViewModel, TemplateViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_UpdateViewModel, UpdateViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_UploadViewModel, UploadViewModel_HiltModules.KeyModule.provide()).build());
     }
 
     @Override
@@ -433,63 +438,68 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
     private static final class LazyClassKeyProvider {
       static String com_moneymate_app_ui_viewmodel_EditRequestViewModel = "com.moneymate.app.ui.viewmodel.EditRequestViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_FileInsightsViewModel = "com.moneymate.app.ui.viewmodel.FileInsightsViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_RestoreViewModel = "com.moneymate.app.ui.viewmodel.RestoreViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
-
       static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_PaymentViewModel = "com.moneymate.app.ui.viewmodel.PaymentViewModel";
 
       static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
 
+      static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
+
       static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_FileInsightsViewModel = "com.moneymate.app.ui.viewmodel.FileInsightsViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_BookAdjustmentViewModel = "com.moneymate.app.ui.viewmodel.BookAdjustmentViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_PaymentViewModel = "com.moneymate.app.ui.viewmodel.PaymentViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_RestoreViewModel = "com.moneymate.app.ui.viewmodel.RestoreViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
 
       @KeepFieldType
       EditRequestViewModel com_moneymate_app_ui_viewmodel_EditRequestViewModel2;
 
       @KeepFieldType
-      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
-
-      @KeepFieldType
-      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
-
-      @KeepFieldType
-      FileInsightsViewModel com_moneymate_app_ui_viewmodel_FileInsightsViewModel2;
-
-      @KeepFieldType
-      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
-
-      @KeepFieldType
-      UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
-
-      @KeepFieldType
-      RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
-
-      @KeepFieldType
-      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
-
-      @KeepFieldType
       PersonViewModel com_moneymate_app_ui_viewmodel_PersonViewModel2;
-
-      @KeepFieldType
-      PaymentViewModel com_moneymate_app_ui_viewmodel_PaymentViewModel2;
 
       @KeepFieldType
       AuthViewModel com_moneymate_app_ui_viewmodel_AuthViewModel2;
 
       @KeepFieldType
+      UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
+
+      @KeepFieldType
+      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
+
+      @KeepFieldType
+      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
+
+      @KeepFieldType
       TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
+
+      @KeepFieldType
+      FileInsightsViewModel com_moneymate_app_ui_viewmodel_FileInsightsViewModel2;
+
+      @KeepFieldType
+      BookAdjustmentViewModel com_moneymate_app_ui_viewmodel_BookAdjustmentViewModel2;
+
+      @KeepFieldType
+      PaymentViewModel com_moneymate_app_ui_viewmodel_PaymentViewModel2;
+
+      @KeepFieldType
+      RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
+
+      @KeepFieldType
+      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
+
+      @KeepFieldType
+      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
     }
   }
 
@@ -501,6 +511,8 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
     private final ViewModelCImpl viewModelCImpl = this;
 
     private Provider<AuthViewModel> authViewModelProvider;
+
+    private Provider<BookAdjustmentViewModel> bookAdjustmentViewModelProvider;
 
     private Provider<EditRequestViewModel> editRequestViewModelProvider;
 
@@ -538,22 +550,23 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
     private void initialize(final SavedStateHandle savedStateHandleParam,
         final ViewModelLifecycle viewModelLifecycleParam) {
       this.authViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 0);
-      this.editRequestViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 1);
-      this.fileInsightsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 2);
-      this.loanFileViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 3);
-      this.migrationViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 4);
-      this.paymentViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 5);
-      this.personViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 6);
-      this.restoreViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 7);
-      this.settingsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 8);
-      this.templateViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 9);
-      this.updateViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 10);
-      this.uploadViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 11);
+      this.bookAdjustmentViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 1);
+      this.editRequestViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 2);
+      this.fileInsightsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 3);
+      this.loanFileViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 4);
+      this.migrationViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 5);
+      this.paymentViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 6);
+      this.personViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 7);
+      this.restoreViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 8);
+      this.settingsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 9);
+      this.templateViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 10);
+      this.updateViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 11);
+      this.uploadViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 12);
     }
 
     @Override
     public Map<Class<?>, javax.inject.Provider<ViewModel>> getHiltViewModelMap() {
-      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(ImmutableMap.<String, javax.inject.Provider<ViewModel>>builderWithExpectedSize(12).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_AuthViewModel, ((Provider) authViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_EditRequestViewModel, ((Provider) editRequestViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_FileInsightsViewModel, ((Provider) fileInsightsViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_LoanFileViewModel, ((Provider) loanFileViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_MigrationViewModel, ((Provider) migrationViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_PaymentViewModel, ((Provider) paymentViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_PersonViewModel, ((Provider) personViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_RestoreViewModel, ((Provider) restoreViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_SettingsViewModel, ((Provider) settingsViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_TemplateViewModel, ((Provider) templateViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_UpdateViewModel, ((Provider) updateViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_UploadViewModel, ((Provider) uploadViewModelProvider)).build());
+      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(ImmutableMap.<String, javax.inject.Provider<ViewModel>>builderWithExpectedSize(13).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_AuthViewModel, ((Provider) authViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_BookAdjustmentViewModel, ((Provider) bookAdjustmentViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_EditRequestViewModel, ((Provider) editRequestViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_FileInsightsViewModel, ((Provider) fileInsightsViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_LoanFileViewModel, ((Provider) loanFileViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_MigrationViewModel, ((Provider) migrationViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_PaymentViewModel, ((Provider) paymentViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_PersonViewModel, ((Provider) personViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_RestoreViewModel, ((Provider) restoreViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_SettingsViewModel, ((Provider) settingsViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_TemplateViewModel, ((Provider) templateViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_UpdateViewModel, ((Provider) updateViewModelProvider)).put(LazyClassKeyProvider.com_moneymate_app_ui_viewmodel_UploadViewModel, ((Provider) uploadViewModelProvider)).build());
     }
 
     @Override
@@ -565,25 +578,27 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
     private static final class LazyClassKeyProvider {
       static String com_moneymate_app_ui_viewmodel_AuthViewModel = "com.moneymate.app.ui.viewmodel.AuthViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
+      static String com_moneymate_app_ui_viewmodel_FileInsightsViewModel = "com.moneymate.app.ui.viewmodel.FileInsightsViewModel";
 
       static String com_moneymate_app_ui_viewmodel_PersonViewModel = "com.moneymate.app.ui.viewmodel.PersonViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_BookAdjustmentViewModel = "com.moneymate.app.ui.viewmodel.BookAdjustmentViewModel";
 
       static String com_moneymate_app_ui_viewmodel_RestoreViewModel = "com.moneymate.app.ui.viewmodel.RestoreViewModel";
 
       static String com_moneymate_app_ui_viewmodel_EditRequestViewModel = "com.moneymate.app.ui.viewmodel.EditRequestViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
-
       static String com_moneymate_app_ui_viewmodel_UploadViewModel = "com.moneymate.app.ui.viewmodel.UploadViewModel";
 
-      static String com_moneymate_app_ui_viewmodel_FileInsightsViewModel = "com.moneymate.app.ui.viewmodel.FileInsightsViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_MigrationViewModel = "com.moneymate.app.ui.viewmodel.MigrationViewModel";
-
-      static String com_moneymate_app_ui_viewmodel_UpdateViewModel = "com.moneymate.app.ui.viewmodel.UpdateViewModel";
+      static String com_moneymate_app_ui_viewmodel_LoanFileViewModel = "com.moneymate.app.ui.viewmodel.LoanFileViewModel";
 
       static String com_moneymate_app_ui_viewmodel_PaymentViewModel = "com.moneymate.app.ui.viewmodel.PaymentViewModel";
+
+      static String com_moneymate_app_ui_viewmodel_SettingsViewModel = "com.moneymate.app.ui.viewmodel.SettingsViewModel";
 
       static String com_moneymate_app_ui_viewmodel_TemplateViewModel = "com.moneymate.app.ui.viewmodel.TemplateViewModel";
 
@@ -591,10 +606,19 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
       AuthViewModel com_moneymate_app_ui_viewmodel_AuthViewModel2;
 
       @KeepFieldType
-      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
+      FileInsightsViewModel com_moneymate_app_ui_viewmodel_FileInsightsViewModel2;
 
       @KeepFieldType
       PersonViewModel com_moneymate_app_ui_viewmodel_PersonViewModel2;
+
+      @KeepFieldType
+      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
+
+      @KeepFieldType
+      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
+
+      @KeepFieldType
+      BookAdjustmentViewModel com_moneymate_app_ui_viewmodel_BookAdjustmentViewModel2;
 
       @KeepFieldType
       RestoreViewModel com_moneymate_app_ui_viewmodel_RestoreViewModel2;
@@ -603,22 +627,16 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
       EditRequestViewModel com_moneymate_app_ui_viewmodel_EditRequestViewModel2;
 
       @KeepFieldType
-      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
-
-      @KeepFieldType
       UploadViewModel com_moneymate_app_ui_viewmodel_UploadViewModel2;
 
       @KeepFieldType
-      FileInsightsViewModel com_moneymate_app_ui_viewmodel_FileInsightsViewModel2;
-
-      @KeepFieldType
-      MigrationViewModel com_moneymate_app_ui_viewmodel_MigrationViewModel2;
-
-      @KeepFieldType
-      UpdateViewModel com_moneymate_app_ui_viewmodel_UpdateViewModel2;
+      LoanFileViewModel com_moneymate_app_ui_viewmodel_LoanFileViewModel2;
 
       @KeepFieldType
       PaymentViewModel com_moneymate_app_ui_viewmodel_PaymentViewModel2;
+
+      @KeepFieldType
+      SettingsViewModel com_moneymate_app_ui_viewmodel_SettingsViewModel2;
 
       @KeepFieldType
       TemplateViewModel com_moneymate_app_ui_viewmodel_TemplateViewModel2;
@@ -648,37 +666,40 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
           case 0: // com.moneymate.app.ui.viewmodel.AuthViewModel 
           return (T) new AuthViewModel(singletonCImpl.appPreferencesProvider.get());
 
-          case 1: // com.moneymate.app.ui.viewmodel.EditRequestViewModel 
+          case 1: // com.moneymate.app.ui.viewmodel.BookAdjustmentViewModel 
+          return (T) new BookAdjustmentViewModel(singletonCImpl.bookAdjustmentRepositoryProvider.get());
+
+          case 2: // com.moneymate.app.ui.viewmodel.EditRequestViewModel 
           return (T) new EditRequestViewModel(singletonCImpl.editRequestRepositoryProvider.get());
 
-          case 2: // com.moneymate.app.ui.viewmodel.FileInsightsViewModel 
+          case 3: // com.moneymate.app.ui.viewmodel.FileInsightsViewModel 
           return (T) new FileInsightsViewModel(singletonCImpl.personRepositoryProvider.get(), singletonCImpl.paymentRepositoryProvider.get());
 
-          case 3: // com.moneymate.app.ui.viewmodel.LoanFileViewModel 
+          case 4: // com.moneymate.app.ui.viewmodel.LoanFileViewModel 
           return (T) new LoanFileViewModel(singletonCImpl.loanFileRepositoryProvider.get());
 
-          case 4: // com.moneymate.app.ui.viewmodel.MigrationViewModel 
+          case 5: // com.moneymate.app.ui.viewmodel.MigrationViewModel 
           return (T) new MigrationViewModel(singletonCImpl.appPreferencesProvider.get(), singletonCImpl.provideFirestorePathProvider.get());
 
-          case 5: // com.moneymate.app.ui.viewmodel.PaymentViewModel 
+          case 6: // com.moneymate.app.ui.viewmodel.PaymentViewModel 
           return (T) new PaymentViewModel(singletonCImpl.paymentRepositoryProvider.get());
 
-          case 6: // com.moneymate.app.ui.viewmodel.PersonViewModel 
+          case 7: // com.moneymate.app.ui.viewmodel.PersonViewModel 
           return (T) new PersonViewModel(singletonCImpl.personRepositoryProvider.get());
 
-          case 7: // com.moneymate.app.ui.viewmodel.RestoreViewModel 
+          case 8: // com.moneymate.app.ui.viewmodel.RestoreViewModel 
           return (T) new RestoreViewModel(singletonCImpl.loanFileRepositoryProvider.get(), singletonCImpl.personRepositoryProvider.get(), singletonCImpl.paymentRepositoryProvider.get(), singletonCImpl.provideFirestorePathProvider.get());
 
-          case 8: // com.moneymate.app.ui.viewmodel.SettingsViewModel 
+          case 9: // com.moneymate.app.ui.viewmodel.SettingsViewModel 
           return (T) new SettingsViewModel(singletonCImpl.appPreferencesProvider.get());
 
-          case 9: // com.moneymate.app.ui.viewmodel.TemplateViewModel 
+          case 10: // com.moneymate.app.ui.viewmodel.TemplateViewModel 
           return (T) new TemplateViewModel(singletonCImpl.provideDefaultPersonRepositoryProvider.get());
 
-          case 10: // com.moneymate.app.ui.viewmodel.UpdateViewModel 
+          case 11: // com.moneymate.app.ui.viewmodel.UpdateViewModel 
           return (T) new UpdateViewModel(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 11: // com.moneymate.app.ui.viewmodel.UploadViewModel 
+          case 12: // com.moneymate.app.ui.viewmodel.UploadViewModel 
           return (T) new UploadViewModel(singletonCImpl.loanFileRepositoryProvider.get(), singletonCImpl.personRepositoryProvider.get(), singletonCImpl.paymentRepositoryProvider.get(), singletonCImpl.provideDefaultPersonRepositoryProvider.get(), singletonCImpl.provideFirestorePathProvider.get());
 
           default: throw new AssertionError(id);
@@ -765,6 +786,8 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
 
     private Provider<AppDatabase> provideDatabaseProvider;
 
+    private Provider<BookAdjustmentRepository> bookAdjustmentRepositoryProvider;
+
     private Provider<EditRequestRepository> editRequestRepositoryProvider;
 
     private Provider<FirestorePathProvider> provideFirestorePathProvider;
@@ -781,6 +804,10 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
       this.applicationContextModule = applicationContextModuleParam;
       initialize(applicationContextModuleParam);
 
+    }
+
+    private BookAdjustmentDao bookAdjustmentDao() {
+      return AppModule_ProvideBookAdjustmentDaoFactory.provideBookAdjustmentDao(provideDatabaseProvider.get());
     }
 
     private EditRequestDao editRequestDao() {
@@ -807,12 +834,13 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
     private void initialize(final ApplicationContextModule applicationContextModuleParam) {
       this.appPreferencesProvider = DoubleCheck.provider(new SwitchingProvider<AppPreferences>(singletonCImpl, 0));
       this.provideDatabaseProvider = DoubleCheck.provider(new SwitchingProvider<AppDatabase>(singletonCImpl, 2));
-      this.editRequestRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<EditRequestRepository>(singletonCImpl, 1));
-      this.provideFirestorePathProvider = DoubleCheck.provider(new SwitchingProvider<FirestorePathProvider>(singletonCImpl, 4));
-      this.personRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PersonRepository>(singletonCImpl, 3));
-      this.paymentRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PaymentRepository>(singletonCImpl, 5));
-      this.loanFileRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LoanFileRepository>(singletonCImpl, 6));
-      this.provideDefaultPersonRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DefaultPersonRepository>(singletonCImpl, 7));
+      this.bookAdjustmentRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<BookAdjustmentRepository>(singletonCImpl, 1));
+      this.editRequestRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<EditRequestRepository>(singletonCImpl, 3));
+      this.provideFirestorePathProvider = DoubleCheck.provider(new SwitchingProvider<FirestorePathProvider>(singletonCImpl, 5));
+      this.personRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PersonRepository>(singletonCImpl, 4));
+      this.paymentRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PaymentRepository>(singletonCImpl, 6));
+      this.loanFileRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LoanFileRepository>(singletonCImpl, 7));
+      this.provideDefaultPersonRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DefaultPersonRepository>(singletonCImpl, 8));
     }
 
     @Override
@@ -851,25 +879,28 @@ public final class DaggerMoneyMateApplication_HiltComponents_SingletonC {
           case 0: // com.moneymate.app.utils.AppPreferences 
           return (T) new AppPreferences(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 1: // com.moneymate.app.data.repository.EditRequestRepository 
-          return (T) new EditRequestRepository(singletonCImpl.editRequestDao());
+          case 1: // com.moneymate.app.data.repository.BookAdjustmentRepository 
+          return (T) new BookAdjustmentRepository(singletonCImpl.bookAdjustmentDao());
 
           case 2: // com.moneymate.app.data.local.AppDatabase 
           return (T) AppModule_ProvideDatabaseFactory.provideDatabase(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 3: // com.moneymate.app.data.repository.PersonRepository 
+          case 3: // com.moneymate.app.data.repository.EditRequestRepository 
+          return (T) new EditRequestRepository(singletonCImpl.editRequestDao());
+
+          case 4: // com.moneymate.app.data.repository.PersonRepository 
           return (T) new PersonRepository(singletonCImpl.personDao(), singletonCImpl.provideFirestorePathProvider.get());
 
-          case 4: // com.moneymate.app.utils.FirestorePathProvider 
+          case 5: // com.moneymate.app.utils.FirestorePathProvider 
           return (T) AppModule_ProvideFirestorePathProviderFactory.provideFirestorePathProvider(singletonCImpl.appPreferencesProvider.get());
 
-          case 5: // com.moneymate.app.data.repository.PaymentRepository 
+          case 6: // com.moneymate.app.data.repository.PaymentRepository 
           return (T) new PaymentRepository(singletonCImpl.paymentDao(), singletonCImpl.personDao(), singletonCImpl.provideFirestorePathProvider.get());
 
-          case 6: // com.moneymate.app.data.repository.LoanFileRepository 
+          case 7: // com.moneymate.app.data.repository.LoanFileRepository 
           return (T) new LoanFileRepository(singletonCImpl.fileDao(), singletonCImpl.personDao(), singletonCImpl.paymentDao(), singletonCImpl.provideFirestorePathProvider.get());
 
-          case 7: // com.moneymate.app.data.repository.DefaultPersonRepository 
+          case 8: // com.moneymate.app.data.repository.DefaultPersonRepository 
           return (T) AppModule_ProvideDefaultPersonRepositoryFactory.provideDefaultPersonRepository(singletonCImpl.defaultPersonDao());
 
           default: throw new AssertionError(id);

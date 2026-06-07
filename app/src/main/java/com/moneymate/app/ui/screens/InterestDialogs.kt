@@ -1,15 +1,10 @@
 package com.moneymate.app.ui.screens
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -518,29 +513,24 @@ private fun InterestRow(label: String, value: String, bold: Boolean = false) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Part 4 — New Loan Step-by-Step Bottom Sheet (for completed person cards)
+// Part 4 — New Loan Bottom Sheet (for completed person cards & ₹0 placeholders)
 // ══════════════════════════════════════════════════════════════════════════════
 
 /**
- * 2-step bottom sheet for creating a new loan after a person is marked completed.
+ * Full-featured bottom sheet for creating a new loan when tapping a ₹0.0
+ * placeholder or a completed person card.
  *
- * STEP 1 — New Loan Amount
- *   Full screen bottom sheet
- *   Title: "New Loan for [Person Name]"
- *   Single input field: "Enter Amount" (numeric, with ₹ prefix)
- *   Button: "Next"
- *   Validate: amount must be greater than zero before allowing Next
- *
- * STEP 2 — Interest
- *   Same bottom sheet, animates to next page
- *   Title: "Set Interest"
- *   Pre-fill with file default interest rate for convenience ONLY
- *   Toggle between: Flat Rate (%) / Custom Fixed Amount
- *   Live preview computes interest and shows total
- *   Buttons: "Back" and "Confirm"
+ * Single-screen layout matching [LoanAmountInterestDialog] features:
+ * - Amount field (principal)
+ * - Interest type toggle (Flat Rate % / Custom Fixed Amount)
+ * - Interest rate or fixed amount field
+ * - Live preview: interest amount + total repayment
+ * - Loan type selector (Daily/Weekly/Monthly) with auto-suggested installments
+ * - Number of installments + per-installment display
+ * - Advanced section (collapsible): duration-based calculation
  *
  * @param personName      Name of the person getting the new loan
- * @param fileDefaultRate Pre-fill rate from file settings (convenience only)
+ * @param fileDefaultRate Pre-fill rate from file settings
  * @param fileDefaultMode Pre-fill calculation mode from file settings
  * @param onConfirm       Called with all loan fields when user taps Confirm
  * @param onDismiss       Cancel callback
@@ -566,29 +556,44 @@ fun NewLoanStepSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var currentStep by remember { mutableIntStateOf(1) }
 
-    // Step 1 state
+    // ── Form state ──────────────────────────────────────────────────────────
     var amountText by remember { mutableStateOf("") }
-
-    // Step 2 state — pre-fill from file default
     var rateText by remember {
         mutableStateOf(
             fileDefaultRate.toBigDecimal().stripTrailingZeros().toPlainString()
         )
     }
-    var interestType by remember { mutableStateOf("PERCENTAGE") }
+    var interestType by remember { mutableStateOf("PERCENTAGE") } // "PERCENTAGE" or "FIXED_AMOUNT"
+    var fixedInterestText by remember { mutableStateOf("") }
+    var loanType by remember { mutableStateOf("MONTHLY") }
+    var installText by remember { mutableStateOf(defaultInstallmentsForType("MONTHLY").toString()) }
+    var showAdvanced by remember { mutableStateOf(false) }
+    var durationBased by remember { mutableStateOf(fileDefaultMode == CalculationMode.DURATION) }
+    var durationText by remember { mutableStateOf("") }
 
-    // Live calculations for Step 2
-    val principal by remember { derivedStateOf { amountText.toDoubleOrNull() ?: 0.0 } }
-    val rate by remember { derivedStateOf { rateText.toDoubleOrNull() ?: 0.0 } }
+    // ── Live calculations ────────────────────────────────────────────────────
+    val principal        by remember { derivedStateOf { amountText.toDoubleOrNull() ?: 0.0 } }
+    val rate             by remember { derivedStateOf { rateText.toDoubleOrNull() ?: 0.0 } }
+    val fixedInterestVal by remember { derivedStateOf { fixedInterestText.toDoubleOrNull() ?: 0.0 } }
+    val installments     by remember { derivedStateOf { installText.toIntOrNull()?.coerceAtLeast(1) ?: 1 } }
+    val durationDaysVal  by remember { derivedStateOf { durationText.toIntOrNull()?.coerceAtLeast(1) } }
 
     val interestAmount by remember {
         derivedStateOf {
-            calcFlatInterest(principal, rate)
+            if (interestType == "FIXED_AMOUNT") {
+                fixedInterestVal
+            } else if (durationBased && durationDaysVal != null) {
+                calcDurationInterest(principal, rate, durationDaysVal!!)
+            } else {
+                calcFlatInterest(principal, rate)
+            }
         }
     }
-    val totalRepayment by remember { derivedStateOf { principal + interestAmount } }
+    val totalRepayment     by remember { derivedStateOf { principal + interestAmount } }
+    val perInstallment     by remember { derivedStateOf {
+        if (installments > 0) totalRepayment / installments else totalRepayment
+    } }
 
     fun formatMoney(v: Double): String {
         if (v == 0.0) return "₹0"
@@ -596,7 +601,7 @@ fun NewLoanStepSheet(
         return "₹$s"
     }
 
-    val canProceedStep1 = amountText.toDoubleOrNull()?.let { it > 0.0 } == true
+    val canConfirm = amountText.toDoubleOrNull()?.let { it > 0.0 } == true
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -606,148 +611,244 @@ fun NewLoanStepSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            AnimatedContent(
-                targetState = currentStep,
-                transitionSpec = {
-                    if (targetState > initialState) {
-                        slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) togetherWith
-                            slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300))
-                    } else {
-                        slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)) togetherWith
-                            slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
-                    }
-                },
-                label = "loanStep"
-            ) { step ->
-                when (step) {
-                    1 -> {
-                        // ── STEP 1: Loan Amount ────────────────────────────
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                "New Loan for $personName",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Text(
-                                "Enter the loan amount",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = amountText,
-                                onValueChange = {
-                                    amountText = it.filter { c -> c.isDigit() || c == '.' }
-                                },
-                                label = { Text("Enter Amount") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                ),
-                                leadingIcon = {
-                                    Text(
-                                        "₹",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    )
-                                }
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Button(
-                                onClick = { currentStep = 2 },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = canProceedStep1
-                            ) {
-                                Text("Next")
-                            }
-                            TextButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Cancel")
-                            }
-                        }
-                    }
+            // ── Header ─────────────────────────────────────────────────────
+            Text(
+                "New Loan for $personName",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-                    2 -> {
-                        // ── STEP 2: Interest ───────────────────────────────
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(
-                                "Interest Details",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
+            // ── Amount ─────────────────────────────────────────────────────
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { amountText = it.filter { c -> c.isDigit() || c == '.' } },
+                label = { Text("Principal Amount*") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                leadingIcon = {
+                    Text("₹", style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 8.dp))
+                }
+            )
 
-                            // Principal
-                            InterestRow("Principal:", formatMoney(principal))
+            // ── Interest type toggle ───────────────────────────────────────
+            Text("Interest Type", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth())
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = interestType == "PERCENTAGE",
+                    onClick  = { interestType = "PERCENTAGE" },
+                    label    = { Text("Flat Rate (%)") }
+                )
+                FilterChip(
+                    selected = interestType == "FIXED_AMOUNT",
+                    onClick  = { interestType = "FIXED_AMOUNT" },
+                    label    = { Text("Custom Fixed Amount") }
+                )
+            }
 
-                            HorizontalDivider()
+            if (interestType == "PERCENTAGE") {
+                OutlinedTextField(
+                    value = rateText,
+                    onValueChange = { rateText = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Interest Rate (%)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    trailingIcon = { Text("%", modifier = Modifier.padding(end = 8.dp)) }
+                )
+            } else {
+                OutlinedTextField(
+                    value = fixedInterestText,
+                    onValueChange = { fixedInterestText = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Fixed Interest Amount (₹)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    leadingIcon = { Text("₹", style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 8.dp)) }
+                )
+            }
 
-                            // Interest Rate
-                            OutlinedTextField(
-                                value = rateText,
-                                onValueChange = { rateText = it.filter { c -> c.isDigit() || c == '.' } },
-                                label = { Text("Interest Rate (%)") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                trailingIcon = { Text("%") }
-                            )
-
-                            HorizontalDivider()
-
-                            // Calculated Interest and Total
-                            InterestRow("Interest Amount:", formatMoney(interestAmount))
-                            InterestRow("Total Repayment:", formatMoney(totalRepayment), bold = true)
-
-                            Spacer(Modifier.height(16.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = { currentStep = 1 },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Back")
-                                }
-                                Button(
-                                    onClick = {
-                                        onConfirm(
-                                            principal,
-                                            "PERCENTAGE",
-                                            rate,
-                                            interestAmount,
-                                            totalRepayment,
-                                            "MONTHLY",
-                                            10,
-                                            totalRepayment / 10,
-                                            false,
-                                            null
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Confirm")
-                                }
-                            }
-                        }
+            // ── Live preview card ──────────────────────────────────────────
+            if (principal > 0.0) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        InterestRow("Principal", formatMoney(principal))
+                        InterestRow("Interest Rate", "$rate%")
+                        InterestRow("Interest", formatMoney(interestAmount))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        InterestRow("Total Repayment", formatMoney(totalRepayment), bold = true)
                     }
                 }
+            }
+
+            // ── Loan type ──────────────────────────────────────────────────
+            Text("Loan Type", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth())
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("DAILY", "WEEKLY", "MONTHLY").forEach { t ->
+                    FilterChip(
+                        selected = loanType == t,
+                        onClick  = {
+                            loanType = t
+                            installText = defaultInstallmentsForType(t).toString()
+                        },
+                        label = { Text(t.lowercase().replaceFirstChar { it.uppercase() }) }
+                    )
+                }
+            }
+
+            // ── Installments ───────────────────────────────────────────────
+            OutlinedTextField(
+                value = installText,
+                onValueChange = { installText = it.filter { c -> c.isDigit() } },
+                label = { Text("Number of Installments") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+            if (principal > 0.0 && installments > 0) {
+                Text(
+                    "Per Installment: ${formatMoney(perInstallment)} × $installments",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // ── Advanced section ───────────────────────────────────────────
+            HorizontalDivider()
+            TextButton(
+                onClick = { showAdvanced = !showAdvanced },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    if (showAdvanced) "Advanced ▲" else "Advanced ▼",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            AnimatedVisibility(
+                visible = showAdvanced,
+                enter   = expandVertically(),
+                exit    = shrinkVertically()
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Checkbox(
+                            checked  = durationBased,
+                            onCheckedChange = { durationBased = it }
+                        )
+                        Text("Enable duration-based calculation",
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                    AnimatedVisibility(visible = durationBased) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = durationText,
+                                onValueChange = { durationText = it.filter { c -> c.isDigit() } },
+                                label = { Text("Duration (days)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            if (principal > 0.0 && durationDaysVal != null) {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        InterestRow("Duration", "${durationDaysVal} days")
+                                        InterestRow("Interest (duration-based)", formatMoney(interestAmount))
+                                        InterestRow("Total with duration", formatMoney(totalRepayment), bold = true)
+                                    }
+                                }
+                            }
+                            Text(
+                                "Formula: Principal × (Rate/100) × (Days/365)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (!durationBased) {
+                        Text(
+                            "Simple flat rate: Interest = Principal × Rate",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // ── Action buttons ─────────────────────────────────────────────
+            Button(
+                onClick = {
+                    val p = amountText.toDoubleOrNull() ?: return@Button
+                    if (p <= 0.0) return@Button
+                    onConfirm(
+                        p,
+                        interestType,
+                        rate,
+                        interestAmount,
+                        totalRepayment,
+                        loanType,
+                        installments,
+                        perInstallment,
+                        durationBased,
+                        if (durationBased) durationDaysVal else null
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = canConfirm
+            ) {
+                Text("Confirm")
+            }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cancel")
             }
         }
     }

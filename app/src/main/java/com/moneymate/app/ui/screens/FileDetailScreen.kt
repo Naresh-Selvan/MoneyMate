@@ -1577,45 +1577,25 @@ fun FileDetailScreen(
 
 // ── Zero-amount active entry: prompt for loan amount ──────────────────────
     if (showQuickAmountPrompt && targetedZeroPerson != null) {
-        AlertDialog(
-            onDismissRequest = { showQuickAmountPrompt = false; targetedZeroPerson = null; quickAmountInput = "" },
-            title = { Text("Enter Loan Amount for ${targetedZeroPerson!!.name}") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "This entry has no loan amount yet. Enter the amount to activate it.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = quickAmountInput,
-                        onValueChange = { quickAmountInput = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Loan Amount*") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-                }
+        NewLoanStepSheet(
+            personName = targetedZeroPerson!!.name,
+            fileDefaultRate = file?.defaultInterestRate ?: 25.0,
+            fileDefaultMode = file?.defaultCalculationMode ?: CalculationMode.FLAT,
+            onConfirm = { principal, interestType, interestRate, interestAmount, totalRepayment, loanType, installments, perInstallment, isDurationBased, durationDays ->
+                // Activate the card with all interest and loan data.
+                personViewModel.activateZeroActiveCardWithInterest(
+                    targetedZeroPerson!!,
+                    principal,
+                    interestRate,
+                    interestType,
+                    interestAmount,
+                    totalRepayment
+                )
+                showQuickAmountPrompt = false
+                targetedZeroPerson = null
+                quickAmountInput = ""
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val entered = quickAmountInput.toDoubleOrNull()
-                        if (entered != null && entered > 0) {
-                            // Fix 3: activateZeroActiveCard updates the amount AND deletes
-                            // the matching Pending New Loan clone for this person + file.
-                            personViewModel.activateZeroActiveCard(targetedZeroPerson!!, entered)
-                            showQuickAmountPrompt = false
-                            targetedZeroPerson = null
-                            quickAmountInput = ""
-                        }
-                    },
-                    enabled = quickAmountInput.toDoubleOrNull()?.let { it > 0 } == true
-                ) { Text("Confirm") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showQuickAmountPrompt = false; targetedZeroPerson = null; quickAmountInput = "" }) { Text("Cancel") }
-            }
+            onDismiss = { showQuickAmountPrompt = false; targetedZeroPerson = null; quickAmountInput = "" }
         )
     }
 

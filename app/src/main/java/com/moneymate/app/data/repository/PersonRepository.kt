@@ -274,11 +274,45 @@ class PersonRepository @Inject constructor(
         personDao.activatePendingNewLoan(id, amount, System.currentTimeMillis())
 
     /**
-     * Called when boss taps the white ₹0.0 active card and enters the new loan amount.
-     * Updates amount + dateGiven to TODAY on the white card, then deletes the pink clone.
+     * Called when boss taps the white ₹0.0 active card and enters a new loan amount
+     * without interest. Updates amountGiven, resets interest fields, deletes the pink indicator card.
      */
     suspend fun activateZeroActiveCard(person: Person, amount: Double) {
         personDao.updateAmountAndDateResetInterest(person.id, amount, System.currentTimeMillis())
+        personDao.deleteZeroCloneByNameAndFile(person.name, person.fileId)
+    }
+
+    /**
+     * Called when boss taps the white ₹0.0 active card and enters the new loan amount + interest.
+     * Updates amount, interest fields, sets dateGiven = TODAY, deletes the pink indicator card.
+     */
+    suspend fun activateZeroActiveCardWithInterest(
+        person: Person,
+        amount: Double,
+        interestRate: Double,
+        interestType: String,
+        interestAmount: Double,
+        totalRepayment: Double,
+        loanType: String = "MONTHLY",
+        numberOfInstallments: Int = 10,
+        perInstallmentAmount: Double = 0.0,
+        isDurationBased: Boolean = false,
+        durationDays: Int? = null
+    ) {
+        personDao.activateZeroActiveCardWithInterest(
+            person.id,
+            amount,
+            System.currentTimeMillis(),
+            interestRate,
+            interestType,
+            interestAmount,
+            totalRepayment,
+            loanType,
+            numberOfInstallments,
+            perInstallmentAmount,
+            isDurationBased,
+            durationDays
+        )
         personDao.deleteZeroCloneByNameAndFile(person.name, person.fileId)
     }
 

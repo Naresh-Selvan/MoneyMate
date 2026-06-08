@@ -64,6 +64,15 @@ import com.moneymate.app.ui.viewmodel.SettingsViewModel
 import com.moneymate.app.ui.viewmodel.UploadState
 import com.moneymate.app.ui.viewmodel.UploadViewModel
 import com.moneymate.app.ui.screens.ViewByDateFlow
+import com.moneymate.app.ui.screens.FileDetailFilterBar
+import com.moneymate.app.ui.screens.PendingNewLoanCard
+import com.moneymate.app.ui.screens.TrashContent
+import com.moneymate.app.ui.screens.SummaryItem
+import com.moneymate.app.ui.screens.PersonCard
+import com.moneymate.app.ui.screens.AmountCell
+import com.moneymate.app.ui.screens.DraggableCompletedPersonCard
+import com.moneymate.app.ui.screens.CompletedPersonCard
+import com.moneymate.app.ui.screens.SlideToCallSheet
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -75,17 +84,14 @@ import kotlin.math.roundToInt
 
 const val PAGE_SIZE = 20
 
-enum class PaymentTypeFilter {
-    ALL, UPI_GIVEN, CASH_GIVEN, UPI_RECEIVED, CASH_RECEIVED
+fun PersonViewModel.PaymentTypeFilterState.displayName(): String = when (this) {
+    PersonViewModel.PaymentTypeFilterState.ALL          -> "All"
+    PersonViewModel.PaymentTypeFilterState.UPI_GIVEN    -> "UPI Given"
+    PersonViewModel.PaymentTypeFilterState.CASH_GIVEN   -> "Cash Given"
+    PersonViewModel.PaymentTypeFilterState.UPI_RECEIVED -> "UPI Received"
+    PersonViewModel.PaymentTypeFilterState.CASH_RECEIVED-> "Cash Received"
 }
 
-fun PaymentTypeFilter.displayName(): String = when (this) {
-    PaymentTypeFilter.ALL          -> "All"
-    PaymentTypeFilter.UPI_GIVEN    -> "UPI Given"
-    PaymentTypeFilter.CASH_GIVEN   -> "Cash Given"
-    PaymentTypeFilter.UPI_RECEIVED -> "UPI Received"
-    PaymentTypeFilter.CASH_RECEIVED-> "Cash Received"
-}
 
 /** Returns the most recent past occurrence of [dayOfWeek] (a Calendar.DAY_OF_WEEK constant),
  *  at the start of that day (00:00:00). */
@@ -101,93 +107,6 @@ data class DayBreakdown(val label: String, val given: Double, val received: Doub
 
 enum class CallNoNumberMode { NONE, ENTER_NUMBER, SELECT_CONTACT }
 enum class ContactPickerTarget { NONE, ADD_DIALOG, EDIT_DIALOG, NO_NUMBER_DIALOG }
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
-@Composable
-fun SlideToCallSheet(
-    phoneNumber: String,
-    personName: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(Icons.Default.Phone, null,
-                modifier = Modifier.size(40.dp),
-                tint = MaterialTheme.colorScheme.primary)
-            Text("Call $personName?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(phoneNumber, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-            // Slide button
-            val offsetX = remember { androidx.compose.animation.core.Animatable(0f) }
-            val trackWidth = 280.dp
-            val thumbSize = 56.dp
-            val maxSlide = with(androidx.compose.ui.platform.LocalDensity.current) { (trackWidth - thumbSize).toPx() }
-            val coroutineScope = rememberCoroutineScope()
-            var triggered by remember { mutableStateOf(false) }
-
-            Box(
-                modifier = Modifier
-                    .width(trackWidth)
-                    .height(thumbSize)
-                    .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Text(
-                    "Slide to call →",
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                        .size(thumbSize)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .pointerInput(Unit) {
-                            // Correctly implementing the horizontal drag gesture tracker
-                            detectHorizontalDragGestures(
-                                onDragStart = {},
-                                onDragEnd = {
-                                    if (offsetX.value >= maxSlide * 0.85f && !triggered) {
-                                        triggered = true
-                                        onConfirm()
-                                    } else {
-                                        coroutineScope.launch { offsetX.animateTo(0f, tween(300)) }
-                                    }
-                                },
-                                onDragCancel = {
-                                    coroutineScope.launch { offsetX.animateTo(0f, tween(300)) }
-                                },
-                                onHorizontalDrag = { change, dragAmount ->
-                                    change.consume()
-                                    coroutineScope.launch {
-                                        val newValue = offsetX.value + dragAmount
-                                        offsetX.snapTo(newValue.coerceIn(0f, maxSlide))
-                                    }
-                                }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Phone, null, tint = MaterialTheme.colorScheme.onPrimary)
-                }
-            }
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-            Spacer(Modifier.height(8.dp))
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -319,8 +238,8 @@ fun FileDetailScreen(
                 var contactId: String? = null
                 idCursor?.use { c ->
                     if (c.moveToFirst()) {
-                        val idx = c.getColumnIndex(ContactsContract.Contacts._ID)
-                        if (idx >= 0) contactId = c.getString(idx)
+                        val idx = c.getColumnIndexOrThrow(ContactsContract.Contacts._ID)
+                        contactId = c.getString(idx)
                     }
                 }
 
@@ -335,10 +254,8 @@ fun FileDetailScreen(
                     )
                     phoneCursor?.use { c ->
                         if (c.moveToFirst()) {
-                            val idx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                            if (idx >= 0) {
-                                number = c.getString(idx)?.filter { ch -> ch.isDigit() || ch == '+' } ?: ""
-                            }
+                            val idx = c.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                            number = c.getString(idx)?.filter { ch -> ch.isDigit() || ch == '+' } ?: ""
                         }
                     }
                 }
@@ -406,14 +323,6 @@ fun FileDetailScreen(
     val filterViewStartDate   by personViewModel.filterViewStartDate.collectAsState()
     val filterViewNumWeeks    by personViewModel.filterViewNumWeeks.collectAsState()
 
-    val paymentTypeFilter: PaymentTypeFilter = when (filterPaymentTypeState) {
-        PersonViewModel.PaymentTypeFilterState.UPI_GIVEN     -> PaymentTypeFilter.UPI_GIVEN
-        PersonViewModel.PaymentTypeFilterState.CASH_GIVEN    -> PaymentTypeFilter.CASH_GIVEN
-        PersonViewModel.PaymentTypeFilterState.UPI_RECEIVED  -> PaymentTypeFilter.UPI_RECEIVED
-        PersonViewModel.PaymentTypeFilterState.CASH_RECEIVED -> PaymentTypeFilter.CASH_RECEIVED
-        else -> PaymentTypeFilter.ALL
-    }
-
     // True when "View" mode is active (start date + num weeks both set)
     val isViewMode = filterViewStartDate > 0L && filterViewNumWeeks.toIntOrNull() != null && filterViewNumWeeks.toIntOrNull()!! > 0
 
@@ -425,7 +334,7 @@ fun FileDetailScreen(
     val paidByPerson          = remember(paymentsByPerson) { paymentsByPerson.mapValues { (_, v) -> v.sumOf { it.amount } } }
 
     val isFiltered = minAmount.isNotBlank() ||
-            maxAmount.isNotBlank() || paymentTypeFilter != PaymentTypeFilter.ALL || isViewMode
+            maxAmount.isNotBlank() || filterPaymentTypeState != PersonViewModel.PaymentTypeFilterState.ALL || isViewMode
 
     // weekDateRange is no longer used — the "look-back N weeks from a target day"
     // filter was NLR-specific. The view-mode (filterViewStartDate + filterViewNumWeeks)
@@ -434,7 +343,7 @@ fun FileDetailScreen(
 
     val filteredPersons = remember(
         persons, weekDateRange, minAmount, maxAmount,
-        paymentTypeFilter, upiReceivedPersonIds, cashReceivedPersonIds, searchQuery, filePayments,
+        filterPaymentTypeState, upiReceivedPersonIds, cashReceivedPersonIds, searchQuery, filePayments,
         paidByPerson
     ) {
         // BUG 7 FIX: Use totalRepayment (principal + interest) for the active-balance check.
@@ -455,12 +364,12 @@ fun FileDetailScreen(
         }
         minAmount.toDoubleOrNull()?.let { min -> list = list.filter { it.amountGiven >= min } }
         maxAmount.toDoubleOrNull()?.let { max -> list = list.filter { it.amountGiven <= max } }
-        when (paymentTypeFilter) {
-            PaymentTypeFilter.UPI_GIVEN     -> list = list.filter { it.mode == PaymentMode.UPI }
-            PaymentTypeFilter.CASH_GIVEN    -> list = list.filter { it.mode == PaymentMode.CASH }
-            PaymentTypeFilter.UPI_RECEIVED  -> list = list.filter { it.id in upiReceivedPersonIds }
-            PaymentTypeFilter.CASH_RECEIVED -> list = list.filter { it.id in cashReceivedPersonIds }
-            PaymentTypeFilter.ALL -> {}
+        when (filterPaymentTypeState) {
+            PersonViewModel.PaymentTypeFilterState.UPI_GIVEN     -> list = list.filter { it.mode == PaymentMode.UPI }
+            PersonViewModel.PaymentTypeFilterState.CASH_GIVEN    -> list = list.filter { it.mode == PaymentMode.CASH }
+            PersonViewModel.PaymentTypeFilterState.UPI_RECEIVED  -> list = list.filter { it.id in upiReceivedPersonIds }
+            PersonViewModel.PaymentTypeFilterState.CASH_RECEIVED -> list = list.filter { it.id in cashReceivedPersonIds }
+            PersonViewModel.PaymentTypeFilterState.ALL -> {}
         }
         if (searchQuery.isNotBlank()) {
             val q = searchQuery.trim().lowercase()
@@ -473,7 +382,7 @@ fun FileDetailScreen(
         list
     }
 
-    LaunchedEffect(weekDateRange, minAmount, maxAmount, paymentTypeFilter, searchQuery) {
+    LaunchedEffect(weekDateRange, minAmount, maxAmount, filterPaymentTypeState, searchQuery) {
         personViewModel.filterCurrentPage.value = 0
     }
 
@@ -825,32 +734,26 @@ fun FileDetailScreen(
             } else {
                 Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
-                    if (isFiltered) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            if (isViewMode) {
-                                val viewFmt = SimpleDateFormat("dd MMM", Locale.getDefault())
-                                FilterChip(selected = true, onClick = { personViewModel.filterViewStartDate.value = 0L; personViewModel.filterViewNumWeeks.value = "" },
-                                    label = { Text("View: ${viewFmt.format(Date(filterViewStartDate))} × ${filterViewNumWeeks}wks", style = MaterialTheme.typography.labelSmall) },
-                                    trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
-                            }
-                            if (minAmount.isNotBlank() || maxAmount.isNotBlank()) {
-                                FilterChip(selected = true,
-                                    onClick = { personViewModel.filterMinAmount.value = ""; personViewModel.filterMaxAmount.value = "" },
-                                    label = { Text("₹${minAmount.ifBlank { "0" }}–₹${maxAmount.ifBlank { "∞" }}", style = MaterialTheme.typography.labelSmall) },
-                                    trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
-                            }
-                            if (paymentTypeFilter != PaymentTypeFilter.ALL) {
-                                FilterChip(selected = true,
-                                    onClick = { personViewModel.filterPaymentType.value = PersonViewModel.PaymentTypeFilterState.ALL },
-                                    label = { Text(paymentTypeFilter.displayName(), style = MaterialTheme.typography.labelSmall) },
-                                    trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) })
-                            }
+                    FileDetailFilterBar(
+                        isFiltered = isFiltered,
+                        isViewMode = isViewMode,
+                        filterViewStartDate = filterViewStartDate,
+                        filterViewNumWeeks = filterViewNumWeeks,
+                        minAmount = minAmount,
+                        maxAmount = maxAmount,
+                        filterPaymentTypeState = filterPaymentTypeState,
+                        onClearViewMode = {
+                            personViewModel.filterViewStartDate.value = 0L
+                            personViewModel.filterViewNumWeeks.value = ""
+                        },
+                        onClearAmountFilter = {
+                            personViewModel.filterMinAmount.value = ""
+                            personViewModel.filterMaxAmount.value = ""
+                        },
+                        onClearPaymentTypeFilter = {
+                            personViewModel.filterPaymentType.value = PersonViewModel.PaymentTypeFilterState.ALL
                         }
-                    }
-
+                    )
                     LaunchedEffect(totalsRevealed) {
                         autoHideJob?.cancel()
                         if (totalsRevealed) {
@@ -1642,29 +1545,30 @@ fun FileDetailScreen(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Payment Type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(PaymentTypeFilter.ALL to "All", PaymentTypeFilter.UPI_GIVEN to "UPI Given", PaymentTypeFilter.CASH_GIVEN to "Cash Given").forEach { (opt, lbl) ->
-                        FilterChip(selected = paymentTypeFilter == opt,
-                            onClick = { personViewModel.filterPaymentType.value = when (opt) {
-                                PaymentTypeFilter.UPI_GIVEN -> PersonViewModel.PaymentTypeFilterState.UPI_GIVEN
-                                PaymentTypeFilter.CASH_GIVEN -> PersonViewModel.PaymentTypeFilterState.CASH_GIVEN
-                                PaymentTypeFilter.UPI_RECEIVED -> PersonViewModel.PaymentTypeFilterState.UPI_RECEIVED
-                                PaymentTypeFilter.CASH_RECEIVED -> PersonViewModel.PaymentTypeFilterState.CASH_RECEIVED
-                                else -> PersonViewModel.PaymentTypeFilterState.ALL
-                            } },
-                            label = { Text(lbl, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
+                    listOf(
+                        PersonViewModel.PaymentTypeFilterState.ALL to "All",
+                        PersonViewModel.PaymentTypeFilterState.UPI_GIVEN to "UPI Given",
+                        PersonViewModel.PaymentTypeFilterState.CASH_GIVEN to "Cash Given"
+                    ).forEach { (opt, lbl) ->
+                        FilterChip(
+                            selected = filterPaymentTypeState == opt,
+                            onClick = { personViewModel.filterPaymentType.value = opt },
+                            label = { Text(lbl, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(PaymentTypeFilter.UPI_RECEIVED to "UPI Received", PaymentTypeFilter.CASH_RECEIVED to "Cash Received").forEach { (opt, lbl) ->
-                        FilterChip(selected = paymentTypeFilter == opt,
-                            onClick = { personViewModel.filterPaymentType.value = when (opt) {
-                                PaymentTypeFilter.UPI_GIVEN -> PersonViewModel.PaymentTypeFilterState.UPI_GIVEN
-                                PaymentTypeFilter.CASH_GIVEN -> PersonViewModel.PaymentTypeFilterState.CASH_GIVEN
-                                PaymentTypeFilter.UPI_RECEIVED -> PersonViewModel.PaymentTypeFilterState.UPI_RECEIVED
-                                PaymentTypeFilter.CASH_RECEIVED -> PersonViewModel.PaymentTypeFilterState.CASH_RECEIVED
-                                else -> PersonViewModel.PaymentTypeFilterState.ALL
-                            } },
-                            label = { Text(lbl, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
+                    listOf(
+                        PersonViewModel.PaymentTypeFilterState.UPI_RECEIVED to "UPI Received",
+                        PersonViewModel.PaymentTypeFilterState.CASH_RECEIVED to "Cash Received"
+                    ).forEach { (opt, lbl) ->
+                        FilterChip(
+                            selected = filterPaymentTypeState == opt,
+                            onClick = { personViewModel.filterPaymentType.value = opt },
+                            label = { Text(lbl, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
                 HorizontalDivider()
@@ -2844,530 +2748,5 @@ fun FileDetailScreen(
                 }
             }
         )
-    }
-}
-
-// ── Fix 2: DraggableCompletedPersonCard ──────────────────────────────────────
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun DraggableCompletedPersonCard(
-    person: Person,
-    balance: Double,                  // BUG 1 FIX: computed balance (should be ≤0 when fully paid)
-    daysLeft: Int,
-    dateFormat: SimpleDateFormat,
-    payments: List<Payment>,
-    onTap: () -> Unit,                // BUG 2 FIX: tap opens new loan flow
-    onDragStarted: () -> Unit,
-    onDragMoved: (Offset) -> Unit,
-    onDragEnded: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var cardPosition by remember { mutableStateOf(Offset.Zero) }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .onGloballyPositioned { coords ->
-                cardPosition = coords.positionInWindow()
-            }
-            .pointerInput(Unit) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { offset ->
-                        onDragStarted()
-                        onDragMoved(Offset(cardPosition.x + offset.x, cardPosition.y + offset.y))
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        onDragMoved(Offset(change.position.x + cardPosition.x, change.position.y + cardPosition.y))
-                    },
-                    onDragEnd = { onDragEnded() },
-                    onDragCancel = { onDragEnded() }
-                )
-            }
-            .clickable { expanded = !expanded },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    if (!person.place.isNullOrEmpty())
-                        Text(person.place, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (!person.mobileNumber.isNullOrEmpty())
-                        Text(person.mobileNumber!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(2.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // BUG 1 FIX: Show principal + computed balance (₹0 when fully paid)
-                        Text("₹${person.amountGiven} given",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium)
-                        Text(if (balance <= 0.0) "✓ Balance: ₹0" else "Balance: ₹$balance",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (balance <= 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Medium)
-                        Text(if (daysLeft > 0) "$daysLeft days left" else "expires soon",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (daysLeft <= 5) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    // BUG 2: Hint that tapping starts a new loan
-                    Text("Tap to start new loan",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Hold & drag\nto delete",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                    IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(28.dp)) {
-                        Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    // BUG 2: Explicit "New Loan" button
-                    TextButton(
-                        onClick = onTap,
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                    ) {
-                        Text("New Loan", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-            if (expanded) {
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(6.dp))
-                if (payments.isEmpty()) {
-                    Text("No payments recorded.", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    Text("Payments (${payments.size})", style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(4.dp))
-                    payments.forEachIndexed { i, payment ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("${i + 1}. ${dateFormat.format(java.util.Date(payment.date))}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(payment.mode.name, style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("₹${payment.amount}", style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(4.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total Paid", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text("₹${payments.filter { !it.isDeleted }.sumOf { it.amount }}", style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun CompletedPersonCard(
-    person: Person,
-    daysLeft: Int,
-    dateFormat: SimpleDateFormat,
-    payments: List<Payment>,
-    onHardDelete: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Card(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { expanded = !expanded }),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    if (!person.place.isNullOrEmpty())
-                        Text(person.place, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (!person.mobileNumber.isNullOrEmpty())
-                        Text(person.mobileNumber!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(2.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("₹${person.amountGiven} fully repaid",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium)
-                        Text(if (daysLeft > 0) "$daysLeft days left" else "expires soon",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (daysLeft <= 5) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Icon(
-                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    null, tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                IconButton(onClick = onHardDelete, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                }
-            }
-            if (expanded) {
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(6.dp))
-                if (payments.isEmpty()) {
-                    Text("No payments recorded.", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    Text("Payments (${payments.size})", style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(4.dp))
-                    payments.forEachIndexed { i, payment ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("${i + 1}. ${dateFormat.format(java.util.Date(payment.date))}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(payment.mode.name, style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("₹${payment.amount}", style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(4.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total Paid", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text("₹${payments.sumOf { it.amount }}", style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── PendingNewLoanCard ───────────────────────────────────────────────────────
-// Fix 1: Removed "+ Set Amount" button and red delete icon. The card now shows
-// only name + "Pending New Loan" label. Tapping the card opens the amount dialog.
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun PendingNewLoanCard(
-    person: Person,
-    dateFormat: SimpleDateFormat,
-    onTap: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onTap),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
-        )
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                if (!person.place.isNullOrEmpty())
-                    Text(person.place, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (!person.mobileNumber.isNullOrEmpty())
-                    Text(person.mobileNumber!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(2.dp))
-                Text("Pending New Loan", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-// ── TrashContent ─────────────────────────────────────────────────────────────
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun TrashContent(
-    deletedPersons: List<Person>, autoDeleteDays: Int,
-    isSelectingTrash: Boolean, selectedTrashIds: Set<String>, padding: PaddingValues,
-    onToggleSelect: (String) -> Unit, onLongSelect: (String) -> Unit,
-    onRestore: (String) -> Unit, onHardDelete: (String) -> Unit
-) {
-    if (deletedPersons.isEmpty()) {
-        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Delete, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(16.dp))
-                Text("No recently deleted persons", style = MaterialTheme.typography.titleMedium)
-                Text("Deleted persons appear here for $autoDeleteDays days", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    } else {
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            itemsIndexed(deletedPersons, key = { _, p -> p.id }) { _, person ->
-                val isSelected = person.id in selectedTrashIds
-                val daysLeft = autoDeleteDays - ((System.currentTimeMillis() - (person.deletedAt ?: 0L)) / (1000 * 60 * 60 * 24)).toInt()
-                Card(Modifier.fillMaxWidth().combinedClickable(onClick = { if (isSelectingTrash) onToggleSelect(person.id) }, onLongClick = { onLongSelect(person.id) }),
-                    colors = CardDefaults.cardColors(containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)) {
-                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (isSelectingTrash) { Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect(person.id) }); Spacer(Modifier.width(8.dp)) }
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                if (person.isCompleted) {
-                                    AssistChip(onClick = {}, label = { Text("Completed", style = MaterialTheme.typography.labelSmall) },
-                                        colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer))
-                                }
-                            }
-                            Text("₹${person.amountGiven} • ${person.mode.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(if (daysLeft > 0) "$daysLeft days left" else "Expires soon", style = MaterialTheme.typography.bodySmall,
-                                color = if (daysLeft <= 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (!isSelectingTrash) {
-                            IconButton(onClick = { onRestore(person.id) })    { Icon(Icons.Default.Restore,      null, tint = MaterialTheme.colorScheme.primary) }
-                            IconButton(onClick = { onHardDelete(person.id) }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error)   }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── SummaryItem ───────────────────────────────────────────────────────────────
-@Composable
-fun SummaryItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-        Text(label,  style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-// ── PersonCard ────────────────────────────────────────────────────────────────
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun PersonCard(
-    person: Person,
-    serialNumber: Int,
-    totalPaid: Double,
-    pending: Double,
-    isSelected: Boolean,
-    isSelecting: Boolean,
-    elevation: androidx.compose.ui.unit.Dp,
-    reorderState: ReorderableLazyListState,
-    showWeeksColumns: Boolean,
-    dateFormat: SimpleDateFormat,
-    dayBreakdowns: List<DayBreakdown> = emptyList(),
-    personPayments: List<Payment> = emptyList(),
-    dateColPager: PagerState? = null,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit,
-    onMarkComplete: () -> Unit = {},
-    onView: () -> Unit = {},
-    onCallNow: () -> Unit = {}
-) {
-    val isBorrowing = person.recordType == LoanType.BORROWING
-    val isFullyPaid  = pending <= 0 && totalPaid > 0
-
-    Card(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick),
-        elevation = CardDefaults.cardElevation(elevation),
-        colors = CardDefaults.cardColors(containerColor = when {
-            isSelected  -> MaterialTheme.colorScheme.primaryContainer
-            isBorrowing -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-            else        -> MaterialTheme.colorScheme.surface
-        })
-    ) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$serialNumber.", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(28.dp))
-
-            if (isSelecting) {
-                Checkbox(checked = isSelected, onCheckedChange = { onClick() })
-                Spacer(Modifier.width(4.dp))
-            } else {
-                Spacer(Modifier.width(4.dp))
-            }
-
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(person.name, fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.width(6.dp))
-                    AssistChip(onClick = {}, label = {
-                        Text(person.mode.name, style = MaterialTheme.typography.labelSmall)
-                    })
-                    if (isFullyPaid) {
-                        Spacer(Modifier.width(4.dp))
-                        AssistChip(onClick = {}, label = { Text("✓ Paid", style = MaterialTheme.typography.labelSmall) },
-                            colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer))
-                    }
-                }
-                if (!person.place.isNullOrEmpty())
-                    Text(person.place, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (!person.mobileNumber.isNullOrEmpty())
-                    Text("📞 ${person.mobileNumber}", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (!showWeeksColumns || dateColPager == null) {
-                    Text(dateFormat.format(Date(person.dateGiven)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(4.dp))
-                    Text("₹${person.amountGiven}", fontWeight = FontWeight.Medium,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (isBorrowing) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary)
-                    PersonInterestInfo(
-                        interestRate         = person.interestRate,
-                        totalRepayment       = person.totalRepayment,
-                        perInstallmentAmount = person.perInstallmentAmount,
-                        numberOfInstallments = person.numberOfInstallments,
-                        isDurationBased      = person.isDurationBased,
-                        durationDays         = person.durationDays
-                    )
-                }
-            }
-
-            if (showWeeksColumns && dateColPager != null && dayBreakdowns.isNotEmpty()) {
-                val colPage = dateColPager.currentPage
-                Spacer(Modifier.width(8.dp))
-
-                val totalPaidAllTime = personPayments.sumOf { it.amount }
-
-                if (colPage < dayBreakdowns.size) {
-                    val dayBreak = dayBreakdowns[colPage]
-                    val weekStart = dayBreak.weekStart
-                    val weekEnd   = dayBreak.weekEnd
-                    val thisWeekReturn = personPayments
-                        .filter { it.date in weekStart..weekEnd }
-                        .sumOf { it.amount }
-
-                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(110.dp)) {
-                        AmountCell(label = "Given", value = "₹${person.amountGiven}", color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(4.dp))
-                        AmountCell(
-                            label = "This Week",
-                            value = if (thisWeekReturn == 0.0) "-" else "₹$thisWeekReturn",
-                            color = if (thisWeekReturn == 0.0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        AmountCell(
-                            label = "Total Paid",
-                            value = if (totalPaidAllTime == 0.0) "₹0" else "₹$totalPaidAllTime",
-                            color = if (totalPaidAllTime >= person.amountGiven) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            bold = true
-                        )
-                    }
-                } else {
-                    val pendingTotal = person.amountGiven - totalPaidAllTime
-                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(110.dp)) {
-                        AmountCell(label = "Given", value = "₹${person.amountGiven}", color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(4.dp))
-                        AmountCell(
-                            label = "Total Paid",
-                            value = if (totalPaidAllTime == 0.0) "₹0" else "₹$totalPaidAllTime",
-                            color = if (totalPaidAllTime == 0.0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        AmountCell(
-                            label = "Pending",
-                            value = if (pendingTotal <= 0.0) "✓ Clear" else "₹$pendingTotal",
-                            color = if (pendingTotal <= 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            bold = true
-                        )
-                    }
-                }
-            }
-
-            if (!isSelecting) {
-                Spacer(Modifier.width(4.dp))
-                var showPersonMenu by remember { mutableStateOf(false) }
-                var editButtonPressed by remember { mutableStateOf(false) }
-                val editButtonScale by animateFloatAsState(
-                    targetValue = if (editButtonPressed) 1.6f else 1f,
-                    animationSpec = tween(durationMillis = 300),
-                    label = "editScale",
-                    finishedListener = { scale ->
-                        if (scale >= 1.55f) {
-                            editButtonPressed = false
-                            onEdit()
-                        }
-                    }
-                )
-                Box {
-                    IconButton(onClick = { showPersonMenu = true }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.MoreVert, null, modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    DropdownMenu(expanded = showPersonMenu, onDismissRequest = { showPersonMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Call Now") },
-                            leadingIcon = { Icon(Icons.Default.Phone, null, tint = MaterialTheme.colorScheme.primary) },
-                            onClick = { showPersonMenu = false; onCallNow() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Edit") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Edit, null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.scale(editButtonScale))
-                            },
-                            onClick = { showPersonMenu = false; editButtonPressed = true }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("View by Date") },
-                            leadingIcon = { Icon(Icons.Default.CalendarToday, null) },
-                            onClick = { showPersonMenu = false; onView() }
-                        )
-                        if (isFullyPaid) {
-                            DropdownMenuItem(
-                                text = { Text("Mark Complete") },
-                                leadingIcon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) },
-                                onClick = { showPersonMenu = false; onMarkComplete() }
-                            )
-                        }
-                        HorizontalDivider()
-                        DropdownMenuItem(
-                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                            onClick = { showPersonMenu = false; onDelete() }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── AmountCell ────────────────────────────────────────────────────────────────
-@Composable
-fun AmountCell(label: String, value: String, color: androidx.compose.ui.graphics.Color, bold: Boolean = false) {
-    Column(horizontalAlignment = Alignment.End) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold,
-            color = color)
     }
 }

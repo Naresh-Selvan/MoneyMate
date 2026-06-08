@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -168,8 +169,71 @@ class PersonViewModel @Inject constructor(
      *   • White active card      → amountGiven = 0.0, isPendingNewLoan = false  (main list)
      *   • Pink indicator card    → amountGiven = 0.0, isPendingNewLoan = true   (pink row)
      */
+    private suspend fun createCompletedPlaceholder(person: Person): String {
+        val now = System.currentTimeMillis()
+        val activeId = UUID.randomUUID().toString()
+        val pinkId = UUID.randomUUID().toString()
+
+        // 1. Mark the original record as completed
+        repository.markAsCompleted(person.id, now, activeId)
+
+        // 2. Insert white active card only if one doesn't already exist
+        if (repository.countZeroActiveCards(person.name, person.fileId) == 0) {
+            repository.insertPerson(person.copy(
+                id                    = activeId,
+                amountGiven           = 0.0,
+                dateGiven             = now,
+                isPendingNewLoan      = false,
+                isCompleted           = false,
+                completedAt           = null,
+                linkedNewPersonId     = null,
+                previousPersonId      = person.id,
+                uploadedAt            = null,
+                editPermissionGranted = false,
+                editPermissionScope   = EditPermissionScope.NONE,
+                interestRate          = 0.0,
+                interestType          = "PERCENTAGE",
+                interestAmount        = 0.0,
+                totalRepayment        = 0.0,
+                loanType              = "MONTHLY",
+                numberOfInstallments  = 10,
+                perInstallmentAmount  = 0.0,
+                isDurationBased       = false,
+                durationDays          = null
+            ))
+        }
+
+        // 3. Insert pink indicator card only if one doesn't already exist
+        if (repository.countPendingClones(person.name, person.fileId) == 0) {
+            repository.insertPerson(person.copy(
+                id                    = pinkId,
+                amountGiven           = 0.0,
+                dateGiven             = now,
+                isPendingNewLoan      = true,
+                isCompleted           = false,
+                completedAt           = null,
+                linkedNewPersonId     = null,
+                previousPersonId      = person.id,
+                uploadedAt            = null,
+                editPermissionGranted = false,
+                editPermissionScope   = EditPermissionScope.NONE,
+                interestRate          = 0.0,
+                interestType          = "PERCENTAGE",
+                interestAmount        = 0.0,
+                totalRepayment        = 0.0,
+                loanType              = "MONTHLY",
+                numberOfInstallments  = 10,
+                perInstallmentAmount  = 0.0,
+                isDurationBased       = false,
+                durationDays          = null
+            ))
+        }
+
+        return activeId
+    }
+
     fun markAsCompleted(person: Person, onDone: (String) -> Unit = {}) = viewModelScope.launch {
-        val newId = repository.markAsCompletedAndCreatePlaceholder(person)
+        val newId = createCompletedPlaceholder(person)
         purgeExpiredCompletedPersons()
         onDone(newId)
     }
@@ -179,7 +243,7 @@ class PersonViewModel @Inject constructor(
      */
     fun markPersonAsCompleted(personId: String) = viewModelScope.launch {
         val person = repository.getPersonById(personId) ?: return@launch
-        repository.markAsCompletedAndCreatePlaceholder(person)
+        createCompletedPlaceholder(person)
         purgeExpiredCompletedPersons()
     }
 
@@ -206,8 +270,9 @@ class PersonViewModel @Inject constructor(
         durationDays: Int? = null
     ) = viewModelScope.launch {
         repository.activateZeroActiveCardWithInterest(
-            person,
+            person.id,
             amount,
+            System.currentTimeMillis(),
             interestRate,
             interestType,
             interestAmount,
@@ -218,6 +283,7 @@ class PersonViewModel @Inject constructor(
             isDurationBased,
             durationDays
         )
+        repository.deleteZeroCloneByNameAndFile(person.name, person.fileId)
     }
 
     /**
@@ -225,7 +291,8 @@ class PersonViewModel @Inject constructor(
      * Updates amountGiven, sets dateGiven = TODAY, deletes the pink indicator card.
      */
     fun activateZeroActiveCard(person: Person, amount: Double) = viewModelScope.launch {
-        repository.activateZeroActiveCard(person, amount)
+        repository.updateAmountAndDateResetInterest(person.id, amount, System.currentTimeMillis())
+        repository.deleteZeroCloneByNameAndFile(person.name, person.fileId)
     }
 
     /**

@@ -89,9 +89,7 @@ fun HomeScreen(
                 TopAppBar(
                     title = { Text("MoneyMate", fontWeight = FontWeight.Bold) },
                     actions = {
-                        IconButton(onClick = { navController.navigate(Screen.Collection.route) }) {
-                            Icon(Icons.Default.Payments, contentDescription = "Collection")
-                        }
+
                         IconButton(onClick = { showLogoutDialog = true }) {
                             Icon(Icons.Default.Logout, contentDescription = "Logout")
                         }

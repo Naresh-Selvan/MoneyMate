@@ -1,6 +1,5 @@
 package com.moneymate.app.ui.viewmodel;
 
-import com.moneymate.app.data.repository.DefaultPersonRepository;
 import com.moneymate.app.data.repository.LoanFileRepository;
 import com.moneymate.app.data.repository.PaymentRepository;
 import com.moneymate.app.data.repository.PersonRepository;
@@ -33,39 +32,34 @@ public final class UploadViewModel_Factory implements Factory<UploadViewModel> {
 
   private final Provider<PaymentRepository> paymentRepositoryProvider;
 
-  private final Provider<DefaultPersonRepository> defaultPersonRepositoryProvider;
-
   private final Provider<FirestorePathProvider> pathsProvider;
 
   public UploadViewModel_Factory(Provider<LoanFileRepository> loanFileRepositoryProvider,
       Provider<PersonRepository> personRepositoryProvider,
       Provider<PaymentRepository> paymentRepositoryProvider,
-      Provider<DefaultPersonRepository> defaultPersonRepositoryProvider,
       Provider<FirestorePathProvider> pathsProvider) {
     this.loanFileRepositoryProvider = loanFileRepositoryProvider;
     this.personRepositoryProvider = personRepositoryProvider;
     this.paymentRepositoryProvider = paymentRepositoryProvider;
-    this.defaultPersonRepositoryProvider = defaultPersonRepositoryProvider;
     this.pathsProvider = pathsProvider;
   }
 
   @Override
   public UploadViewModel get() {
-    return newInstance(loanFileRepositoryProvider.get(), personRepositoryProvider.get(), paymentRepositoryProvider.get(), defaultPersonRepositoryProvider.get(), pathsProvider.get());
+    return newInstance(loanFileRepositoryProvider.get(), personRepositoryProvider.get(), paymentRepositoryProvider.get(), pathsProvider.get());
   }
 
   public static UploadViewModel_Factory create(
       Provider<LoanFileRepository> loanFileRepositoryProvider,
       Provider<PersonRepository> personRepositoryProvider,
       Provider<PaymentRepository> paymentRepositoryProvider,
-      Provider<DefaultPersonRepository> defaultPersonRepositoryProvider,
       Provider<FirestorePathProvider> pathsProvider) {
-    return new UploadViewModel_Factory(loanFileRepositoryProvider, personRepositoryProvider, paymentRepositoryProvider, defaultPersonRepositoryProvider, pathsProvider);
+    return new UploadViewModel_Factory(loanFileRepositoryProvider, personRepositoryProvider, paymentRepositoryProvider, pathsProvider);
   }
 
   public static UploadViewModel newInstance(LoanFileRepository loanFileRepository,
       PersonRepository personRepository, PaymentRepository paymentRepository,
-      DefaultPersonRepository defaultPersonRepository, FirestorePathProvider paths) {
-    return new UploadViewModel(loanFileRepository, personRepository, paymentRepository, defaultPersonRepository, paths);
+      FirestorePathProvider paths) {
+    return new UploadViewModel(loanFileRepository, personRepository, paymentRepository, paths);
   }
 }

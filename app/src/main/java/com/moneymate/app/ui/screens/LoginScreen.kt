@@ -175,6 +175,10 @@ fun LoginScreen(
                 )
             }
 
+            AuthState.PIN_SETUP -> {
+                PinSetupScreen(viewModel = viewModel)
+            }
+
             AuthState.ADMIN_LOGIN, AuthState.LOGIN -> {
                 PinLoginScreen(viewModel = viewModel)
             }
@@ -455,7 +459,92 @@ private fun MigrationErrorScreen(error: String, onRetry: () -> Unit) {
     }
 }
 
-// ─── Component 5: PIN Entry Dashboard view ─────────────────────────────
+// ─── Component 5: PIN Setup (first-time) view ────────────────────────────
+
+@Composable
+private fun PinSetupScreen(viewModel: AuthViewModel) {
+    var pin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    val error by viewModel.error.collectAsState()
+
+    LaunchedEffect(Unit) {
+        pin = ""
+        confirmPin = ""
+        viewModel.clearError()
+    }
+
+    fun isPinValid(): String? {
+        if (pin.length < 4) return "PIN must be at least 4 digits"
+        if (pin != confirmPin) return "PINs do not match"
+        return null
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Default.Lock,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Text("Set Your PIN", fontWeight = FontWeight.Bold, fontSize = 28.sp, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text("Create a secure PIN to protect your account",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(48.dp))
+
+        OutlinedTextField(
+            value = pin,
+            onValueChange = { if (it.all { c -> c.isDigit() }) pin = it },
+            label = { Text("New PIN") },
+            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            isError = pin.isNotEmpty() && pin.length < 4,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = confirmPin,
+            onValueChange = { if (it.all { c -> c.isDigit() }) confirmPin = it },
+            label = { Text("Confirm PIN") },
+            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            isError = confirmPin.isNotEmpty() && confirmPin != pin,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        if (error != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = { viewModel.setupInitialPin(pin) },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            enabled = isPinValid() == null
+        ) {
+            Icon(Icons.Default.Check, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Continue", fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+// ─── Component 6: PIN Entry Dashboard view ─────────────────────────────
 
 @Composable
 private fun PinLoginScreen(viewModel: AuthViewModel) {

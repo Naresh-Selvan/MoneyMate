@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.moneymate.app.data.local.entity.CalculationMode
 import com.moneymate.app.data.local.entity.LoanFile
 import com.moneymate.app.data.repository.LoanFileRepository
+import com.moneymate.app.data.repository.MaintenanceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,7 +16,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LoanFileViewModel @Inject constructor(
-    private val repository: LoanFileRepository
+    private val repository: LoanFileRepository,
+    private val maintenanceRepository: MaintenanceRepository
 ) : ViewModel() {
 
     val allFiles: StateFlow<List<LoanFile>> = repository.getAllFiles()
@@ -48,7 +50,7 @@ class LoanFileViewModel @Inject constructor(
     }
 
     fun autoPurge() = viewModelScope.launch {
-        repository.autoPurge()
+        maintenanceRepository.autoPurge()
     }
 
     fun markSynced(id: String) = viewModelScope.launch { repository.markSynced(id, true, System.currentTimeMillis()) }

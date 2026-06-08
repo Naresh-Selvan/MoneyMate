@@ -1,8 +1,6 @@
 package com.moneymate.app.data.repository;
 
 import com.moneymate.app.data.local.dao.FileDao;
-import com.moneymate.app.data.local.dao.PaymentDao;
-import com.moneymate.app.data.local.dao.PersonDao;
 import com.moneymate.app.utils.FirestorePathProvider;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
@@ -28,34 +26,25 @@ import javax.inject.Provider;
 public final class LoanFileRepository_Factory implements Factory<LoanFileRepository> {
   private final Provider<FileDao> fileDaoProvider;
 
-  private final Provider<PersonDao> personDaoProvider;
-
-  private final Provider<PaymentDao> paymentDaoProvider;
-
   private final Provider<FirestorePathProvider> pathsProvider;
 
   public LoanFileRepository_Factory(Provider<FileDao> fileDaoProvider,
-      Provider<PersonDao> personDaoProvider, Provider<PaymentDao> paymentDaoProvider,
       Provider<FirestorePathProvider> pathsProvider) {
     this.fileDaoProvider = fileDaoProvider;
-    this.personDaoProvider = personDaoProvider;
-    this.paymentDaoProvider = paymentDaoProvider;
     this.pathsProvider = pathsProvider;
   }
 
   @Override
   public LoanFileRepository get() {
-    return newInstance(fileDaoProvider.get(), personDaoProvider.get(), paymentDaoProvider.get(), pathsProvider.get());
+    return newInstance(fileDaoProvider.get(), pathsProvider.get());
   }
 
   public static LoanFileRepository_Factory create(Provider<FileDao> fileDaoProvider,
-      Provider<PersonDao> personDaoProvider, Provider<PaymentDao> paymentDaoProvider,
       Provider<FirestorePathProvider> pathsProvider) {
-    return new LoanFileRepository_Factory(fileDaoProvider, personDaoProvider, paymentDaoProvider, pathsProvider);
+    return new LoanFileRepository_Factory(fileDaoProvider, pathsProvider);
   }
 
-  public static LoanFileRepository newInstance(FileDao fileDao, PersonDao personDao,
-      PaymentDao paymentDao, FirestorePathProvider paths) {
-    return new LoanFileRepository(fileDao, personDao, paymentDao, paths);
+  public static LoanFileRepository newInstance(FileDao fileDao, FirestorePathProvider paths) {
+    return new LoanFileRepository(fileDao, paths);
   }
 }

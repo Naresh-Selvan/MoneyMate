@@ -59,7 +59,8 @@ class MainActivity : FragmentActivity() {
                     AuthState.PHONE_LOGIN,
                     AuthState.OTP_VERIFICATION,
                     AuthState.LOGIN,
-                    AuthState.ADMIN_LOGIN -> {
+                    AuthState.ADMIN_LOGIN,
+                    AuthState.PIN_SETUP -> {
                         LoginScreen(viewModel = authViewModel, authState = authState)
                     }
 

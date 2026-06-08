@@ -30,6 +30,7 @@ enum class AuthState {
     OTP_VERIFICATION,
     LOGIN,
     ADMIN_LOGIN,
+    PIN_SETUP,
     AUTHENTICATED
 }
 
@@ -99,7 +100,6 @@ class AuthViewModel @Inject constructor(
         set(value) { prefs.biometricEnabled = value }
 
     init {
-        prefs.initDefaultPinIfNeeded()
         restoreLockState()
     }
 
@@ -143,7 +143,7 @@ class AuthViewModel @Inject constructor(
         }
 
         if (prefs.isLoggedOut) {
-            _authState.value = AuthState.ADMIN_LOGIN
+            _authState.value = if (prefs.adminPinHash.isEmpty()) AuthState.PIN_SETUP else AuthState.ADMIN_LOGIN
             return
         }
 
@@ -166,7 +166,7 @@ class AuthViewModel @Inject constructor(
                 _authState.value = AuthState.AUTHENTICATED
             }
             else -> {
-                _authState.value = AuthState.ADMIN_LOGIN
+                _authState.value = if (prefs.adminPinHash.isEmpty()) AuthState.PIN_SETUP else AuthState.ADMIN_LOGIN
             }
         }
     }
@@ -198,7 +198,7 @@ class AuthViewModel @Inject constructor(
 
     fun onGoogleSignInHandled() {
         _googleSignInResult.value = GoogleSignInResult.Idle
-        _authState.value = AuthState.ADMIN_LOGIN
+        _authState.value = if (prefs.adminPinHash.isEmpty()) AuthState.PIN_SETUP else AuthState.ADMIN_LOGIN
     }
 
     fun clearGoogleSignInResult() {
@@ -276,7 +276,7 @@ class AuthViewModel @Inject constructor(
 
     fun onPhoneSignInHandled() {
         _phoneSignInResult.value = PhoneSignInResult.Idle
-        _authState.value = AuthState.ADMIN_LOGIN
+        _authState.value = if (prefs.adminPinHash.isEmpty()) AuthState.PIN_SETUP else AuthState.ADMIN_LOGIN
     }
 
     // ─── Account Linking Hooks & Active Identity Verification ──────────────────
@@ -444,7 +444,7 @@ class AuthViewModel @Inject constructor(
         _currentRole.value = UserRole.ADMIN
         _error.value = null
         wentToBackground = false
-        _authState.value = AuthState.ADMIN_LOGIN
+        _authState.value = if (prefs.adminPinHash.isEmpty()) AuthState.PIN_SETUP else AuthState.ADMIN_LOGIN
     }
 
     fun loginAsUser() {
@@ -456,7 +456,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun prepareAdminLogin() {
-        _authState.value = AuthState.ADMIN_LOGIN
+        _authState.value = if (prefs.adminPinHash.isEmpty()) AuthState.PIN_SETUP else AuthState.ADMIN_LOGIN
         _error.value = null
     }
 
@@ -483,6 +483,17 @@ class AuthViewModel @Inject constructor(
         } else {
             handleWrongAttempt()
         }
+    }
+
+    fun setupInitialPin(pin: String) {
+        prefs.adminPinHash = hashPin(pin)
+        prefs.pinLength = pin.length
+        _authState.value = AuthState.AUTHENTICATED
+        _error.value = null
+        prefs.isLoggedOut = false
+        _currentRole.value = UserRole.ADMIN
+        prefs.currentRole = "ADMIN"
+        prefs.lastActiveTime = System.currentTimeMillis()
     }
 
     fun changeAdminPin(oldPin: String, newPin: String): Boolean {

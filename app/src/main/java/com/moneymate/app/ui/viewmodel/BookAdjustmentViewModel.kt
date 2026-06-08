@@ -10,7 +10,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class BookAdjustmentViewModel @Inject constructor(
-    val repository: BookAdjustmentRepository
+    private val repository: BookAdjustmentRepository
 ) : ViewModel() {
     fun insert(adjustment: BookAdjustment) = viewModelScope.launch { repository.insert(adjustment) }
 }

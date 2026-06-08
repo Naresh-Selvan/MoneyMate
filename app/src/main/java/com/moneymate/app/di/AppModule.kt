@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.moneymate.app.data.local.AppDatabase
 import com.moneymate.app.data.local.dao.*
 import com.moneymate.app.data.repository.DefaultPersonRepository
+import com.moneymate.app.data.repository.MaintenanceRepository
 import com.moneymate.app.utils.AppPreferences
 import com.moneymate.app.utils.FirestorePathProvider
 import dagger.Module
@@ -26,57 +27,12 @@ object AppModule {
             AppDatabase::class.java,
             "moneymate_db"
         ).addMigrations(
-            object : androidx.room.migration.Migration(2, 3) {
-                override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                    database.execSQL("ALTER TABLE persons ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
-                }
-            },
-            object : androidx.room.migration.Migration(3, 4) {
-                override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                    database.execSQL("ALTER TABLE persons ADD COLUMN mobileNumber TEXT")
-                }
-            },
-            object : androidx.room.migration.Migration(4, 5) {
-                override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                    database.execSQL("ALTER TABLE persons ADD COLUMN recordType TEXT NOT NULL DEFAULT 'LENDING'")
-                }
-            },
-            object : androidx.room.migration.Migration(5, 6) {
-                override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                    database.execSQL("""
-                        CREATE TABLE IF NOT EXISTS default_persons (
-                            id TEXT NOT NULL PRIMARY KEY,
-                            nlrKey TEXT NOT NULL,
-                            name TEXT NOT NULL,
-                            place TEXT,
-                            mobileNumber TEXT,
-                            amountGiven REAL NOT NULL DEFAULT 0.0,
-                            mode TEXT NOT NULL DEFAULT 'CASH',
-                            sortOrder INTEGER NOT NULL DEFAULT 0,
-                            recordType TEXT NOT NULL DEFAULT 'LENDING',
-                            isSeeded INTEGER NOT NULL DEFAULT 1
-                        )
-                    """.trimIndent())
-                }
-            },
-            object : androidx.room.migration.Migration(6, 7) {
-                override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                    database.execSQL("ALTER TABLE persons ADD COLUMN isCompleted INTEGER NOT NULL DEFAULT 0")
-                    database.execSQL("ALTER TABLE persons ADD COLUMN completedAt INTEGER")
-                    database.execSQL("ALTER TABLE persons ADD COLUMN linkedNewPersonId TEXT")
-                    database.execSQL("ALTER TABLE persons ADD COLUMN isPendingNewLoan INTEGER NOT NULL DEFAULT 0")
-                    database.execSQL("ALTER TABLE persons ADD COLUMN previousPersonId TEXT")
-                }
-            },
-            // ── Privacy fix: remove all hardcoded NLR seed template rows ──────────
-            // This migration runs once when the app upgrades from version 7 to 8.
-            // It ONLY touches the `default_persons` table (the seed template store).
-            // Dad's real data in `persons`, `payments`, and `loan_files` is untouched.
-            object : androidx.room.migration.Migration(7, 8) {
-                override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                    database.execSQL("DELETE FROM default_persons")
-                }
-            },
+            AppDatabase.MIGRATION_2_3,
+            AppDatabase.MIGRATION_3_4,
+            AppDatabase.MIGRATION_4_5,
+            AppDatabase.MIGRATION_5_6,
+            AppDatabase.MIGRATION_6_7,
+            AppDatabase.MIGRATION_7_8,
             AppDatabase.MIGRATION_8_9,
             AppDatabase.MIGRATION_9_10,
             AppDatabase.MIGRATION_10_11,
@@ -98,6 +54,16 @@ object AppModule {
     @Singleton
     fun provideDefaultPersonRepository(dao: DefaultPersonDao): DefaultPersonRepository =
         DefaultPersonRepository(dao)
+
+    @Provides
+    @Singleton
+    fun provideMaintenanceRepository(
+        fileDao: FileDao,
+        personDao: PersonDao,
+        paymentDao: PaymentDao,
+        paths: FirestorePathProvider
+    ): MaintenanceRepository =
+        MaintenanceRepository(fileDao, personDao, paymentDao, paths)
 
     // ─── Firestore path provider ──────────────────────────────────────────────
 

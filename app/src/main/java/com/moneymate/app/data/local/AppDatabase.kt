@@ -17,7 +17,7 @@ import com.moneymate.app.data.local.entity.*
         BookAdjustment::class
     ],
     version = 12,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun fileDao(): FileDao
@@ -28,20 +28,56 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bookAdjustmentDao(): BookAdjustmentDao
 
     companion object {
-        val MIGRATION_11_12 = object : Migration(11, 12) {
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE persons ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE persons ADD COLUMN mobileNumber TEXT")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE persons ADD COLUMN recordType TEXT NOT NULL DEFAULT 'LENDING'")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("""
-                    CREATE TABLE IF NOT EXISTS book_adjustments (
+                    CREATE TABLE IF NOT EXISTS default_persons (
                         id TEXT NOT NULL PRIMARY KEY,
-                        personId TEXT NOT NULL,
-                        fileId TEXT NOT NULL,
-                        discrepancyAmount REAL NOT NULL,
-                        type TEXT NOT NULL,
-                        reason TEXT NOT NULL,
-                        createdAt INTEGER NOT NULL,
-                        approvedByAdmin INTEGER NOT NULL
+                        nlrKey TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        place TEXT,
+                        mobileNumber TEXT,
+                        amountGiven REAL NOT NULL DEFAULT 0.0,
+                        mode TEXT NOT NULL DEFAULT 'CASH',
+                        sortOrder INTEGER NOT NULL DEFAULT 0,
+                        recordType TEXT NOT NULL DEFAULT 'LENDING',
+                        isSeeded INTEGER NOT NULL DEFAULT 1
                     )
-                """)
+                """.trimIndent())
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE persons ADD COLUMN isCompleted INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE persons ADD COLUMN completedAt INTEGER")
+                database.execSQL("ALTER TABLE persons ADD COLUMN linkedNewPersonId TEXT")
+                database.execSQL("ALTER TABLE persons ADD COLUMN isPendingNewLoan INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE persons ADD COLUMN previousPersonId TEXT")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("DELETE FROM default_persons")
             }
         }
 
@@ -79,14 +115,29 @@ abstract class AppDatabase : RoomDatabase() {
             private fun columnExists(database: SupportSQLiteDatabase, tableName: String, columnName: String): Boolean {
                 val cursor = database.query("PRAGMA table_info($tableName)", emptyArray())
                 cursor.use {
-                    val nameIndex = cursor.getColumnIndex("name")
-                    if (nameIndex != -1) {
-                        while (cursor.moveToNext()) {
-                            if (cursor.getString(nameIndex) == columnName) return true
-                        }
+                    val nameIndex = cursor.getColumnIndexOrThrow("name")
+                    while (cursor.moveToNext()) {
+                        if (cursor.getString(nameIndex) == columnName) return true
                     }
                 }
                 return false
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS book_adjustments (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        personId TEXT NOT NULL,
+                        fileId TEXT NOT NULL,
+                        discrepancyAmount REAL NOT NULL,
+                        type TEXT NOT NULL,
+                        reason TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        approvedByAdmin INTEGER NOT NULL
+                    )
+                """)
             }
         }
     }

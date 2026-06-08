@@ -9,7 +9,6 @@ import com.moneymate.app.data.local.entity.Person
 import com.moneymate.app.utils.FirestorePathProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -198,123 +197,37 @@ class PersonRepository @Inject constructor(
     suspend fun updateSortOrder(id: String, sortOrder: Int) =
         personDao.updateSortOrder(id, sortOrder)
 
-    /**
-     * Marks [person] as completed and produces two new rows — a white active card
-     * (amountGiven = 0.0, isPendingNewLoan = false) that stays visible in the main
-     * list, and a pink indicator card (isPendingNewLoan = true) — BUT only if those
-     * rows don't already exist for this name + fileId.
-     */
-    suspend fun markAsCompletedAndCreatePlaceholder(person: Person): String {
-        val now       = System.currentTimeMillis()
-        val activeId  = UUID.randomUUID().toString()
-        val pinkId    = UUID.randomUUID().toString()
+    // ── DAO pass-throughs for ViewModel orchestration ───────────────────────────
+    suspend fun markAsCompleted(id: String, completedAt: Long, linkedNewPersonId: String) =
+        personDao.markAsCompleted(id, completedAt, linkedNewPersonId)
 
-        // 1. Mark the original record as completed — it moves to the Completed section.
-        personDao.markAsCompleted(person.id, now, activeId)
+    suspend fun countZeroActiveCards(name: String, fileId: String): Int =
+        personDao.countZeroActiveCards(name, fileId)
 
-        // 2. Insert the white active card only if one doesn't already exist.
-        if (personDao.countZeroActiveCards(person.name, person.fileId) == 0) {
-            val whiteCard = person.copy(
-                id                    = activeId,
-                amountGiven           = 0.0,
-                dateGiven             = now,
-                isPendingNewLoan      = false,
-                isCompleted           = false,
-                completedAt           = null,
-                linkedNewPersonId     = null,
-                previousPersonId      = person.id,
-                uploadedAt            = null,
-                editPermissionGranted = false,
-                editPermissionScope   = EditPermissionScope.NONE,
-                interestRate          = 0.0,
-                interestType          = "PERCENTAGE",
-                interestAmount        = 0.0,
-                totalRepayment        = 0.0,
-                loanType              = "MONTHLY",
-                numberOfInstallments  = 10,
-                perInstallmentAmount  = 0.0,
-                isDurationBased       = false,
-                durationDays          = null
-            )
-            personDao.insertPerson(whiteCard)
-        }
+    suspend fun countPendingClones(name: String, fileId: String): Int =
+        personDao.countPendingClones(name, fileId)
 
-        // 3. Insert the pink indicator card only if one doesn't already exist.
-        if (personDao.countPendingClones(person.name, person.fileId) == 0) {
-            val pinkCard = person.copy(
-                id                    = pinkId,
-                amountGiven           = 0.0,
-                dateGiven             = now,
-                isPendingNewLoan      = true,
-                isCompleted           = false,
-                completedAt           = null,
-                linkedNewPersonId     = null,
-                previousPersonId      = person.id,
-                uploadedAt            = null,
-                editPermissionGranted = false,
-                editPermissionScope   = EditPermissionScope.NONE,
-                interestRate          = 0.0,
-                interestType          = "PERCENTAGE",
-                interestAmount        = 0.0,
-                totalRepayment        = 0.0,
-                loanType              = "MONTHLY",
-                numberOfInstallments  = 10,
-                perInstallmentAmount  = 0.0,
-                isDurationBased       = false,
-                durationDays          = null
-            )
-            personDao.insertPerson(pinkCard)
-        }
+    suspend fun updateAmountAndDateResetInterest(id: String, amount: Double, dateGiven: Long) =
+        personDao.updateAmountAndDateResetInterest(id, amount, dateGiven)
 
-        return activeId
-    }
-
-    /** Converts a pending-new-loan placeholder into a real active record once the amount is set. */
-    suspend fun activatePendingNewLoan(id: String, amount: Double) =
-        personDao.activatePendingNewLoan(id, amount, System.currentTimeMillis())
-
-    /**
-     * Called when boss taps the white ₹0.0 active card and enters a new loan amount
-     * without interest. Updates amountGiven, resets interest fields, deletes the pink indicator card.
-     */
-    suspend fun activateZeroActiveCard(person: Person, amount: Double) {
-        personDao.updateAmountAndDateResetInterest(person.id, amount, System.currentTimeMillis())
-        personDao.deleteZeroCloneByNameAndFile(person.name, person.fileId)
-    }
-
-    /**
-     * Called when boss taps the white ₹0.0 active card and enters the new loan amount + interest.
-     * Updates amount, interest fields, sets dateGiven = TODAY, deletes the pink indicator card.
-     */
     suspend fun activateZeroActiveCardWithInterest(
-        person: Person,
+        id: String,
         amount: Double,
+        dateGiven: Long,
         interestRate: Double,
         interestType: String,
         interestAmount: Double,
         totalRepayment: Double,
-        loanType: String = "MONTHLY",
-        numberOfInstallments: Int = 10,
-        perInstallmentAmount: Double = 0.0,
-        isDurationBased: Boolean = false,
-        durationDays: Int? = null
-    ) {
-        personDao.activateZeroActiveCardWithInterest(
-            person.id,
-            amount,
-            System.currentTimeMillis(),
-            interestRate,
-            interestType,
-            interestAmount,
-            totalRepayment,
-            loanType,
-            numberOfInstallments,
-            perInstallmentAmount,
-            isDurationBased,
-            durationDays
-        )
-        personDao.deleteZeroCloneByNameAndFile(person.name, person.fileId)
-    }
+        loanType: String,
+        numberOfInstallments: Int,
+        perInstallmentAmount: Double,
+        isDurationBased: Boolean,
+        durationDays: Int?
+    ) = personDao.activateZeroActiveCardWithInterest(id, amount, dateGiven, interestRate, interestType, interestAmount, totalRepayment, loanType, numberOfInstallments, perInstallmentAmount, isDurationBased, durationDays)
+
+    /** Converts a pending-new-loan placeholder into a real active record once the amount is set. */
+    suspend fun activatePendingNewLoan(id: String, amount: Double) =
+        personDao.activatePendingNewLoan(id, amount, System.currentTimeMillis())
 
     /**
      * Called when the active card for a person is soft-deleted.

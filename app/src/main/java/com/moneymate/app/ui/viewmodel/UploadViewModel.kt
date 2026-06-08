@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
 import com.moneymate.app.data.local.entity.LoanFile
-import com.moneymate.app.data.repository.DefaultPersonRepository
 import com.moneymate.app.data.repository.LoanFileRepository
 import com.moneymate.app.data.repository.PersonRepository
 import com.moneymate.app.data.repository.PaymentRepository
@@ -28,7 +27,6 @@ class UploadViewModel @Inject constructor(
     private val loanFileRepository: LoanFileRepository,
     private val personRepository: PersonRepository,
     private val paymentRepository: PaymentRepository,
-    private val defaultPersonRepository: DefaultPersonRepository,
     private val paths: FirestorePathProvider          // ← injected
 ) : ViewModel() {
 
@@ -37,7 +35,6 @@ class UploadViewModel @Inject constructor(
 
     private val db = FirebaseFirestore.getInstance()
 
-    private val nlrKeys = listOf("NLR 1", "NLR 2", "NLR 3", "NLR 4")
     private val dateFmt = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
 
     /**
@@ -155,17 +152,10 @@ class UploadViewModel @Inject constructor(
 
                 personRepository.markAllUploadedInFile(file.id, System.currentTimeMillis())
 
-                val nlrKey = nlrKeys.firstOrNull { file.name.equals(it, ignoreCase = true) }
-                if (nlrKey != null) {
-                    val activePersons = persons.filter { !it.isDeleted && !it.isCompleted && !it.isPendingNewLoan }
-                    defaultPersonRepository.snapshotFromPersons(nlrKey, activePersons)
-                }
-
                 val ts = java.text.SimpleDateFormat("dd MMM HH:mm", java.util.Locale.getDefault())
                     .format(java.util.Date())
-                val templateNote = if (nlrKey != null) " · Template updated" else ""
                 _uploadState.value = UploadState.Success(
-                    "✓ Uploaded $personCount persons, $paymentCount payments at $ts$templateNote"
+                    "✓ Uploaded $personCount persons, $paymentCount payments at $ts"
                 )
             } catch (e: Exception) {
                 _uploadState.value = UploadState.Error("Upload failed: ${e.message}")

@@ -15,7 +15,7 @@ android {
         applicationId = "com.moneymate.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 54
+        versionCode = 55
 
         versionName = "1.1"
     }

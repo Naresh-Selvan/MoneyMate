@@ -1,19 +1,18 @@
 package com.moneymate.app.navigation
 
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.moneymate.app.ui.screens.FileDetailScreen
-import com.moneymate.app.ui.screens.HomeScreen
-import com.moneymate.app.ui.screens.LoanHistoryScreen
-import com.moneymate.app.ui.screens.PersonDetailScreen
-import com.moneymate.app.ui.screens.SettingsScreen
-import com.moneymate.app.ui.screens.TrashScreen
+import com.moneymate.app.ui.screens.*
 import com.moneymate.app.ui.viewmodel.AuthViewModel
 import com.moneymate.app.ui.viewmodel.SettingsViewModel
 
@@ -39,55 +38,110 @@ fun NavGraph(
     authViewModel: AuthViewModel
 ) {
     val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-    NavHost(
-        navController = navController,
-        startDestination = Screen.Home.route
-    ) {
-        composable(Screen.Home.route) {
-            HomeScreen(
-                navController = navController,
-                settingsViewModel = settingsViewModel,
-                authViewModel = authViewModel  // pass the shared instance
-            )
+    // Bottom navigation items
+    val bottomNavItems = listOf(
+        BottomNavScreen.Home,
+        BottomNavScreen.Expense,
+        BottomNavScreen.Customer,
+        BottomNavScreen.Reports,
+        BottomNavScreen.Settings,
+    )
+
+    // Show bottom bar only on the 5 main tab routes
+    val showBottomBar = bottomNavItems.any { currentRoute == it.route }
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar {
+                    bottomNavItems.forEach { item ->
+                        NavigationBarItem(
+                            selected = currentRoute == item.route,
+                            onClick = {
+                                if (currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        // Pop up to the home tab to avoid building up a large back stack
+                                        popUpTo(BottomNavScreen.Home.route) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            },
+                            icon = { Icon(item.icon, contentDescription = item.label) },
+                            label = { Text(item.label) }
+                        )
+                    }
+                }
+            }
         }
-        composable(
-            route = Screen.FileDetail.route,
-            arguments = listOf(navArgument("fileId") { type = NavType.StringType })
-        ) { backStack ->
-            val fileId = backStack.arguments?.getString("fileId") ?: return@composable
-            FileDetailScreen(navController, fileId, settingsViewModel = settingsViewModel)
-        }
-        composable(
-            route = Screen.PersonDetail.route,
-            arguments = listOf(navArgument("personId") { type = NavType.StringType })
-        ) { backStack ->
-            val personId = backStack.arguments?.getString("personId") ?: return@composable
-            PersonDetailScreen(navController, personId)
-        }
-        composable(Screen.Trash.route) {
-            TrashScreen(navController, settingsViewModel = settingsViewModel)
-        }
-        composable(Screen.Settings.route) {
-            SettingsScreen(navController, viewModel = settingsViewModel, authViewModel = authViewModel)
-        }
-        composable(
-            route = Screen.LoanHistory.route,
-            arguments = listOf(
-                navArgument("personId") { type = NavType.StringType },
-                navArgument("personName") { type = NavType.StringType }
-            )
-        ) { backStack ->
-            val personId = backStack.arguments?.getString("personId") ?: return@composable
-            val personName = java.net.URLDecoder.decode(
-                backStack.arguments?.getString("personName") ?: "",
-                "UTF-8"
-            )
-            LoanHistoryScreen(
-                navController = navController,
-                personId = personId,
-                personName = personName
-            )
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = BottomNavScreen.Home.route,
+            modifier = Modifier.padding(padding)
+        ) {
+            // ── Bottom nav tab destinations ──────────────────────────────────
+            composable(BottomNavScreen.Home.route) {
+                HomeScreen(
+                    navController = navController,
+                    settingsViewModel = settingsViewModel,
+                    authViewModel = authViewModel
+                )
+            }
+            composable(BottomNavScreen.Expense.route) {
+                ExpenseScreen()
+            }
+            composable(BottomNavScreen.Customer.route) {
+                CustomerScreen()
+            }
+            composable(BottomNavScreen.Reports.route) {
+                ReportsScreen()
+            }
+            composable(BottomNavScreen.Settings.route) {
+                SettingsScreen(navController, viewModel = settingsViewModel, authViewModel = authViewModel)
+            }
+
+            // ── Detail screens (NO bottom nav) ───────────────────────────────
+            composable(
+                route = Screen.FileDetail.route,
+                arguments = listOf(navArgument("fileId") { type = NavType.StringType })
+            ) { backStack ->
+                val fileId = backStack.arguments?.getString("fileId") ?: return@composable
+                FileDetailScreen(navController, fileId, settingsViewModel = settingsViewModel)
+            }
+            composable(
+                route = Screen.PersonDetail.route,
+                arguments = listOf(navArgument("personId") { type = NavType.StringType })
+            ) { backStack ->
+                val personId = backStack.arguments?.getString("personId") ?: return@composable
+                PersonDetailScreen(navController, personId)
+            }
+            composable(Screen.Trash.route) {
+                TrashScreen(navController, settingsViewModel = settingsViewModel)
+            }
+            composable(
+                route = Screen.LoanHistory.route,
+                arguments = listOf(
+                    navArgument("personId") { type = NavType.StringType },
+                    navArgument("personName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val personId = backStack.arguments?.getString("personId") ?: return@composable
+                val personName = java.net.URLDecoder.decode(
+                    backStack.arguments?.getString("personName") ?: "",
+                    "UTF-8"
+                )
+                LoanHistoryScreen(
+                    navController = navController,
+                    personId = personId,
+                    personName = personName
+                )
+            }
         }
     }
 }

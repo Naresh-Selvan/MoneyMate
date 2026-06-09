@@ -53,3 +53,16 @@
 # ── Serialization / Reflection ────────────────────────────────────────────
 # Keep Kotlin data classes used as JSON / Firestore payloads.
 -keep class com.moneymate.app.data.** { *; }
+
+# ── Apache POI / SLF4J (Excel export — Phase 5) ───────────────────────────
+# Suppress missing-class warnings from R8 for optional POI dependencies that
+# aren't needed on Android (e.g. SLF4J bindings, XMLBeans internal classes).
+-dontwarn org.slf4j.**
+-dontwarn org.apache.poi.**
+-dontwarn org.apache.xmlbeans.**
+-dontwarn org.openxmlformats.**
+-dontwarn com.microsoft.schemas.**
+-dontwarn org.etsi.**
+-dontwarn org.w3.**
+-dontwarn javax.xml.**
+-dontwarn org.apache.commons.compress.**

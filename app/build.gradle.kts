@@ -99,7 +99,13 @@ dependencies {
 
     // ── Phase 5: Export dependencies ──
     implementation("com.itextpdf:itext7-core:7.2.5")
-    implementation("org.apache.poi:poi-ooxml:5.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5") {
+        exclude(group = "org.apache.xmlbeans", module = "xmlbeans")
+        exclude(group = "com.github.virtuald", module = "curvesapi")
+        exclude(group = "org.apache.commons", module = "commons-math3")
+    }
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.slf4j:slf4j-nop:2.0.9")
     implementation("androidx.core:core-ktx:1.15.0")
 
     // ── Phase 6: Notifications & WorkManager ──

@@ -15,7 +15,7 @@ android {
         applicationId = "com.moneymate.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 56
+        versionCode = 1
         versionName = "1.2"
 
         buildConfigField("String", "LICENSE_SERVER_URL", "\"https://your-license-server.com/api/verify\"")

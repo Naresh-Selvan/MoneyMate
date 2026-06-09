@@ -351,6 +351,10 @@ attr windowNoTitle
 bool abc_action_bar_embed_tabs
 bool abc_allow_stacked_button_bar
 bool abc_config_actionMenuItemAllCaps
+bool enable_system_alarm_service_default
+bool enable_system_foreground_service_default
+bool enable_system_job_service_default
+bool workmanager_test_configuration
 color abc_background_cache_hint_selector_material_dark
 color abc_background_cache_hint_selector_material_light
 color abc_btn_colored_borderless_text_material
@@ -705,6 +709,7 @@ drawable ic_call_decline_low
 drawable ic_google
 drawable ic_launcher_background
 drawable ic_launcher_foreground
+drawable ic_notification
 drawable ic_other_sign_in
 drawable ic_passkey
 drawable ic_password
@@ -1582,5 +1587,7 @@ styleable ViewBackgroundHelper android_background backgroundTint backgroundTintM
 styleable ViewStubCompat android_id android_layout android_inflatedId
 xml backup_rules
 xml data_extraction_rules
+xml file_paths
+xml file_paths_photos
 xml image_share_filepaths
 xml update_file_paths

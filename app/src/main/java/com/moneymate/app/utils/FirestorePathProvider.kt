@@ -53,6 +53,14 @@ class FirestorePathProvider @Inject constructor(
     fun paymentsCollection(fileId: String, personId: String): String =
         "${personsCollection(fileId)}/$personId/payments"
 
+    /** Expenses sub-collection for a given file. */
+    fun expensesCollection(fileId: String): String =
+        "$loanFilesCollection/$fileId/expenses"
+
+    /** Investments sub-collection for a given file. */
+    fun investmentsCollection(fileId: String): String =
+        "$loanFilesCollection/$fileId/investments"
+
     // ─── Old (pre-migration) paths ─────────────────────────────────────────────
 
     /** Legacy root collection path — used ONLY during migration. */

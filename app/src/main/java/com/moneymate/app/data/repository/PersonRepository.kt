@@ -255,4 +255,48 @@ class PersonRepository @Inject constructor(
     /** Remove any duplicate pending-new-loan pink cards, keeping only one per person. */
     suspend fun removeDuplicatePendingClones() =
         personDao.removeDuplicatePendingClones()
+
+    // ── Phase 2 Collection Screen ─────────────────────────────────────────────
+    fun getLendingPersonsByFile(fileId: String): Flow<List<Person>> =
+        personDao.getLendingPersonsByFile(fileId)
+
+    fun getBorrowingPersonsByFile(fileId: String): Flow<List<Person>> =
+        personDao.getBorrowingPersonsByFile(fileId)
+
+    suspend fun getNewLoansToday(fileId: String, startOfDay: Long, endOfDay: Long): Double =
+        personDao.getNewLoansToday(fileId, startOfDay, endOfDay)
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Phase 4 — Reports
+    // ════════════════════════════════════════════════════════════════════════
+
+    fun getAboutToCloseLoans(fileId: String): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getAboutToCloseLoans(fileId)
+
+    fun getMissingCustomers(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getMissingCustomers(fileId, from, to)
+
+    fun getMonthlyInterestPending(fileId: String, monthStart: Long, monthEnd: Long): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getMonthlyInterestPending(fileId, monthStart, monthEnd)
+
+    fun getNonPerformingLoans(fileId: String, cutoffDate: Long): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getNonPerformingLoans(fileId, cutoffDate)
+
+    fun getBadLoans(fileId: String, cutoffDate: Long): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getBadLoans(fileId, cutoffDate)
+
+    fun getNewBadLoansByDate(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getNewBadLoansByDate(fileId, from, to)
+
+    fun getNewCustomers(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getNewCustomers(fileId, from, to)
+
+    fun getLoanNotTaken(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<Person>> =
+        personDao.getLoanNotTaken(fileId, from, to)
+
+    suspend fun getSiteActiveLoanCount(): Int = personDao.getSiteActiveLoanCount()
+
+    suspend fun getSiteTotalOutstanding(): Double = personDao.getSiteTotalOutstanding()
+
+    suspend fun getSiteTotalNewLoans(from: Long, to: Long): Double = personDao.getSiteTotalNewLoans(from, to)
 }

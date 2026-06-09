@@ -4,10 +4,11 @@ import com.moneymate.app.data.repository.PaymentRepository;
 import com.moneymate.app.data.repository.PersonRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -21,7 +22,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class FileInsightsViewModel_Factory implements Factory<FileInsightsViewModel> {
   private final Provider<PersonRepository> personRepositoryProvider;
@@ -37,6 +40,12 @@ public final class FileInsightsViewModel_Factory implements Factory<FileInsights
   @Override
   public FileInsightsViewModel get() {
     return newInstance(personRepositoryProvider.get(), paymentRepositoryProvider.get());
+  }
+
+  public static FileInsightsViewModel_Factory create(
+      javax.inject.Provider<PersonRepository> personRepositoryProvider,
+      javax.inject.Provider<PaymentRepository> paymentRepositoryProvider) {
+    return new FileInsightsViewModel_Factory(Providers.asDaggerProvider(personRepositoryProvider), Providers.asDaggerProvider(paymentRepositoryProvider));
   }
 
   public static FileInsightsViewModel_Factory create(

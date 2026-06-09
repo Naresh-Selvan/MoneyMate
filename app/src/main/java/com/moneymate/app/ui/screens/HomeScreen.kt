@@ -29,11 +29,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.moneymate.app.auth.SessionManager
 import com.moneymate.app.data.local.entity.LoanFile
+import com.moneymate.app.data.local.entity.Permission
 import com.moneymate.app.navigation.Screen
 import com.moneymate.app.ui.viewmodel.AuthViewModel
+import com.moneymate.app.ui.viewmodel.LicenseViewModel
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel
 import com.moneymate.app.ui.viewmodel.SettingsViewModel
+import com.moneymate.app.utils.AppPreferences
 import org.burnoutcrew.reorderable.ReorderableLazyListState
 import org.burnoutcrew.reorderable.detectReorder
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
@@ -46,16 +50,96 @@ fun HomeScreen(
     navController: NavHostController,
     viewModel: LoanFileViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel,
-    authViewModel: AuthViewModel  // no default — must be passed from NavGraph
+    authViewModel: AuthViewModel,  // no default — must be passed from NavGraph
+    licenseViewModel: LicenseViewModel = hiltViewModel(),
+    sessionManager: com.moneymate.app.ui.viewmodel.SessionViewModel? = null
 ) {
-    val files by viewModel.allFiles.collectAsState()
+    val allFiles by viewModel.allFiles.collectAsState()
+    // Filter by file access permissions if session active
+    val files = remember(allFiles, sessionManager) {
+        if (sessionManager != null && sessionManager.isLoggedIn.value) {
+            allFiles.filter { sessionManager.canAccessFile(it.id) }
+        } else allFiles
+    }
     val autoDeleteDays by settingsViewModel.autoDeleteDays.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var newFileName by remember { mutableStateOf("") }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val isTrialActive = remember { licenseViewModel.isTrialActive() }
+    val trialDaysRemaining = remember { licenseViewModel.getTrialDaysRemaining() }
+    val isLicenseExpired = remember { licenseViewModel.isLicenseExpired() }
 
     LaunchedEffect(Unit) {
         viewModel.autoPurge()
+    }
+
+    // ── License Expired Banner (highest priority) ─────────────────────
+    if (isLicenseExpired) {
+        Surface(
+            color = MaterialTheme.colorScheme.errorContainer,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, null,
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("License expired. Renew to continue.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onErrorContainer)
+                }
+                IconButton(onClick = { navController.navigate(Screen.License.route) }) {
+                    Icon(Icons.Default.ArrowForward, null,
+                        tint = MaterialTheme.colorScheme.onErrorContainer)
+                }
+            }
+        }
+    }
+
+    // ── Trial Banner ──────────────────────────────────────────────────
+    if (isTrialActive && trialDaysRemaining > 0) {
+        androidx.compose.material3.Surface(
+            onClick = { navController.navigate(Screen.License.route) },
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text("Trial: $trialDaysRemaining days remaining",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Text("Tap to activate",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
+                    }
+                }
+                Icon(Icons.Default.ArrowForward, null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(20.dp))
+            }
+        }
     }
 
     // ── Drag-to-dustbin state ─────────────────────────────────────────

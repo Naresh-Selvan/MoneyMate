@@ -4,10 +4,11 @@ import com.moneymate.app.utils.AppPreferences;
 import com.moneymate.app.utils.FirestorePathProvider;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -21,7 +22,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class MigrationViewModel_Factory implements Factory<MigrationViewModel> {
   private final Provider<AppPreferences> prefsProvider;
@@ -37,6 +40,12 @@ public final class MigrationViewModel_Factory implements Factory<MigrationViewMo
   @Override
   public MigrationViewModel get() {
     return newInstance(prefsProvider.get(), pathsProvider.get());
+  }
+
+  public static MigrationViewModel_Factory create(
+      javax.inject.Provider<AppPreferences> prefsProvider,
+      javax.inject.Provider<FirestorePathProvider> pathsProvider) {
+    return new MigrationViewModel_Factory(Providers.asDaggerProvider(prefsProvider), Providers.asDaggerProvider(pathsProvider));
   }
 
   public static MigrationViewModel_Factory create(Provider<AppPreferences> prefsProvider,

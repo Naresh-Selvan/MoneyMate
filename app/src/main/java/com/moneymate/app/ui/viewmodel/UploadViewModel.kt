@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
 import com.moneymate.app.data.local.entity.LoanFile
+import com.moneymate.app.data.repository.ExpenseRepository
+import com.moneymate.app.data.repository.InvestmentRepository
 import com.moneymate.app.data.repository.LoanFileRepository
 import com.moneymate.app.data.repository.PersonRepository
 import com.moneymate.app.data.repository.PaymentRepository
@@ -27,6 +29,8 @@ class UploadViewModel @Inject constructor(
     private val loanFileRepository: LoanFileRepository,
     private val personRepository: PersonRepository,
     private val paymentRepository: PaymentRepository,
+    private val expenseRepository: ExpenseRepository,
+    private val investmentRepository: InvestmentRepository,
     private val paths: FirestorePathProvider          // ← injected
 ) : ViewModel() {
 
@@ -107,6 +111,16 @@ class UploadViewModel @Inject constructor(
                         "perInstallmentAmount"   to person.perInstallmentAmount,
                         "isDurationBased"        to person.isDurationBased,
                         "durationDays"           to person.durationDays,
+                        "photoUri"              to null,  // device-specific local path, not uploaded
+                        "alternateMobile"       to (person.alternateMobile ?: ""),
+                        "address"               to (person.address ?: ""),
+                        "businessType"          to (person.businessType ?: ""),
+                        "maxLoanAmount"         to (person.maxLoanAmount ?: 0.0),
+                        "guarantorPersonId"     to (person.guarantorPersonId ?: ""),
+                        "customerCode"          to (person.customerCode ?: ""),
+                        "subCode"               to (person.subCode ?: ""),
+                        "badLoanDays"           to person.badLoanDays,
+                        "sendSms"               to person.sendSms,
                         "totalReceived"         to activePaymentTotal,
                         "balance"               to ((if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven) - activePaymentTotal).coerceAtLeast(0.0),
                         "permanentlyDeleted"    to false,
@@ -150,12 +164,56 @@ class UploadViewModel @Inject constructor(
                     }
                 }
 
+                // ── Expenses — all non-deleted ───────────────────────────────
+                val expenses = expenseRepository.getAllNonDeletedExpenses(file.id)
+                var expenseCount = 0
+                for (expense in expenses) {
+                    val expenseDoc = mapOf(
+                        "id"        to expense.id,
+                        "fileId"    to expense.fileId,
+                        "category"  to expense.category,
+                        "amount"    to expense.amount,
+                        "isOnline"  to expense.isOnline,
+                        "date"      to expense.date,
+                        "notes"     to (expense.notes ?: ""),
+                        "isDeleted" to expense.isDeleted,
+                        "createdAt" to expense.createdAt
+                    )
+                    db.collection(paths.expensesCollection(file.id))
+                        .document(expense.id.toString())
+                        .set(expenseDoc)
+                        .await()
+                    expenseCount++
+                }
+
+                // ── Investments — all non-deleted ────────────────────────────
+                val investments = investmentRepository.getAllNonDeletedInvestments(file.id)
+                var investmentCount = 0
+                for (investment in investments) {
+                    val investmentDoc = mapOf(
+                        "id"        to investment.id,
+                        "fileId"    to investment.fileId,
+                        "type"      to investment.type,
+                        "amount"    to investment.amount,
+                        "isOnline"  to investment.isOnline,
+                        "date"      to investment.date,
+                        "notes"     to (investment.notes ?: ""),
+                        "isDeleted" to investment.isDeleted,
+                        "createdAt" to investment.createdAt
+                    )
+                    db.collection(paths.investmentsCollection(file.id))
+                        .document(investment.id.toString())
+                        .set(investmentDoc)
+                        .await()
+                    investmentCount++
+                }
+
                 personRepository.markAllUploadedInFile(file.id, System.currentTimeMillis())
 
                 val ts = java.text.SimpleDateFormat("dd MMM HH:mm", java.util.Locale.getDefault())
                     .format(java.util.Date())
                 _uploadState.value = UploadState.Success(
-                    "✓ Uploaded $personCount persons, $paymentCount payments at $ts"
+                    "✓ Uploaded $personCount persons, $paymentCount payments, $expenseCount expenses, $investmentCount investments at $ts"
                 )
             } catch (e: Exception) {
                 _uploadState.value = UploadState.Error("Upload failed: ${e.message}")

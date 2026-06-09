@@ -3,10 +3,11 @@ package com.moneymate.app.ui.viewmodel;
 import com.moneymate.app.data.repository.EditRequestRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -20,7 +21,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class EditRequestViewModel_Factory implements Factory<EditRequestViewModel> {
   private final Provider<EditRequestRepository> repositoryProvider;
@@ -32,6 +35,11 @@ public final class EditRequestViewModel_Factory implements Factory<EditRequestVi
   @Override
   public EditRequestViewModel get() {
     return newInstance(repositoryProvider.get());
+  }
+
+  public static EditRequestViewModel_Factory create(
+      javax.inject.Provider<EditRequestRepository> repositoryProvider) {
+    return new EditRequestViewModel_Factory(Providers.asDaggerProvider(repositoryProvider));
   }
 
   public static EditRequestViewModel_Factory create(

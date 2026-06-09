@@ -3,10 +3,11 @@ package com.moneymate.app.data.repository;
 import com.moneymate.app.data.local.dao.DefaultPersonDao;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -20,7 +21,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class DefaultPersonRepository_Factory implements Factory<DefaultPersonRepository> {
   private final Provider<DefaultPersonDao> daoProvider;
@@ -32,6 +35,11 @@ public final class DefaultPersonRepository_Factory implements Factory<DefaultPer
   @Override
   public DefaultPersonRepository get() {
     return newInstance(daoProvider.get());
+  }
+
+  public static DefaultPersonRepository_Factory create(
+      javax.inject.Provider<DefaultPersonDao> daoProvider) {
+    return new DefaultPersonRepository_Factory(Providers.asDaggerProvider(daoProvider));
   }
 
   public static DefaultPersonRepository_Factory create(Provider<DefaultPersonDao> daoProvider) {

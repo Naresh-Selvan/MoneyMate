@@ -4,10 +4,11 @@ import com.moneymate.app.data.local.dao.FileDao;
 import com.moneymate.app.utils.FirestorePathProvider;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -21,7 +22,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class LoanFileRepository_Factory implements Factory<LoanFileRepository> {
   private final Provider<FileDao> fileDaoProvider;
@@ -37,6 +40,11 @@ public final class LoanFileRepository_Factory implements Factory<LoanFileReposit
   @Override
   public LoanFileRepository get() {
     return newInstance(fileDaoProvider.get(), pathsProvider.get());
+  }
+
+  public static LoanFileRepository_Factory create(javax.inject.Provider<FileDao> fileDaoProvider,
+      javax.inject.Provider<FirestorePathProvider> pathsProvider) {
+    return new LoanFileRepository_Factory(Providers.asDaggerProvider(fileDaoProvider), Providers.asDaggerProvider(pathsProvider));
   }
 
   public static LoanFileRepository_Factory create(Provider<FileDao> fileDaoProvider,

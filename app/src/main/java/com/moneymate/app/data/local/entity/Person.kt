@@ -62,7 +62,29 @@ data class Person(
     // Advanced mode: use duration-based calculation instead of flat rate
     val isDurationBased: Boolean = false,
     // Duration in days (nullable; used only when isDurationBased = true)
-    val durationDays: Int? = null
+    val durationDays: Int? = null,
+
+    // ── Phase 1 Customer Enhancements ──────────────────────────────────────────
+    /** Local file path for person's photo */
+    val photoUri: String? = null,
+    /** Alternate mobile number */
+    val alternateMobile: String? = null,
+    /** Address of the person */
+    val address: String? = null,
+    /** Type of business */
+    val businessType: String? = null,
+    /** Maximum loan amount allowed for this person */
+    val maxLoanAmount: Double? = null,
+    /** ID of the guarantor person (references another Person in same file) */
+    val guarantorPersonId: String? = null,
+    /** Customer code — unique within file */
+    val customerCode: String? = null,
+    /** Sub-code for the person */
+    val subCode: String? = null,
+    /** Number of days after which a loan is considered "bad" if no payment received */
+    val badLoanDays: Int = 90,
+    /** Whether to send SMS notification when a payment is received */
+    val sendSms: Boolean = false
 )
 
 enum class PaymentMode {

@@ -1,19 +1,33 @@
 package com.moneymate.app;
 
+import androidx.hilt.work.HiltWrapper_WorkerFactoryModule;
 import com.moneymate.app.di.AppModule;
+import com.moneymate.app.di.RepositoryEntryPoint;
+import com.moneymate.app.notifications.workers.AboutToCloseWorker_HiltModule;
+import com.moneymate.app.notifications.workers.BadLoanAlertWorker_HiltModule;
+import com.moneymate.app.notifications.workers.DailyCollectionReminderWorker_HiltModule;
+import com.moneymate.app.notifications.workers.LoanReminderWorker_HiltModule;
 import com.moneymate.app.ui.viewmodel.AuthViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.BookAdjustmentViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.CollectionViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.EditRequestViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.ExpenseViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.ExportViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.FileInsightsViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.InvestmentViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.LicenseViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.MigrationViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.PaymentViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.PersonViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.ReportViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.RestoreViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.SessionViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.SettingsViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.TemplateViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.UpdateViewModel_HiltModules;
 import com.moneymate.app.ui.viewmodel.UploadViewModel_HiltModules;
+import com.moneymate.app.ui.viewmodel.UserViewModel_HiltModules;
 import dagger.Binds;
 import dagger.Component;
 import dagger.Module;
@@ -138,15 +152,21 @@ public final class MoneyMateApplication_HiltComponents {
 
   @Component(
       modules = {
+          AboutToCloseWorker_HiltModule.class,
           AppModule.class,
           ApplicationContextModule.class,
+          BadLoanAlertWorker_HiltModule.class,
+          DailyCollectionReminderWorker_HiltModule.class,
           HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule.class,
+          HiltWrapper_WorkerFactoryModule.class,
+          LoanReminderWorker_HiltModule.class,
           ActivityRetainedCBuilderModule.class,
           ServiceCBuilderModule.class
       }
   )
   @Singleton
   public abstract static class SingletonC implements MoneyMateApplication_GeneratedInjector,
+      RepositoryEntryPoint,
       FragmentGetContextFix.FragmentGetContextFixEntryPoint,
       HiltWrapper_ActivityRetainedComponentManager_ActivityRetainedComponentBuilderEntryPoint,
       ServiceComponentManager.ServiceComponentBuilderEntryPoint,
@@ -167,21 +187,29 @@ public final class MoneyMateApplication_HiltComponents {
       modules = {
           AuthViewModel_HiltModules.KeyModule.class,
           BookAdjustmentViewModel_HiltModules.KeyModule.class,
+          CollectionViewModel_HiltModules.KeyModule.class,
           EditRequestViewModel_HiltModules.KeyModule.class,
+          ExpenseViewModel_HiltModules.KeyModule.class,
+          ExportViewModel_HiltModules.KeyModule.class,
           FileInsightsViewModel_HiltModules.KeyModule.class,
           HiltWrapper_ActivityRetainedComponentManager_LifecycleModule.class,
           HiltWrapper_SavedStateHandleModule.class,
+          InvestmentViewModel_HiltModules.KeyModule.class,
+          LicenseViewModel_HiltModules.KeyModule.class,
           LoanFileViewModel_HiltModules.KeyModule.class,
           MigrationViewModel_HiltModules.KeyModule.class,
           ActivityCBuilderModule.class,
           ViewModelCBuilderModule.class,
           PaymentViewModel_HiltModules.KeyModule.class,
           PersonViewModel_HiltModules.KeyModule.class,
+          ReportViewModel_HiltModules.KeyModule.class,
           RestoreViewModel_HiltModules.KeyModule.class,
+          SessionViewModel_HiltModules.KeyModule.class,
           SettingsViewModel_HiltModules.KeyModule.class,
           TemplateViewModel_HiltModules.KeyModule.class,
           UpdateViewModel_HiltModules.KeyModule.class,
-          UploadViewModel_HiltModules.KeyModule.class
+          UploadViewModel_HiltModules.KeyModule.class,
+          UserViewModel_HiltModules.KeyModule.class
       }
   )
   @ActivityRetainedScoped
@@ -219,18 +247,26 @@ public final class MoneyMateApplication_HiltComponents {
       modules = {
           AuthViewModel_HiltModules.BindsModule.class,
           BookAdjustmentViewModel_HiltModules.BindsModule.class,
+          CollectionViewModel_HiltModules.BindsModule.class,
           EditRequestViewModel_HiltModules.BindsModule.class,
+          ExpenseViewModel_HiltModules.BindsModule.class,
+          ExportViewModel_HiltModules.BindsModule.class,
           FileInsightsViewModel_HiltModules.BindsModule.class,
           HiltWrapper_HiltViewModelFactory_ViewModelModule.class,
+          InvestmentViewModel_HiltModules.BindsModule.class,
+          LicenseViewModel_HiltModules.BindsModule.class,
           LoanFileViewModel_HiltModules.BindsModule.class,
           MigrationViewModel_HiltModules.BindsModule.class,
           PaymentViewModel_HiltModules.BindsModule.class,
           PersonViewModel_HiltModules.BindsModule.class,
+          ReportViewModel_HiltModules.BindsModule.class,
           RestoreViewModel_HiltModules.BindsModule.class,
+          SessionViewModel_HiltModules.BindsModule.class,
           SettingsViewModel_HiltModules.BindsModule.class,
           TemplateViewModel_HiltModules.BindsModule.class,
           UpdateViewModel_HiltModules.BindsModule.class,
-          UploadViewModel_HiltModules.BindsModule.class
+          UploadViewModel_HiltModules.BindsModule.class,
+          UserViewModel_HiltModules.BindsModule.class
       }
   )
   @ViewModelScoped

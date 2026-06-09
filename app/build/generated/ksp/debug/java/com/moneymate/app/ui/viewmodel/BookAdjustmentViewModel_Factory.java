@@ -3,10 +3,11 @@ package com.moneymate.app.ui.viewmodel;
 import com.moneymate.app.data.repository.BookAdjustmentRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -20,7 +21,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class BookAdjustmentViewModel_Factory implements Factory<BookAdjustmentViewModel> {
   private final Provider<BookAdjustmentRepository> repositoryProvider;
@@ -32,6 +35,11 @@ public final class BookAdjustmentViewModel_Factory implements Factory<BookAdjust
   @Override
   public BookAdjustmentViewModel get() {
     return newInstance(repositoryProvider.get());
+  }
+
+  public static BookAdjustmentViewModel_Factory create(
+      javax.inject.Provider<BookAdjustmentRepository> repositoryProvider) {
+    return new BookAdjustmentViewModel_Factory(Providers.asDaggerProvider(repositoryProvider));
   }
 
   public static BookAdjustmentViewModel_Factory create(

@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.moneymate.app-mergeDebugResources-71:/values-v30/values-v30.xml",
+            "outputFile": "com.moneymate.app-mergeDebugResources-77:/values-v30/values-v30.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\8f59ca6999ef729d780e31a69180411f\\workspace\\transformed\\material3-release\\res\\values-v30\\values-v30.xml",
+                    "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\9fed7acff046bf56c1634f3842918cae\\workspace\\transformed\\material3-release\\res\\values-v30\\values-v30.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",

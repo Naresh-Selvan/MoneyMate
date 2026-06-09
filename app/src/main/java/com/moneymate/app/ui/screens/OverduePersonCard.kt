@@ -1,11 +1,14 @@
 package com.moneymate.app.ui.screens
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,8 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.moneymate.app.data.local.entity.LoanType
@@ -56,7 +61,9 @@ fun OverduePersonCard(
     onEdit: () -> Unit,
     onMarkComplete: () -> Unit = {},
     onView: () -> Unit = {},
-    onCallNow: () -> Unit = {}
+    onCallNow: () -> Unit = {},
+    onBellClick: () -> Unit = {},
+    bellReminderSet: Boolean = false
 ) {
     val isBorrowing = person.recordType == LoanType.BORROWING
     val isFullyPaid  = pending <= 0 && totalPaid > 0
@@ -71,6 +78,38 @@ fun OverduePersonCard(
         overdueDays >= 1  -> OverdueLowOrange
         else -> Color.Transparent
     }
+
+    // ── Bad loan computation ─────────────────────────────────────────────
+    val isBadLoan = remember(person.id, person.badLoanDays, personPayments) {
+        if (person.amountGiven <= 0.0) {
+            false
+        } else if (personPayments.isEmpty()) {
+            false // No payments yet — not bad, just new
+        } else {
+            val latestPaymentDate = personPayments.maxOfOrNull { it.date }
+            if (latestPaymentDate == null) {
+                false
+            } else {
+                val elapsedDays = (System.currentTimeMillis() - latestPaymentDate) / (1000L * 60 * 60 * 24)
+                elapsedDays >= person.badLoanDays
+            }
+        }
+    }
+
+    // ── Photo / Avatar ────────────────────────────────────────────────────
+    val personPhotoBitmap = remember(person.photoUri) {
+        if (!person.photoUri.isNullOrBlank()) {
+            try { BitmapFactory.decodeFile(person.photoUri) } catch (e: Exception) { null }
+        } else null
+    }
+    val initials = remember(person.name) {
+        person.name.trim().split("\\s+".toRegex()).take(2).joinToString("") { it.firstOrNull()?.uppercase() ?: "" }
+    }
+
+    // ── Guarantor name ────────────────────────────────────────────────────
+    // Note: The guarantor name is resolved externally and passed via the person object.
+    // We'll show a small text if guarantorPersonId is set (the name needs to be resolved
+    // at the call site where allPersonsInFile is available).
 
     Card(
         modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick),
@@ -92,15 +131,40 @@ fun OverduePersonCard(
                 )
             }
 
-            // ── Main card content (original PersonCard content) ─────────────
+            // ── Main card content ───────────────────────────────────────────
             Row(
                 Modifier
                     .weight(1f)
                     .padding(start = if (overdueDays > 0) 8.dp else 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // ── Circular avatar (40dp) ────────────────────────────────────
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (personPhotoBitmap != null) {
+                        Image(
+                            bitmap = personPhotoBitmap.asImageBitmap(),
+                            contentDescription = "Photo",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        Text(
+                            initials.ifEmpty { "?" },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+
                 Text("$serialNumber.", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(28.dp))
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(24.dp))
 
                 if (isSelecting) {
                     Checkbox(checked = isSelected, onCheckedChange = { onClick() })
@@ -117,6 +181,20 @@ fun OverduePersonCard(
                         AssistChip(onClick = {}, label = {
                             Text(person.mode.name, style = MaterialTheme.typography.labelSmall)
                         })
+                        // ── BAD LOAN chip ─────────────────────────────────────
+                        if (isBadLoan) {
+                            Spacer(Modifier.width(4.dp))
+                            AssistChip(
+                                onClick = {},
+                                label = {
+                                    Text("BAD LOAN", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    labelColor = MaterialTheme.colorScheme.error
+                                )
+                            )
+                        }
                         // ── Overdue badge chip ───────────────────────────────
                         if (overdueDays > 0) {
                             Spacer(Modifier.width(4.dp))
@@ -229,6 +307,22 @@ fun OverduePersonCard(
 
                 if (!isSelecting) {
                     Spacer(Modifier.width(4.dp))
+
+                    // ── Bell icon (reminder) ────────────────────────────────
+                    IconButton(
+                        onClick = onBellClick,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            if (bellReminderSet) Icons.Default.Notifications
+                            else Icons.Default.NotificationsNone,
+                            contentDescription = if (bellReminderSet) "Reminder set" else "Set reminder",
+                            tint = if (bellReminderSet) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
                     var showPersonMenu by remember { mutableStateOf(false) }
                     var editButtonPressed by remember { mutableStateOf(false) }
                     val editButtonScale by animateFloatAsState(

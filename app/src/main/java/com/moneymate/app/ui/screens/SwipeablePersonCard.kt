@@ -30,7 +30,9 @@ fun SwipeablePersonCard(
     onMarkComplete: () -> Unit = {},
     onView: () -> Unit = {},
     onCallNow: () -> Unit = {},
-    onQuickPayment: (amount: Double, mode: PaymentMode) -> Unit
+    onQuickPayment: (amount: Double, mode: PaymentMode) -> Unit,
+    onBellClick: () -> Unit = {},
+    bellReminderSet: Boolean = false
 ) {
     OverduePersonCard(
         person = person,
@@ -52,6 +54,8 @@ fun SwipeablePersonCard(
         onEdit = onEdit,
         onMarkComplete = onMarkComplete,
         onView = onView,
-        onCallNow = onCallNow
+        onCallNow = onCallNow,
+        onBellClick = onBellClick,
+        bellReminderSet = bellReminderSet
     )
 }

@@ -311,4 +311,133 @@ interface PersonDao {
 
     @Query("SELECT * FROM persons")
     fun getAllPersonsIncludingDeleted(): Flow<List<Person>>
+
+    // ── Phase 2 Collection Screen ─────────────────────────────────────────────
+    /** Active LENDING persons (I gave money to them). */
+    @Query("SELECT * FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0 AND isPendingNewLoan = 0 AND recordType = 'LENDING' ORDER BY sortOrder ASC")
+    fun getLendingPersonsByFile(fileId: String): Flow<List<Person>>
+
+    /** Active BORROWING persons (I owe money to them). */
+    @Query("SELECT * FROM persons WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0 AND isPendingNewLoan = 0 AND recordType = 'BORROWING' ORDER BY sortOrder ASC")
+    fun getBorrowingPersonsByFile(fileId: String): Flow<List<Person>>
+
+    /** Total amount of new loans given today (LENDING persons created today). */
+    @Query("""
+        SELECT COALESCE(SUM(amountGiven), 0) FROM persons
+        WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0
+          AND dateGiven >= :startOfDay AND dateGiven < :endOfDay
+    """)
+    suspend fun getNewLoansToday(fileId: String, startOfDay: Long, endOfDay: Long): Double
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Phase 4 — Reports
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Report 11 — About to Close Loans
+    @Query("""
+        SELECT * FROM persons
+        WHERE fileId = :fileId AND isDeleted = 0 AND isCompleted = 0 AND isPendingNewLoan = 0
+          AND (numberOfInstallments - (SELECT COUNT(*) FROM payments WHERE personId = persons.id AND isDeleted = 0)) <= 3
+        ORDER BY (numberOfInstallments - (SELECT COUNT(*) FROM payments WHERE personId = persons.id AND isDeleted = 0)) ASC
+    """)
+    fun getAboutToCloseLoans(fileId: String): kotlinx.coroutines.flow.Flow<List<com.moneymate.app.data.local.entity.Person>>
+
+    // Report 12 — Missing Customers (LENDING loans with zero payments in date range)
+    @Query("""
+        SELECT * FROM persons pr
+        WHERE pr.fileId = :fileId AND pr.isDeleted = 0 AND pr.isCompleted = 0 AND pr.isPendingNewLoan = 0
+          AND pr.recordType = 'LENDING'
+          AND (SELECT COUNT(*) FROM payments WHERE personId = pr.id AND isDeleted = 0 AND date >= :from AND date <= :to) = 0
+        ORDER BY pr.name ASC
+    """)
+    fun getMissingCustomers(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<com.moneymate.app.data.local.entity.Person>>
+
+    // Report 13 — Monthly Interest Pending
+    @Query("""
+        SELECT * FROM persons pr
+        WHERE pr.fileId = :fileId AND pr.isDeleted = 0 AND pr.isCompleted = 0 AND pr.isPendingNewLoan = 0
+          AND pr.recordType = 'LENDING' AND pr.loanType = 'MONTHLY' AND pr.perInstallmentAmount > 0
+          AND (SELECT COUNT(*) FROM payments WHERE personId = pr.id AND isDeleted = 0
+               AND date >= :monthStart AND date < :monthEnd) = 0
+        ORDER BY pr.name ASC
+    """)
+    fun getMonthlyInterestPending(fileId: String, monthStart: Long, monthEnd: Long): kotlinx.coroutines.flow.Flow<List<com.moneymate.app.data.local.entity.Person>>
+
+    // Report 15 — Non Performance Loans
+    @Query("""
+        SELECT * FROM persons pr
+        WHERE pr.fileId = :fileId AND pr.isDeleted = 0 AND pr.isCompleted = 0 AND pr.isPendingNewLoan = 0
+          AND (SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0) < :cutoffDate
+        ORDER BY (SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0) ASC
+    """)
+    fun getNonPerformingLoans(fileId: String, cutoffDate: Long): kotlinx.coroutines.flow.Flow<List<com.moneymate.app.data.local.entity.Person>>
+
+    // Report 16 — Bad Loans (by badLoanDays threshold)
+    @Query("""
+        SELECT * FROM persons pr
+        WHERE pr.fileId = :fileId AND pr.isDeleted = 0 AND pr.isCompleted = 0 AND pr.isPendingNewLoan = 0
+          AND (SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0) IS NOT NULL
+          AND ((:cutoffDate - (SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0)) / 86400000) >= pr.badLoanDays
+        ORDER BY ((:cutoffDate - (SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0)) / 86400000) DESC
+    """)
+    fun getBadLoans(fileId: String, cutoffDate: Long): kotlinx.coroutines.flow.Flow<List<com.moneymate.app.data.local.entity.Person>>
+
+    // Report 17 — New Bad Loans By Date
+    @Query("""
+        SELECT * FROM persons pr
+        WHERE pr.fileId = :fileId AND pr.isDeleted = 0 AND pr.isCompleted = 0 AND pr.isPendingNewLoan = 0
+          AND (SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0) IS NOT NULL
+          AND ((SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0) + (pr.badLoanDays * 86400000)) >= :from
+          AND ((SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0) + (pr.badLoanDays * 86400000)) <= :to
+        ORDER BY ((SELECT MAX(date) FROM payments WHERE personId = pr.id AND isDeleted = 0) + (pr.badLoanDays * 86400000)) ASC
+    """)
+    fun getNewBadLoansByDate(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<com.moneymate.app.data.local.entity.Person>>
+
+    // Report 18 — New Customers
+    @Query("""
+        SELECT * FROM persons
+        WHERE fileId = :fileId AND isDeleted = 0 AND isPendingNewLoan = 0
+          AND dateGiven >= :from AND dateGiven <= :to
+        ORDER BY dateGiven DESC
+    """)
+    fun getNewCustomers(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<com.moneymate.app.data.local.entity.Person>>
+
+    // Report 19 — Loan Not Taken (persons with no payments at all)
+    @Query("""
+        SELECT * FROM persons pr
+        WHERE pr.fileId = :fileId AND pr.isDeleted = 0 AND pr.isCompleted = 0 AND pr.isPendingNewLoan = 0
+          AND pr.dateGiven >= :from AND pr.dateGiven <= :to
+          AND (SELECT COUNT(*) FROM payments WHERE personId = pr.id AND isDeleted = 0) = 0
+        ORDER BY pr.dateGiven DESC
+    """)
+    fun getLoanNotTaken(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<com.moneymate.app.data.local.entity.Person>>
+
+    // ── Site-level (across ALL files) report queries ───────────────────────────
+
+    @Query("SELECT COUNT(*) FROM persons WHERE isDeleted = 0 AND isCompleted = 0 AND isPendingNewLoan = 0")
+    suspend fun getSiteActiveLoanCount(): Int
+
+    @Query("SELECT COALESCE(SUM(totalRepayment), 0) FROM persons WHERE isDeleted = 0 AND isCompleted = 0 AND isPendingNewLoan = 0")
+    suspend fun getSiteTotalOutstanding(): Double
+
+    @Query("SELECT COALESCE(SUM(amountGiven), 0) FROM persons WHERE isDeleted = 0 AND isCompleted = 0 AND isPendingNewLoan = 0 AND dateGiven >= :from AND dateGiven <= :to")
+    suspend fun getSiteTotalNewLoans(from: Long, to: Long): Double
+
+    // ── Phase 6 — Notification workers (across ALL files) ───────────────────────
+
+    /** All active persons across every file (no fileId filter). */
+    @Query("SELECT * FROM persons WHERE isDeleted = 0 AND isCompleted = 0 AND isPendingNewLoan = 0")
+    fun getAllActivePersonsAcrossFiles(): Flow<List<Person>>
+
+    /**
+     * Persons across ALL files with 3 or fewer installments remaining.
+     * Same logic as [getAboutToCloseLoans] but without the fileId constraint.
+     */
+    @Query("""
+        SELECT * FROM persons
+        WHERE isDeleted = 0 AND isCompleted = 0 AND isPendingNewLoan = 0
+          AND (numberOfInstallments - (SELECT COUNT(*) FROM payments WHERE personId = persons.id AND isDeleted = 0)) <= 3
+        ORDER BY (numberOfInstallments - (SELECT COUNT(*) FROM payments WHERE personId = persons.id AND isDeleted = 0)) ASC
+    """)
+    suspend fun getAboutToCloseLoansAllFiles(): List<Person>
 }

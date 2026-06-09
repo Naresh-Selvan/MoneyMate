@@ -10,6 +10,8 @@ import com.moneymate.app.data.local.entity.LoanType
 import com.moneymate.app.data.local.entity.PaymentMode
 import com.moneymate.app.data.local.entity.Person
 import com.moneymate.app.data.local.entity.Payment
+import com.moneymate.app.data.repository.ExpenseRepository
+import com.moneymate.app.data.repository.InvestmentRepository
 import com.moneymate.app.data.repository.LoanFileRepository
 import com.moneymate.app.data.repository.PersonRepository
 import com.moneymate.app.data.repository.PaymentRepository
@@ -41,6 +43,8 @@ class RestoreViewModel @Inject constructor(
     private val loanFileRepository: LoanFileRepository,
     private val personRepository: PersonRepository,
     private val paymentRepository: PaymentRepository,
+    private val expenseRepository: ExpenseRepository,
+    private val investmentRepository: InvestmentRepository,
     private val paths: FirestorePathProvider          // ← injected
 ) : ViewModel() {
 
@@ -115,6 +119,8 @@ class RestoreViewModel @Inject constructor(
                 var restoredFiles = 0
                 var restoredPersons = 0
                 var restoredPayments = 0
+                var restoredExpenses = 0
+                var restoredInvestments = 0
                 var skippedRecords = 0
 
                 for (fileDoc in filesSnapshot.documents) {
@@ -187,7 +193,17 @@ class RestoreViewModel @Inject constructor(
                                     numberOfInstallments   = pd.int("numberOfInstallments", 10),
                                     perInstallmentAmount   = pd.double("perInstallmentAmount"),
                                     isDurationBased        = pd.bool("isDurationBased"),
-                                    durationDays           = pd.longOrNull("durationDays")?.toInt()
+                                    durationDays           = pd.longOrNull("durationDays")?.toInt(),
+                                    photoUri               = null,  // device-specific, restore as null
+                                    alternateMobile        = pd.strOrNull("alternateMobile"),
+                                    address                = pd.strOrNull("address"),
+                                    businessType           = pd.strOrNull("businessType"),
+                                    maxLoanAmount          = pd.doubleOrNull("maxLoanAmount"),
+                                    guarantorPersonId      = pd.strOrNull("guarantorPersonId"),
+                                    customerCode           = pd.strOrNull("customerCode"),
+                                    subCode                = pd.strOrNull("subCode"),
+                                    badLoanDays            = pd.int("badLoanDays", 90).coerceAtMost(Int.MAX_VALUE),
+                                    sendSms                = pd.bool("sendSms")
                                 )
                                 personRepository.insertPerson(person)
                                 restoredPersons++
@@ -233,6 +249,68 @@ class RestoreViewModel @Inject constructor(
                                 skippedRecords++
                             }
                         }
+
+                        // ── Expenses ───────────────────────────────────────────
+                        try {
+                            val expensesSnapshot = db.collection(paths.expensesCollection(fileDoc.id))
+                                .get()
+                                .await()
+                            for (expDoc in expensesSnapshot.documents) {
+                                val ed = expDoc.data ?: continue
+                                try {
+                                    val expense = com.moneymate.app.data.local.entity.Expense(
+                                        id        = (ed["id"] as? Number)?.toLong() ?: 0L,
+                                        fileId    = ed.str("fileId", file.id),
+                                        category  = ed.str("category"),
+                                        amount    = ed.double("amount"),
+                                        isOnline  = ed.bool("isOnline"),
+                                        date      = ed.long("date"),
+                                        notes     = ed.strOrNull("notes"),
+                                        isDeleted = ed.bool("isDeleted"),
+                                        createdAt = ed.long("createdAt")
+                                    )
+                                    expenseRepository.insert(expense)
+                                    restoredExpenses++
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to restore expense ${expDoc.id}", e)
+                                    skippedRecords++
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to restore expenses for file ${fileDoc.id}", e)
+                            skippedRecords++
+                        }
+
+                        // ── Investments ────────────────────────────────────────
+                        try {
+                            val investmentsSnapshot = db.collection(paths.investmentsCollection(fileDoc.id))
+                                .get()
+                                .await()
+                            for (invDoc in investmentsSnapshot.documents) {
+                                val ind = invDoc.data ?: continue
+                                try {
+                                    val investment = com.moneymate.app.data.local.entity.Investment(
+                                        id        = (ind["id"] as? Number)?.toLong() ?: 0L,
+                                        fileId    = ind.str("fileId", file.id),
+                                        type      = ind.str("type"),
+                                        amount    = ind.double("amount"),
+                                        isOnline  = ind.bool("isOnline"),
+                                        date      = ind.long("date"),
+                                        notes     = ind.strOrNull("notes"),
+                                        isDeleted = ind.bool("isDeleted"),
+                                        createdAt = ind.long("createdAt")
+                                    )
+                                    investmentRepository.insert(investment)
+                                    restoredInvestments++
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to restore investment ${invDoc.id}", e)
+                                    skippedRecords++
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to restore investments for file ${fileDoc.id}", e)
+                            skippedRecords++
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to restore file ${fileDoc.id}", e)
                         skippedRecords++
@@ -241,7 +319,7 @@ class RestoreViewModel @Inject constructor(
 
                 val skipNote = if (skippedRecords > 0) " ($skippedRecords records skipped — check logs)" else ""
                 _restoreState.value = RestoreState.Success(
-                    "Restored $restoredFiles files · $restoredPersons persons · $restoredPayments payments$skipNote"
+                    "Restored $restoredFiles files · $restoredPersons persons · $restoredPayments payments · $restoredExpenses expenses · $restoredInvestments investments$skipNote"
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "restoreFromFirestore failed", e)
@@ -288,6 +366,13 @@ class RestoreViewModel @Inject constructor(
             is Double -> v
             is Number -> v.toDouble()
             else      -> fallback
+        }
+
+    private fun Map<String, Any>.doubleOrNull(key: String): Double? =
+        when (val v = this[key]) {
+            is Double -> v
+            is Number -> v.toDouble()
+            else      -> null
         }
 
     private fun Map<String, Any>.bool(key: String, fallback: Boolean = false): Boolean =

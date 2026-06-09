@@ -18,7 +18,9 @@ import javax.annotation.processing.Generated;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class TemplateViewModel_HiltModules_KeyModule_ProvideFactory implements Factory<Boolean> {
   @Override
@@ -35,6 +37,6 @@ public final class TemplateViewModel_HiltModules_KeyModule_ProvideFactory implem
   }
 
   private static final class InstanceHolder {
-    private static final TemplateViewModel_HiltModules_KeyModule_ProvideFactory INSTANCE = new TemplateViewModel_HiltModules_KeyModule_ProvideFactory();
+    static final TemplateViewModel_HiltModules_KeyModule_ProvideFactory INSTANCE = new TemplateViewModel_HiltModules_KeyModule_ProvideFactory();
   }
 }

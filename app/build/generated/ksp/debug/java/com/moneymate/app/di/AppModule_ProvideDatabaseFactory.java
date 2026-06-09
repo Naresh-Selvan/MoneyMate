@@ -5,10 +5,11 @@ import com.moneymate.app.data.local.AppDatabase;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.Preconditions;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata("dagger.hilt.android.qualifiers.ApplicationContext")
@@ -22,7 +23,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class AppModule_ProvideDatabaseFactory implements Factory<AppDatabase> {
   private final Provider<Context> contextProvider;
@@ -34,6 +37,11 @@ public final class AppModule_ProvideDatabaseFactory implements Factory<AppDataba
   @Override
   public AppDatabase get() {
     return provideDatabase(contextProvider.get());
+  }
+
+  public static AppModule_ProvideDatabaseFactory create(
+      javax.inject.Provider<Context> contextProvider) {
+    return new AppModule_ProvideDatabaseFactory(Providers.asDaggerProvider(contextProvider));
   }
 
   public static AppModule_ProvideDatabaseFactory create(Provider<Context> contextProvider) {

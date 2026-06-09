@@ -1,98 +1,110 @@
 [
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xxhdpi/ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-hdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-hdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-hdpi_ic_launcher_round.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-hdpi/ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-mdpi/ic_launcher_round.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xxxhdpi/ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xxhdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xxxhdpi_ic_launcher.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xxxhdpi/ic_launcher.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xhdpi/ic_launcher_round.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xxhdpi_ic_launcher.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xxhdpi/ic_launcher.png"
+        "merged": "com.moneymate.app-debug-79:/xml_file_paths.xml.flat",
+        "source": "com.moneymate.app-main-81:/xml/file_paths.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/xml_update_file_paths.xml.flat",
-        "source": "com.moneymate.app-main-75:/xml/update_file_paths.xml"
+        "merged": "com.moneymate.app-debug-79:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xhdpi/ic_launcher.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-mdpi_ic_launcher.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-mdpi/ic_launcher.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-anydpi_ic_launcher_round.xml.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-anydpi/ic_launcher_round.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/xml_data_extraction_rules.xml.flat",
-        "source": "com.moneymate.app-main-75:/xml/data_extraction_rules.xml"
+        "merged": "com.moneymate.app-debug-79:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xxhdpi/ic_launcher_round.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/drawable_ic_google.xml.flat",
-        "source": "com.moneymate.app-main-75:/drawable/ic_google.xml"
+        "merged": "com.moneymate.app-debug-79:/xml_update_file_paths.xml.flat",
+        "source": "com.moneymate.app-main-81:/xml/update_file_paths.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xxxhdpi/ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-79:/drawable_logo.png.flat",
+        "source": "com.moneymate.app-main-81:/drawable/logo.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-hdpi_ic_launcher_foreground.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-hdpi/ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-79:/drawable_ic_notification.xml.flat",
+        "source": "com.moneymate.app-main-81:/drawable/ic_notification.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/drawable_logo.png.flat",
-        "source": "com.moneymate.app-main-75:/drawable/logo.png"
+        "merged": "com.moneymate.app-debug-79:/xml_backup_rules.xml.flat",
+        "source": "com.moneymate.app-main-81:/xml/backup_rules.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-anydpi_ic_launcher_round.xml.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-anydpi/ic_launcher_round.xml"
+        "merged": "com.moneymate.app-debug-79:/mipmap-anydpi_ic_launcher.xml.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-anydpi/ic_launcher.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xxhdpi_ic_launcher_round.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xxhdpi/ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-mdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-mdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-hdpi_ic_launcher.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-hdpi/ic_launcher.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-hdpi/ic_launcher_round.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-anydpi_ic_launcher.xml.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-anydpi/ic_launcher.xml"
+        "merged": "com.moneymate.app-debug-79:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xxxhdpi/ic_launcher_foreground.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-mdpi_ic_launcher_round.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-mdpi/ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-79:/xml_file_paths_photos.xml.flat",
+        "source": "com.moneymate.app-main-81:/xml/file_paths_photos.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/xml_backup_rules.xml.flat",
-        "source": "com.moneymate.app-main-75:/xml/backup_rules.xml"
+        "merged": "com.moneymate.app-debug-79:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-mdpi/ic_launcher.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/drawable_ic_launcher_background.xml.flat",
-        "source": "com.moneymate.app-main-75:/drawable/ic_launcher_background.xml"
+        "merged": "com.moneymate.app-debug-79:/xml_data_extraction_rules.xml.flat",
+        "source": "com.moneymate.app-main-81:/xml/data_extraction_rules.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xhdpi_ic_launcher.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xhdpi/ic_launcher.png"
+        "merged": "com.moneymate.app-debug-79:/drawable_ic_google.xml.flat",
+        "source": "com.moneymate.app-main-81:/drawable/ic_google.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "com.moneymate.app-main-75:/drawable/ic_launcher_foreground.xml"
+        "merged": "com.moneymate.app-debug-79:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xxhdpi/ic_launcher.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xhdpi/ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-79:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.moneymate.app-main-81:/drawable/ic_launcher_background.xml"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-mdpi_ic_launcher_foreground.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-mdpi/ic_launcher_foreground.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xxxhdpi/ic_launcher.png"
     },
     {
-        "merged": "com.moneymate.app-debug-73:/mipmap-xhdpi_ic_launcher_round.png.flat",
-        "source": "com.moneymate.app-main-75:/mipmap-xhdpi/ic_launcher_round.png"
+        "merged": "com.moneymate.app-debug-79:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.moneymate.app-debug-79:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.moneymate.app-main-81:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.moneymate.app-debug-79:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.moneymate.app-debug-79:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "com.moneymate.app-main-81:/mipmap-xxxhdpi/ic_launcher_round.png"
     }
 ]

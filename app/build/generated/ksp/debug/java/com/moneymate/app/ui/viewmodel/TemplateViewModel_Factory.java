@@ -3,10 +3,11 @@ package com.moneymate.app.ui.viewmodel;
 import com.moneymate.app.data.repository.DefaultPersonRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -20,7 +21,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class TemplateViewModel_Factory implements Factory<TemplateViewModel> {
   private final Provider<DefaultPersonRepository> repoProvider;
@@ -32,6 +35,11 @@ public final class TemplateViewModel_Factory implements Factory<TemplateViewMode
   @Override
   public TemplateViewModel get() {
     return newInstance(repoProvider.get());
+  }
+
+  public static TemplateViewModel_Factory create(
+      javax.inject.Provider<DefaultPersonRepository> repoProvider) {
+    return new TemplateViewModel_Factory(Providers.asDaggerProvider(repoProvider));
   }
 
   public static TemplateViewModel_Factory create(Provider<DefaultPersonRepository> repoProvider) {

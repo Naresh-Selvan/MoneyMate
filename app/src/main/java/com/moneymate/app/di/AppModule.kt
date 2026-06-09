@@ -5,7 +5,10 @@ import androidx.room.Room
 import com.moneymate.app.data.local.AppDatabase
 import com.moneymate.app.data.local.dao.*
 import com.moneymate.app.data.repository.DefaultPersonRepository
+import com.moneymate.app.data.repository.AreaRepository
 import com.moneymate.app.data.repository.MaintenanceRepository
+import com.moneymate.app.auth.SessionManager
+import com.moneymate.app.auth.AuditLogger
 import com.moneymate.app.utils.AppPreferences
 import com.moneymate.app.utils.FirestorePathProvider
 import dagger.Module
@@ -36,7 +39,10 @@ object AppModule {
             AppDatabase.MIGRATION_8_9,
             AppDatabase.MIGRATION_9_10,
             AppDatabase.MIGRATION_10_11,
-            AppDatabase.MIGRATION_11_12
+            AppDatabase.MIGRATION_11_12,
+            AppDatabase.MIGRATION_12_13,
+            AppDatabase.MIGRATION_13_14,
+            AppDatabase.MIGRATION_14_15
         ).build()
     }
 
@@ -45,6 +51,13 @@ object AppModule {
     @Provides fun providePaymentDao(db: AppDatabase): PaymentDao = db.paymentDao()
     @Provides fun provideEditRequestDao(db: AppDatabase): EditRequestDao = db.editRequestDao()
     @Provides fun provideBookAdjustmentDao(db: AppDatabase): BookAdjustmentDao = db.bookAdjustmentDao()
+    @Provides fun provideExpenseDao(db: AppDatabase): ExpenseDao = db.expenseDao()
+    @Provides fun provideInvestmentDao(db: AppDatabase): InvestmentDao = db.investmentDao()
+    @Provides fun provideExpenseCategoryDao(db: AppDatabase): ExpenseCategoryDao = db.expenseCategoryDao()
+    @Provides fun provideInvestmentTypeDao(db: AppDatabase): InvestmentTypeDao = db.investmentTypeDao()
+    @Provides fun provideAreaDao(db: AppDatabase): AreaDao = db.areaDao()
+    @Provides fun provideAppUserDao(db: AppDatabase): AppUserDao = db.appUserDao()
+    @Provides fun provideAuditLogDao(db: AppDatabase): AuditLogDao = db.auditLogDao()
 
     // DefaultPersonDao / DefaultPersonRepository are kept in the DI graph so any
     // existing injection sites compile without changes. The table is now always empty.

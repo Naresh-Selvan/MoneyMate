@@ -2,6 +2,8 @@ package com.moneymate.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moneymate.app.auth.AuditLogger
+import com.moneymate.app.data.local.entity.AuditAction
 import com.moneymate.app.data.local.entity.CalculationMode
 import com.moneymate.app.data.local.entity.LoanFile
 import com.moneymate.app.data.repository.LoanFileRepository
@@ -17,7 +19,8 @@ import javax.inject.Inject
 @HiltViewModel
 class LoanFileViewModel @Inject constructor(
     private val repository: LoanFileRepository,
-    private val maintenanceRepository: MaintenanceRepository
+    private val maintenanceRepository: MaintenanceRepository,
+    private val auditLogger: AuditLogger
 ) : ViewModel() {
 
     val allFiles: StateFlow<List<LoanFile>> = repository.getAllFiles()
@@ -37,11 +40,34 @@ class LoanFileViewModel @Inject constructor(
      */
     fun insertFile(file: LoanFile) = viewModelScope.launch {
         repository.insertFile(file)
+        auditLogger.log(
+            action = AuditAction.ADD_FILE,
+            targetType = "LoanFile",
+            targetId = file.id,
+            targetLabel = file.name
+        )
     }
 
     fun updateFile(file: LoanFile) = viewModelScope.launch { repository.updateFile(file) }
-    fun softDeleteFile(id: String) = viewModelScope.launch { repository.softDeleteFile(id, System.currentTimeMillis()) }
-    fun restoreFile(id: String) = viewModelScope.launch { repository.restoreFile(id) }
+    fun softDeleteFile(id: String) = viewModelScope.launch {
+        val file = repository.getAllFilesOnce().find { it.id == id }
+        repository.softDeleteFile(id, System.currentTimeMillis())
+        auditLogger.log(
+            action = AuditAction.DELETE_FILE,
+            targetType = "LoanFile",
+            targetId = id,
+            targetLabel = file?.name ?: id
+        )
+    }
+    fun restoreFile(id: String) = viewModelScope.launch {
+        repository.restoreFile(id)
+        auditLogger.log(
+            action = AuditAction.ADD_FILE,
+            targetType = "LoanFile",
+            targetId = id,
+            targetLabel = "Restored file #$id"
+        )
+    }
     fun hardDeleteFile(id: String) = viewModelScope.launch { repository.hardDeleteFile(id) }
     
     fun purgeExpiredFiles() = viewModelScope.launch {

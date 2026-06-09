@@ -2,9 +2,13 @@ package com.moneymate.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moneymate.app.auth.AuditLogger
+import com.moneymate.app.auth.SessionManager
+import com.moneymate.app.data.local.entity.AuditAction
 import com.moneymate.app.data.local.entity.EditPermissionScope
 import com.moneymate.app.data.local.entity.Person
 import com.moneymate.app.data.repository.PersonRepository
+import com.moneymate.app.data.repository.PaymentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +21,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PersonViewModel @Inject constructor(
-    private val repository: PersonRepository
+    private val repository: PersonRepository,
+    private val auditLogger: AuditLogger,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _currentFileId = MutableStateFlow<String?>(null)
@@ -78,10 +84,31 @@ class PersonViewModel @Inject constructor(
 
     fun insertPerson(person: Person) = viewModelScope.launch {
         repository.insertPerson(person)
+        auditLogger.log(
+            action = AuditAction.ADD_PERSON,
+            targetType = "Person",
+            targetId = person.id,
+            targetLabel = person.name,
+            fileId = person.fileId
+        )
     }
 
     fun updatePerson(person: Person) = viewModelScope.launch {
+        val old = repository.getPersonById(person.id)
         repository.updatePerson(person)
+        val details = mutableMapOf<String, String>()
+        if (old != null) {
+            if (old.name != person.name) details["name"] = "${old.name} → ${person.name}"
+            if (old.place != person.place) details["place"] = "${old.place} → ${person.place}"
+        }
+        auditLogger.log(
+            action = AuditAction.EDIT_PERSON,
+            targetType = "Person",
+            targetId = person.id,
+            targetLabel = person.name,
+            details = if (details.isNotEmpty()) details else null,
+            fileId = person.fileId
+        )
     }
 
     fun updateNameAndPlace(id: String, name: String, place: String?) = viewModelScope.launch {
@@ -93,6 +120,13 @@ class PersonViewModel @Inject constructor(
         repository.softDeletePerson(id, System.currentTimeMillis())
         if (person != null) {
             repository.deleteZeroCloneByNameAndFile(person.name, person.fileId)
+            auditLogger.log(
+                action = AuditAction.DELETE_PERSON,
+                targetType = "Person",
+                targetId = id,
+                targetLabel = person.name,
+                fileId = person.fileId
+            )
         }
     }
 

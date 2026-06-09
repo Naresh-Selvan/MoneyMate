@@ -14,6 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.moneymate.app.ui.screens.*
 import com.moneymate.app.ui.viewmodel.AuthViewModel
+import com.moneymate.app.ui.viewmodel.LicenseViewModel
 import com.moneymate.app.ui.viewmodel.SettingsViewModel
 
 sealed class Screen(val route: String) {
@@ -26,10 +27,25 @@ sealed class Screen(val route: String) {
     }
     object Trash : Screen("trash")
     object Settings : Screen("settings")
+    object LineManagement : Screen("line_management")
+    object AreaManagement : Screen("area_management")
+    object LineMove : Screen("line_move")
+    object License : Screen("license")
     object LoanHistory : Screen("loan_history/{personId}/{personName}") {
         fun createRoute(personId: String, personName: String) =
             "loan_history/$personId/${java.net.URLEncoder.encode(personName, "UTF-8")}"
     }
+    object Collection : Screen("collection/{fileId}") {
+        fun createRoute(fileId: String) = "collection/$fileId"
+    }
+    // ══════════════════════════════════════════════════════════════════
+    // Role & Permissions: New Screens
+    // ══════════════════════════════════════════════════════════════════
+    object UserManagement : Screen("user_management")
+    object UserDetail : Screen("user_detail/{userId}") {
+        fun createRoute(userId: Long) = "user_detail/$userId"
+    }
+    object AuditLog : Screen("audit_log")
 }
 
 @Composable
@@ -38,6 +54,8 @@ fun NavGraph(
     authViewModel: AuthViewModel
 ) {
     val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val reportViewModel: com.moneymate.app.ui.viewmodel.ReportViewModel = hiltViewModel()
+    val sessionViewModel: com.moneymate.app.ui.viewmodel.SessionViewModel = hiltViewModel()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -50,14 +68,26 @@ fun NavGraph(
         BottomNavScreen.Settings,
     )
 
-    // Show bottom bar only on the 5 main tab routes
-    val showBottomBar = bottomNavItems.any { currentRoute == it.route }
+    // Permission-based bottom nav visibility
+    val showReports = sessionViewModel.hasPermission(com.moneymate.app.data.local.entity.Permission.VIEW_REPORTS)
+    val showSettings = sessionViewModel.hasPermission(com.moneymate.app.data.local.entity.Permission.MANAGE_SETTINGS)
+
+    val visibleBottomNavItems = bottomNavItems.filter { item ->
+        when (item.route) {
+            BottomNavScreen.Reports.route -> showReports
+            BottomNavScreen.Settings.route -> showSettings
+            else -> true
+        }
+    }
+
+    // Show bottom bar only on main tab routes + reports grid
+    val showBottomBar = visibleBottomNavItems.any { currentRoute == it.route } || currentRoute == "reports"
 
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar {
-                    bottomNavItems.forEach { item ->
+                    visibleBottomNavItems.forEach { item ->
                         NavigationBarItem(
                             selected = currentRoute == item.route,
                             onClick = {
@@ -90,17 +120,22 @@ fun NavGraph(
                 HomeScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
-                    authViewModel = authViewModel
+                    authViewModel = authViewModel,
+                    sessionManager = sessionViewModel
                 )
             }
             composable(BottomNavScreen.Expense.route) {
-                ExpenseScreen()
+                ExpenseScreen(
+                    loanFileViewModel = hiltViewModel(),
+                    expenseViewModel = hiltViewModel(),
+                    investmentViewModel = hiltViewModel()
+                )
             }
             composable(BottomNavScreen.Customer.route) {
                 CustomerScreen()
             }
             composable(BottomNavScreen.Reports.route) {
-                ReportsScreen()
+                ReportsScreen(navController = navController, reportViewModel = reportViewModel)
             }
             composable(BottomNavScreen.Settings.route) {
                 SettingsScreen(navController, viewModel = settingsViewModel, authViewModel = authViewModel)
@@ -112,7 +147,15 @@ fun NavGraph(
                 arguments = listOf(navArgument("fileId") { type = NavType.StringType })
             ) { backStack ->
                 val fileId = backStack.arguments?.getString("fileId") ?: return@composable
-                FileDetailScreen(navController, fileId, settingsViewModel = settingsViewModel)
+                // Phase 2: Replace FileDetailScreen with CollectionScreen
+                CollectionScreen(navController, fileId, settingsViewModel = settingsViewModel)
+            }
+            composable(
+                route = Screen.Collection.route,
+                arguments = listOf(navArgument("fileId") { type = NavType.StringType })
+            ) { backStack ->
+                val fileId = backStack.arguments?.getString("fileId") ?: return@composable
+                CollectionScreen(navController, fileId, settingsViewModel = settingsViewModel)
             }
             composable(
                 route = Screen.PersonDetail.route,
@@ -124,6 +167,52 @@ fun NavGraph(
             composable(Screen.Trash.route) {
                 TrashScreen(navController, settingsViewModel = settingsViewModel)
             }
+            // ══════════════════════════════════════════════════════════════════
+            // Settings Enhancements: New Screens
+            // ══════════════════════════════════════════════════════════════════
+            composable(Screen.LineManagement.route) {
+                LineManagementScreen(
+                    navController = navController,
+                    settingsViewModel = settingsViewModel
+                )
+            }
+            composable(Screen.AreaManagement.route) {
+                AreaManagementScreen(navController = navController)
+            }
+            composable(Screen.LineMove.route) {
+                LineMoveScreen(navController = navController)
+            }
+            composable(Screen.License.route) {
+                LicenseScreen(
+                    navController = navController,
+                    authViewModel = authViewModel
+                )
+            }
+
+            // ══════════════════════════════════════════════════════════════════
+            // Role & Permissions: New Screens
+            // ══════════════════════════════════════════════════════════════════
+            composable(Screen.UserManagement.route) {
+                UserManagementScreen(
+                    navController = navController,
+                    sessionManager = sessionViewModel
+                )
+            }
+            composable(
+                route = Screen.UserDetail.route,
+                arguments = listOf(navArgument("userId") { type = NavType.LongType })
+            ) { backStack ->
+                val userId = backStack.arguments?.getLong("userId") ?: return@composable
+                UserDetailScreen(
+                    navController = navController,
+                    userId = userId,
+                    sessionManager = sessionViewModel
+                )
+            }
+            composable(Screen.AuditLog.route) {
+                AuditLogScreen(navController = navController)
+            }
+
             composable(
                 route = Screen.LoanHistory.route,
                 arguments = listOf(
@@ -141,6 +230,43 @@ fun NavGraph(
                     personId = personId,
                     personName = personName
                 )
+            }
+
+            // ══════════════════════════════════════════════════════════════════
+            // Phase 4 — Report Screens (no bottom nav)
+            // ══════════════════════════════════════════════════════════════════
+            composable("report/plan") { PlanReportScreen(navController, reportViewModel) }
+            composable("report/daily_summary") { DailySummaryReportScreen(navController, reportViewModel) }
+            composable("report/line_summary") { LineSummaryReportScreen(navController, reportViewModel) }
+            composable("report/online_collections") { OnlineCollectionsReportScreen(navController, reportViewModel) }
+            composable("report/site_dashboard") { SiteDashboardReportScreen(navController, reportViewModel) }
+            composable("report/expense_summary") { ExpenseSummaryReportScreen(navController, reportViewModel) }
+            composable("report/investment_summary") { InvestmentSummaryReportScreen(navController, reportViewModel) }
+            composable("report/combined_summary") { CombinedSummaryReportScreen(navController, reportViewModel) }
+            composable("report/book_excess_loss") { BookExcessLossReportScreen(navController, reportViewModel) }
+            composable("report/loan_summary") { LoanSummaryReportScreen(navController, reportViewModel) }
+            composable("report/about_to_close") { AboutToCloseReportScreen(navController, reportViewModel) }
+            composable("report/missing_customers") { MissingCustomersReportScreen(navController, reportViewModel) }
+            composable("report/monthly_interest") { MonthlyInterestReportScreen(navController, reportViewModel) }
+            composable("report/completed_loans") { CompletedLoansReportScreen(navController, reportViewModel) }
+            composable("report/non_performing") { NonPerformingReportScreen(navController, reportViewModel) }
+            composable("report/bad_loans") { BadLoansReportScreen(navController, reportViewModel) }
+            composable("report/new_bad_loans") { NewBadLoansReportScreen(navController, reportViewModel) }
+            composable("report/new_customers") { NewCustomersReportScreen(navController, reportViewModel) }
+            composable("report/loan_analysis") { LoanAnalysisReportScreen(navController, reportViewModel) }
+            composable(
+                route = "report/ledger/{personId}/{personName}",
+                arguments = listOf(
+                    navArgument("personId") { type = NavType.StringType },
+                    navArgument("personName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val personId = backStack.arguments?.getString("personId") ?: return@composable
+                val personName = java.net.URLDecoder.decode(
+                    backStack.arguments?.getString("personName") ?: "",
+                    "UTF-8"
+                )
+                LedgerReportScreen(navController, personId = personId, personName = personName, reportViewModel = reportViewModel)
             }
         }
     }

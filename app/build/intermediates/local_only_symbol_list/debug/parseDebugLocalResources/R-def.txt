@@ -4,6 +4,7 @@ color ic_launcher_background
 drawable ic_google
 drawable ic_launcher_background
 drawable ic_launcher_foreground
+drawable ic_notification
 drawable logo
 mipmap ic_launcher
 mipmap ic_launcher_foreground
@@ -19,4 +20,6 @@ string project_id
 style Theme.MoneyMate
 xml backup_rules
 xml data_extraction_rules
+xml file_paths
+xml file_paths_photos
 xml update_file_paths

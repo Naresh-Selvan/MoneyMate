@@ -5,10 +5,11 @@ import com.moneymate.app.utils.FirestorePathProvider;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.Preconditions;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -22,7 +23,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class AppModule_ProvideFirestorePathProviderFactory implements Factory<FirestorePathProvider> {
   private final Provider<AppPreferences> prefsProvider;
@@ -34,6 +37,11 @@ public final class AppModule_ProvideFirestorePathProviderFactory implements Fact
   @Override
   public FirestorePathProvider get() {
     return provideFirestorePathProvider(prefsProvider.get());
+  }
+
+  public static AppModule_ProvideFirestorePathProviderFactory create(
+      javax.inject.Provider<AppPreferences> prefsProvider) {
+    return new AppModule_ProvideFirestorePathProviderFactory(Providers.asDaggerProvider(prefsProvider));
   }
 
   public static AppModule_ProvideFirestorePathProviderFactory create(

@@ -32,6 +32,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.moneymate.app.data.local.entity.*
 import com.moneymate.app.ui.viewmodel.*
+import androidx.compose.ui.platform.LocalContext
+import com.moneymate.app.utils.isReminderSet
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -47,6 +49,7 @@ fun PersonDetailScreen(
     personViewModel: PersonViewModel = hiltViewModel(),
     bookAdjustmentViewModel: BookAdjustmentViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     val dtFormat = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
 
@@ -54,8 +57,11 @@ fun PersonDetailScreen(
 
     val payments by paymentViewModel.payments.collectAsState()
     val person by personViewModel.getPersonByIdFlow(personId).collectAsState(initial = null)
+    val currentPerson = person
 
-    val isBorrowing = person?.recordType == LoanType.BORROWING
+    val isBorrowing = currentPerson?.recordType == LoanType.BORROWING
+    val amountGiven = currentPerson?.amountGiven ?: 0.0
+    val personTotalRepayment = currentPerson?.totalRepayment ?: 0.0
     val defaultPaymentDate: Long = remember { System.currentTimeMillis() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -79,6 +85,10 @@ fun PersonDetailScreen(
     var newDate by remember(defaultPaymentDate) { mutableLongStateOf(defaultPaymentDate) }
     var showNewDatePicker by remember { mutableStateOf(false) }
 
+    // ── Reminder bell state ───────────────────────────────────────────────────
+    var showReminderSheet by remember { mutableStateOf(false) }
+    val appPrefs = remember { com.moneymate.app.utils.AppPreferences(context) }
+
     // Edit payment fields
     var editAmount by remember { mutableStateOf("") }
     var editMode by remember { mutableStateOf(PaymentMode.CASH) }
@@ -88,8 +98,6 @@ fun PersonDetailScreen(
     val totalPaid = payments.sumOf { it.amount }
     val totalPaidCash = payments.filter { it.mode == PaymentMode.CASH }.sumOf { it.amount }
     val totalPaidUpi = payments.filter { it.mode == PaymentMode.UPI }.sumOf { it.amount }
-    val amountGiven = person?.amountGiven ?: 0.0
-    val personTotalRepayment = person?.totalRepayment ?: 0.0
     val totalRepayment = if (personTotalRepayment > 0.0) personTotalRepayment else amountGiven
     val balance = (totalRepayment - totalPaid).coerceAtLeast(0.0)
 
@@ -139,6 +147,16 @@ fun PersonDetailScreen(
                                     navController.navigate("loan_history/${p.id}/${java.net.URLEncoder.encode(p.name, "UTF-8")}")
                                 }) {
                                     Icon(Icons.Default.History, contentDescription = "Loan History", tint = MaterialTheme.colorScheme.primary)
+                                }
+                                // ── Bell icon for loan reminder ──────────────
+                                IconButton(onClick = { showReminderSheet = true }) {
+                                    Icon(
+                                        if (appPrefs.isReminderSet(p.id)) Icons.Default.Notifications
+                                        else Icons.Default.NotificationsNone,
+                                        contentDescription = "Set Reminder",
+                                        tint = if (appPrefs.isReminderSet(p.id)) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                         }
@@ -393,7 +411,7 @@ fun PersonDetailScreen(
     }
 
     // Force Close Dialog
-    if (showForceCloseDialog && person != null) {
+    if (showForceCloseDialog && currentPerson != null) {
         var collectedAmount by remember { mutableStateOf(balance.toBigDecimal().stripTrailingZeros().toPlainString()) }
         AlertDialog(
             onDismissRequest = { showForceCloseDialog = false },
@@ -420,7 +438,7 @@ fun PersonDetailScreen(
                         if (abs(discrepancy) > 0.01) {
                             bookAdjustmentViewModel.insert(BookAdjustment(
                                 personId = personId,
-                                fileId = person!!.fileId,
+                                fileId = currentPerson!!.fileId,
                                 discrepancyAmount = abs(discrepancy),
                                 type = if (discrepancy > 0) AdjustmentType.BOOK_LOSS else AdjustmentType.BOOK_PROFIT,
                                 reason = "Force close"
@@ -589,6 +607,16 @@ fun PersonDetailScreen(
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showSingleDeleteConfirm = null }) { Text("Cancel") } }
+        )
+    }
+
+    // ── Loan Reminder Sheet ─────────────────────────────────────────────────
+    if (showReminderSheet && currentPerson != null) {
+        SetLoanReminderSheet(
+            personId = currentPerson.id,
+            personName = currentPerson.name,
+            defaultAmount = currentPerson.amountGiven,
+            onDismiss = { showReminderSheet = false }
         )
     }
 

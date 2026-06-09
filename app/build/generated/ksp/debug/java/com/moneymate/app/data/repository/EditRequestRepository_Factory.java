@@ -3,10 +3,11 @@ package com.moneymate.app.data.repository;
 import com.moneymate.app.data.local.dao.EditRequestDao;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -20,7 +21,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class EditRequestRepository_Factory implements Factory<EditRequestRepository> {
   private final Provider<EditRequestDao> editRequestDaoProvider;
@@ -32,6 +35,11 @@ public final class EditRequestRepository_Factory implements Factory<EditRequestR
   @Override
   public EditRequestRepository get() {
     return newInstance(editRequestDaoProvider.get());
+  }
+
+  public static EditRequestRepository_Factory create(
+      javax.inject.Provider<EditRequestDao> editRequestDaoProvider) {
+    return new EditRequestRepository_Factory(Providers.asDaggerProvider(editRequestDaoProvider));
   }
 
   public static EditRequestRepository_Factory create(

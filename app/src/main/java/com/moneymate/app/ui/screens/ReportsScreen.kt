@@ -1,323 +1,154 @@
 package com.moneymate.app.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.moneymate.app.ui.viewmodel.FileInsightsViewModel
-import com.moneymate.app.ui.viewmodel.LoanFileViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
+import com.moneymate.app.data.repository.LoanFileRepository
+import com.moneymate.app.ui.viewmodel.ReportViewModel
+
+data class ReportCardInfo(
+    val id: String,
+    val name: String,
+    val icon: ImageVector,
+    val section: String
+)
+
+val allReportCards = listOf(
+    // Collection
+    ReportCardInfo("plan", "Plan", Icons.Default.Assessment, "Collection"),
+    ReportCardInfo("daily_summary", "Daily Summary", Icons.Default.CalendarToday, "Collection"),
+    ReportCardInfo("line_summary", "Line Summary", Icons.Default.TableChart, "Collection"),
+    ReportCardInfo("online_collections", "Online Collection", Icons.Default.Wifi, "Collection"),
+    ReportCardInfo("site_dashboard", "Site Dashboard", Icons.Default.Dashboard, "Collection"),
+    // Loan
+    ReportCardInfo("loan_summary", "Loan Summary", Icons.Default.CompareArrows, "Loan"),
+    ReportCardInfo("about_to_close", "About to Close", Icons.Default.Timer, "Loan"),
+    ReportCardInfo("completed_loans", "Completed Loans", Icons.Default.CheckCircle, "Loan"),
+    ReportCardInfo("book_excess_loss", "Book Excess Loss", Icons.Default.TrendingUp, "Loan"),
+    // Customer
+    ReportCardInfo("missing_customers", "Missing Customers", Icons.Default.PersonOff, "Customer"),
+    ReportCardInfo("monthly_interest", "Monthly Interest Pending", Icons.Default.Pending, "Customer"),
+    ReportCardInfo("new_customers", "New Customers", Icons.Default.PersonAdd, "Customer"),
+    ReportCardInfo("loan_not_taken", "Loan Not Taken", Icons.Default.RemoveShoppingCart, "Customer"),
+    // Finance
+    ReportCardInfo("expense_summary", "Expense Summary", Icons.Default.MoneyOff, "Finance"),
+    ReportCardInfo("investment_summary", "Investment Summary", Icons.Default.Storefront, "Finance"),
+    ReportCardInfo("combined_summary", "Invest/Expense Combined", Icons.Default.AccountBalance, "Finance"),
+    ReportCardInfo("ledger", "Ledger Report", Icons.Default.Receipt, "Finance"),
+    // Analysis
+    ReportCardInfo("non_performing", "Non Performance Loan", Icons.Default.Warning, "Analysis"),
+    ReportCardInfo("bad_loans", "Bad Loan Summary", Icons.Default.ReportProblem, "Analysis"),
+    ReportCardInfo("new_bad_loans", "New Bad Loan By Date", Icons.Default.EventNote, "Analysis"),
+    ReportCardInfo("loan_analysis", "Loan Analysis", Icons.Default.Analytics, "Analysis")
+)
+
+val sectionIcons = mapOf(
+    "Collection" to Icons.Default.Folder,
+    "Loan" to Icons.Default.AccountBalanceWallet,
+    "Customer" to Icons.Default.People,
+    "Finance" to Icons.Default.AccountBalance,
+    "Analysis" to Icons.Default.TrendingUp
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsScreen(
-    fileInsightsVM: FileInsightsViewModel = hiltViewModel(),
-    loanFileViewModel: LoanFileViewModel = hiltViewModel()
+    navController: NavController? = null,
+    reportViewModel: ReportViewModel = hiltViewModel(),
+    loanFileRepository: LoanFileRepository? = null
 ) {
-    val allFiles by loanFileViewModel.allFiles.collectAsState()
-    val insightsData by fileInsightsVM.insights.collectAsState()
-    val isLoading by fileInsightsVM.isLoading.collectAsState()
-
-    var selectedFileId by remember { mutableStateOf<String?>(null) }
-    var fileDropdownExp by remember { mutableStateOf(false) }
-
-    // Load insights when a file is selected
-    LaunchedEffect(selectedFileId) {
-        selectedFileId?.let { fileInsightsVM.loadInsights(it) }
-    }
-
-    val selFile = allFiles.find { it.id == selectedFileId }
+    val sections = allReportCards.groupBy { it.section }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Reports", fontWeight = FontWeight.Bold) }
-            )
+            TopAppBar(title = { Text("Reports") })
         }
     ) { padding ->
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // ── Header ───────────────────────────────────────────────────────
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        "File Insights",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "Select a file to view today's, weekly, and all-time financial data.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // ── File selector ────────────────────────────────────────────────
-            item {
-                ExposedDropdownMenuBox(
-                    expanded = fileDropdownExp,
-                    onExpandedChange = { fileDropdownExp = it }
-                ) {
-                    OutlinedTextField(
-                        value = selFile?.name ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        placeholder = { Text("Choose a file…") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Folder,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fileDropdownExp) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = fileDropdownExp,
-                        onDismissRequest = { fileDropdownExp = false }
-                    ) {
-                        allFiles.filter { !it.isDeleted }.forEach { file ->
-                            DropdownMenuItem(
-                                text = { Text(file.name) },
-                                onClick = {
-                                    selectedFileId = file.id
-                                    fileDropdownExp = false
-                                }
-                            )
-                        }
+            sections.forEach { (section, cards) ->
+                item(span = { GridItemSpan(2) }) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Icon(
+                            sectionIcons[section] ?: Icons.Default.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            section,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
-            }
-
-            // ── Loading indicator ────────────────────────────────────────────
-            if (isLoading) {
-                item {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-            }
-
-            // ── No selection state ───────────────────────────────────────────
-            if (selectedFileId == null && !isLoading) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Analytics,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            )
-                            Text(
-                                "Select a file above to view insights",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ── Insights data ────────────────────────────────────────────────
-            if (selectedFileId != null && !isLoading) {
-                val d = insightsData
-
-                // Today's Data
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.CalendarToday,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Today",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                items(cards, key = { it.id }) { card ->
+                    ReportCard(
+                        card = card,
+                        onClick = {
+                            val route = "report/${card.id}"
+                            if (navController != null) {
+                                navController.navigate(route)
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f))
-                            InsightRow("Given", "₹${d.todayGiven}", MaterialTheme.colorScheme.onPrimaryContainer)
-                            InsightRow("Received", "₹${d.todayReceived}", MaterialTheme.colorScheme.onPrimaryContainer)
-                            InsightRow(
-                                "Net",
-                                "₹${d.todayNet}",
-                                if (d.todayNet >= 0) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.error,
-                                bold = true
-                            )
                         }
-                    }
+                    )
                 }
-
-                // This Week
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.CalendarToday,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "This Week",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f))
-                            InsightRow("Given", "₹${d.weekGiven}", MaterialTheme.colorScheme.onSecondaryContainer)
-                            InsightRow("Received", "₹${d.weekReceived}", MaterialTheme.colorScheme.onSecondaryContainer)
-                            InsightRow(
-                                "Net",
-                                "₹${d.weekNet}",
-                                if (d.weekNet >= 0) MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.error,
-                                bold = true
-                            )
-                        }
-                    }
-                }
-
-                // All-Time Totals
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.History,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "All-Time Totals",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.15f))
-                            InsightRow("Total Given", "₹${d.allTimeGiven}", MaterialTheme.colorScheme.onTertiaryContainer)
-                            InsightRow("Total Received", "₹${d.allTimeReceived}", MaterialTheme.colorScheme.onTertiaryContainer)
-                            HorizontalDivider(color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.15f))
-                            InsightRow(
-                                "Outstanding",
-                                "₹${d.outstanding}",
-                                if (d.outstanding > 0) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.tertiary,
-                                bold = true
-                            )
-                            InsightRow("Active Loans", "${d.activeLoanCount}", MaterialTheme.colorScheme.onTertiaryContainer)
-                            InsightRow("Completed Loans", "${d.completedLoanCount}", MaterialTheme.colorScheme.onTertiaryContainer)
-                        }
-                    }
-                }
-
-                // Bottom spacing
-                item { Spacer(Modifier.height(16.dp)) }
             }
         }
     }
 }
 
 @Composable
-private fun InsightRow(
-    label: String,
-    value: String,
-    color: androidx.compose.ui.graphics.Color,
-    bold: Boolean = false
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+fun ReportCard(card: ReportCardInfo, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            color = color.copy(alpha = 0.7f)
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold,
-            color = color
-        )
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                card.icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                card.name,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2
+            )
+        }
     }
 }

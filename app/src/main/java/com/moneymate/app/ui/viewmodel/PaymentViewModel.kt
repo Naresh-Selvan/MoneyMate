@@ -1,22 +1,43 @@
 package com.moneymate.app.ui.viewmodel
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.telephony.SmsManager
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moneymate.app.auth.AuditLogger
+import com.moneymate.app.data.local.entity.AuditAction
 import com.moneymate.app.data.local.entity.EditPermissionScope
 import com.moneymate.app.data.local.entity.Payment
+import com.moneymate.app.data.local.entity.Person
 import com.moneymate.app.data.repository.PaymentRepository
+import com.moneymate.app.data.repository.PersonRepository
+import com.moneymate.app.notifications.NotificationHelper
+import com.moneymate.app.utils.AppPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import java.text.SimpleDateFormat
+import java.util.*
 
 @HiltViewModel
 class PaymentViewModel @Inject constructor(
-    private val repository: PaymentRepository
+    private val repository: PaymentRepository,
+    private val personRepository: PersonRepository,
+    private val notificationHelper: NotificationHelper,
+    private val preferences: AppPreferences,
+    private val auditLogger: AuditLogger,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _currentPersonId = MutableStateFlow<String?>(null)
@@ -37,6 +58,14 @@ class PaymentViewModel @Inject constructor(
 
     fun insertPayment(payment: Payment) = viewModelScope.launch {
         repository.insertPayment(payment)
+        notifyAndSendSms(payment)
+        auditLogger.log(
+            action = AuditAction.ADD_PAYMENT,
+            targetType = "Payment",
+            targetId = payment.id,
+            targetLabel = "₹${payment.amount}",
+            fileId = null
+        )
     }
 
     /**
@@ -47,14 +76,67 @@ class PaymentViewModel @Inject constructor(
      */
     suspend fun insertPaymentAwait(payment: Payment) {
         repository.insertPayment(payment)
+        notifyAndSendSms(payment)
+    }
+
+    /**
+     * After inserting a payment: fire notification + SMS if enabled.
+     */
+    private suspend fun notifyAndSendSms(payment: Payment) {
+        val person = personRepository.getPersonById(payment.personId) ?: return
+
+        // Notification
+        if (preferences.paymentConfirmationEnabled) {
+            val totalPaid = repository.getTotalPaidByPerson(payment.personId)
+            val repayment = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
+            val remaining = (repayment - totalPaid).coerceAtLeast(0.0)
+            notificationHelper.showPaymentConfirmation(person.name, payment.amount, remaining)
+        }
+
+        // SMS — fire-and-forget
+        if (person.sendSms && !person.mobileNumber.isNullOrBlank()) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS)
+                == PackageManager.PERMISSION_GRANTED) {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val totalPaid = repository.getTotalPaidByPerson(payment.personId)
+                        val repayment = if (person.totalRepayment > 0) person.totalRepayment else person.amountGiven
+                        val remaining = (repayment - totalPaid).coerceAtLeast(0.0)
+                        val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                            .format(Date(payment.date))
+                        val message = "Dear ${person.name}, payment of ₹%.2f received on $dateStr. Outstanding balance: ₹%.2f. - MoneyMate"
+                            .format(payment.amount, remaining)
+                        SmsManager.getDefault().sendTextMessage(
+                            person.mobileNumber, null, message, null, null
+                        )
+                    }
+                } catch (_: Exception) {
+                    // SMS is fire-and-forget — log but never crash
+                }
+            }
+        }
     }
 
     fun updatePayment(payment: Payment) = viewModelScope.launch {
         repository.updatePayment(payment)
+        auditLogger.log(
+            action = AuditAction.EDIT_PAYMENT,
+            targetType = "Payment",
+            targetId = payment.id,
+            targetLabel = "₹${payment.amount}",
+            fileId = null
+        )
     }
 
     fun softDeletePayment(id: String) = viewModelScope.launch {
         repository.softDeletePayment(id, System.currentTimeMillis())
+        auditLogger.log(
+            action = AuditAction.DELETE_PAYMENT,
+            targetType = "Payment",
+            targetId = id,
+            targetLabel = "Payment #$id",
+            fileId = null
+        )
     }
 
     fun restorePayment(id: String) = viewModelScope.launch {
@@ -103,4 +185,8 @@ class PaymentViewModel @Inject constructor(
     suspend fun getTotalPaidByPersonIds(personIds: List<String>): Map<String, Double> {
         return repository.getTotalPaidByPersonIds(personIds)
     }
+
+    /** Returns the timestamp of the latest payment for a person, or null if none. */
+    suspend fun getLatestPaymentTimestamp(personId: String): Long? =
+        repository.getLatestPaymentTimestamp(personId)
 }

@@ -3,6 +3,7 @@ package com.moneymate.app.data.repository
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.moneymate.app.data.local.dao.*
 import com.moneymate.app.data.local.dao.PaymentDao
 import com.moneymate.app.data.local.dao.PersonDao
 import com.moneymate.app.data.local.entity.EditPermissionScope
@@ -159,4 +160,47 @@ class PaymentRepository @Inject constructor(
 
     suspend fun getTotalReceivedThisWeek(fileId: String, weekStart: Long, weekEnd: Long): Double =
         paymentDao.getTotalReceivedThisWeek(fileId, weekStart, weekEnd)
+
+    suspend fun getLatestPaymentTimestamp(personId: String): Long? =
+        paymentDao.getLatestPaymentTimestamp(personId)
+
+    suspend fun getTotalPaidTodayByPersonIds(personIds: List<String>, startOfDay: Long, endOfDay: Long): List<com.moneymate.app.data.local.dao.PersonTotalPaid> =
+        paymentDao.getTotalPaidTodayByPersonIds(personIds, startOfDay, endOfDay)
+
+    suspend fun getTotalCollectionToday(fileId: String, startOfDay: Long, endOfDay: Long): Double =
+        paymentDao.getTotalCollectionToday(fileId, startOfDay, endOfDay)
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Phase 4 — Reports
+    // ════════════════════════════════════════════════════════════════════════
+
+    fun getPlanReport(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<PlanEntry>> =
+        paymentDao.getPlanReport(fileId, from, to)
+
+    fun getDailySummary(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<DailySummaryEntry>> =
+        paymentDao.getDailySummary(fileId, from, to)
+
+    fun getLineSummary(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<LineSummaryEntry>> =
+        paymentDao.getLineSummary(fileId, from, to)
+
+    fun getOnlineCollections(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<OnlineCollectionEntry>> =
+        paymentDao.getOnlineCollections(fileId, from, to)
+
+    fun getLoanSummary(fileId: String): kotlinx.coroutines.flow.Flow<List<LoanSummaryEntry>> =
+        paymentDao.getLoanSummary(fileId)
+
+    fun getCompletedLoans(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<CompletedLoanEntry>> =
+        paymentDao.getCompletedLoans(fileId, from, to)
+
+    fun getLoanAnalysis(fileId: String, from: Long, to: Long): kotlinx.coroutines.flow.Flow<List<LoanAnalysisEntry>> =
+        paymentDao.getLoanAnalysis(fileId, from, to)
+
+    fun getLedgerEntries(personId: String): kotlinx.coroutines.flow.Flow<List<LedgerEntry>> =
+        paymentDao.getLedgerEntries(personId)
+
+    fun getBookExcessLoss(fileId: String): kotlinx.coroutines.flow.Flow<List<ExcessEntry>> =
+        paymentDao.getBookExcessLoss(fileId)
+
+    suspend fun getSiteTotalCollected(from: Long, to: Long): Double =
+        paymentDao.getSiteTotalCollected(from, to)
 }

@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.moneymate.app-mergeDebugResources-71:/values-v17/values-v17.xml",
+            "outputFile": "com.moneymate.app-mergeDebugResources-77:/values-v17/values-v17.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\0ef42363669a3dfcdfe7efd3306698be\\workspace\\transformed\\appcompat-1.2.0\\res\\values-v17\\values-v17.xml",
+                    "source": "C:\\Users\\Naresh\\.gradle\\caches\\9.3.1\\transforms\\b9502a173bd438102a9e694bd0a700c5\\workspace\\transformed\\appcompat-1.2.0\\res\\values-v17\\values-v17.xml",
                     "from": {
                         "startLines": "2,5,9,12,15,18,22,25,29,33,37,40,43,46,50,53,57",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",

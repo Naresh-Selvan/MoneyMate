@@ -3,10 +3,11 @@ package com.moneymate.app.data.repository;
 import com.moneymate.app.data.local.dao.BookAdjustmentDao;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -20,7 +21,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class BookAdjustmentRepository_Factory implements Factory<BookAdjustmentRepository> {
   private final Provider<BookAdjustmentDao> bookAdjustmentDaoProvider;
@@ -32,6 +35,11 @@ public final class BookAdjustmentRepository_Factory implements Factory<BookAdjus
   @Override
   public BookAdjustmentRepository get() {
     return newInstance(bookAdjustmentDaoProvider.get());
+  }
+
+  public static BookAdjustmentRepository_Factory create(
+      javax.inject.Provider<BookAdjustmentDao> bookAdjustmentDaoProvider) {
+    return new BookAdjustmentRepository_Factory(Providers.asDaggerProvider(bookAdjustmentDaoProvider));
   }
 
   public static BookAdjustmentRepository_Factory create(

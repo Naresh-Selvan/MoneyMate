@@ -57,6 +57,7 @@ import com.moneymate.app.ui.theme.OverdueHighRed
 import com.moneymate.app.ui.theme.OverdueLowOrange
 import com.moneymate.app.ui.theme.OverdueMediumOrangeRed
 import com.moneymate.app.utils.EmiScheduleEngine
+import com.moneymate.app.utils.isReminderSet
 import com.moneymate.app.ui.viewmodel.LoanFileViewModel
 import com.moneymate.app.ui.viewmodel.PaymentViewModel
 import com.moneymate.app.ui.viewmodel.PersonViewModel
@@ -73,6 +74,8 @@ import com.moneymate.app.ui.screens.AmountCell
 import com.moneymate.app.ui.screens.DraggableCompletedPersonCard
 import com.moneymate.app.ui.screens.CompletedPersonCard
 import com.moneymate.app.ui.screens.SlideToCallSheet
+import com.moneymate.app.ui.screens.AddEditPersonDialog
+import com.moneymate.app.ui.screens.DialogMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -106,7 +109,7 @@ fun lastOccurrenceOf(dayOfWeek: Int): Long {
 data class DayBreakdown(val label: String, val given: Double, val received: Double, val pending: Double, val weekStart: Long = 0L, val weekEnd: Long = 0L)
 
 enum class CallNoNumberMode { NONE, ENTER_NUMBER, SELECT_CONTACT }
-enum class ContactPickerTarget { NONE, ADD_DIALOG, EDIT_DIALOG, NO_NUMBER_DIALOG }
+enum class ContactPickerTarget { NONE, NO_NUMBER_DIALOG }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -187,14 +190,21 @@ fun FileDetailScreen(
     var showPlaceDialog        by remember { mutableStateOf(false) }
     var showMobileDialog       by remember { mutableStateOf(false) }
     var pendingPerson          by remember { mutableStateOf<Person?>(null) }
+    // ── Reminder bell state ───────────────────────────────────────────────────
+    var reminderTargetPerson   by remember { mutableStateOf<Person?>(null) }
+    var showReminderSheet      by remember { mutableStateOf(false) }
     // ── Interest feature state ────────────────────────────────────────────────
     // Part 1: shown after the file-name dialog during file creation
     var showFileInterestSetupDialog  by remember { mutableStateOf(false) }
+    var pendingEditForInterest  by remember { mutableStateOf<Person?>(null) }
+    var showEditInterestDialog  by remember { mutableStateOf(false) }
     var pendingFileName              by remember { mutableStateOf("") }
     // Part 2: shown from the 3-dot menu for existing files
     var showFileInterestSettingsDialog by remember { mutableStateOf(false) }
     // Part 3: shown when user confirms name/amount in the Add Person dialog
     var showLoanInterestDialog       by remember { mutableStateOf(false) }
+    var insertAfterName   by remember { mutableStateOf("") }
+    var insertAfterSerial by remember { mutableStateOf("") }
     var pendingPersonForInterest     by remember { mutableStateOf<Person?>(null) }
     var showFilterSheet        by remember { mutableStateOf(false) }
     var showSearch             by remember { mutableStateOf(false) }
@@ -218,10 +228,10 @@ fun FileDetailScreen(
 
     // ── Add-dialog fields ───────────────────────────────────────────────────
     val context = LocalContext.current
+    val appPrefs = remember { com.moneymate.app.utils.AppPreferences(context) }
 
     // Declared before contactPickerLauncher so the lambda can reference them
     var newMobile by remember { mutableStateOf("") }
-    var editMobileFromContact by remember { mutableStateOf<String?>(null) }
 
     // Contact picker for Add/Edit dialog mobile field
     // Contact picker for Add/Edit dialog mobile field
@@ -266,12 +276,6 @@ fun FileDetailScreen(
             // ONLY execute assignment if we actually successfully retrieved a number
             if (number.isNotBlank()) {
                 when (contactPickerTarget) {
-                    ContactPickerTarget.ADD_DIALOG -> {
-                        newMobile = number
-                    }
-                    ContactPickerTarget.EDIT_DIALOG -> {
-                        editMobileFromContact = number
-                    }
                     ContactPickerTarget.NO_NUMBER_DIALOG -> {
                         if (personToCall != null) {
                             personViewModel.updatePerson(personToCall!!.copy(mobileNumber = number))
@@ -302,15 +306,6 @@ fun FileDetailScreen(
         }
     }
 
-    var newName   by remember { mutableStateOf("") }
-    var newPlace  by remember { mutableStateOf("") }
-    var newAmount by remember { mutableStateOf("") }
-    var newMode   by remember { mutableStateOf(PaymentMode.CASH) }
-    var newType   by remember { mutableStateOf(LoanType.LENDING) }
-    var newDate   by remember(defaultEntryDate) { mutableStateOf(defaultEntryDate) }
-    var showNewDatePicker by remember { mutableStateOf(false) }
-    var insertAfterName   by remember { mutableStateOf("") }
-    var insertAfterSerial by remember { mutableStateOf("") }
 
     // ── Filter / search — ViewModel-backed ─────────────────────────────────
     val filterWeeks           by personViewModel.filterWeeks.collectAsState()
@@ -501,11 +496,8 @@ fun FileDetailScreen(
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
-    fun clearAddFields() {
-        newName = ""; newPlace = ""; newMobile = ""
-        newAmount = ""; newMode = PaymentMode.CASH; newType = LoanType.LENDING
-        newDate = defaultEntryDate; insertAfterName = ""; insertAfterSerial = ""
-    }
+
+    fun clearAddFields() { /* no-op: fields managed by AddEditPersonDialog */ }
 
     fun resolveAfterSortOrder(): Int? {
         val serial = insertAfterSerial.trim().toIntOrNull()
@@ -525,42 +517,6 @@ fun FileDetailScreen(
                 personViewModel.insertPerson(person.copy(sortOrder = afterSortOrder + 1))
             } else {
                 personViewModel.insertPerson(person.copy(sortOrder = persons.size))
-            }
-        }
-    }
-
-    fun attemptAddPerson() {
-        val amount = newAmount.toDoubleOrNull() ?: return
-        if (newName.isBlank()) return
-        val after = resolveAfterSortOrder()
-        coroutineScope.launch {
-            val dups = personViewModel.findDuplicateByName(fileId, newName.trim())
-            val base = Person(
-                fileId = fileId, name = newName.trim(),
-                place = newPlace.trim().ifEmpty { null },
-                mobileNumber = newMobile.trim().ifEmpty { null },
-                amountGiven = amount, mode = newMode,
-                dateGiven = newDate, recordType = newType,
-                // pre-fill interest rate from file default so it's stored even
-                // if user dismisses the interest dialog
-                interestRate = file?.defaultInterestRate ?: 25.0
-            )
-            if (dups.isEmpty()) {
-                // Show interest dialog instead of inserting immediately
-                pendingPersonForInterest = base.copy()
-                showLoanInterestDialog = true
-                showAddDialog = false
-            } else if (newPlace.isBlank()) {
-                pendingPerson = base; showPlaceDialog = true
-            } else {
-                val samePlace = personViewModel.findDuplicateByNameAndPlace(fileId, newName.trim(), newPlace.trim())
-                if (samePlace.isNotEmpty() && newMobile.isBlank()) {
-                    pendingPerson = base; showMobileDialog = true
-                } else {
-                    pendingPersonForInterest = base
-                    showLoanInterestDialog = true
-                    showAddDialog = false
-                }
             }
         }
     }
@@ -1139,6 +1095,8 @@ fun FileDetailScreen(
                                                 onMarkComplete = { personToMarkComplete = person },
                                                 onView = { viewPersonFilter = person; showViewDatePicker2 = true },
                                                 onCallNow = { launchCall(person) },
+                                                onBellClick = { reminderTargetPerson = person; showReminderSheet = true },
+                                                bellReminderSet = appPrefs.isReminderSet(person.id),
                                                 onQuickPayment = { amount, mode ->
                                                     coroutineScope.launch {
                                                         // Await the Room write so the reactive flows update before
@@ -1483,9 +1441,22 @@ fun FileDetailScreen(
                     showCompletedDialog = false
                 },
                 onDismiss = { completedPersonForNewLoan = null }
-            )
-        }
+        )
     }
+
+    // ── Loan Reminder Sheet ─────────────────────────────────────────────────
+    if (showReminderSheet && reminderTargetPerson != null) {
+        SetLoanReminderSheet(
+            personId = reminderTargetPerson!!.id,
+            personName = reminderTargetPerson!!.name,
+            defaultAmount = reminderTargetPerson!!.amountGiven,
+            onDismiss = {
+                showReminderSheet = false
+                reminderTargetPerson = null
+            }
+        )
+    }
+}
 
 // ── Zero-amount active entry: prompt for loan amount ──────────────────────
     if (showQuickAmountPrompt && targetedZeroPerson != null) {
@@ -1642,286 +1613,50 @@ fun FileDetailScreen(
 
 // Add Person dialog
     if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false; clearAddFields() },
-            title = { Text("Add Person") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = newType == LoanType.LENDING,   onClick = { newType = LoanType.LENDING },   label = { Text("Lending (I gave)")   })
-                        FilterChip(selected = newType == LoanType.BORROWING, onClick = { newType = LoanType.BORROWING }, label = { Text("Borrowing (I owe)") })
-                    }
-                    OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Name*") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = newPlace, onValueChange = { newPlace = it }, label = { Text("Place (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = newMobile, onValueChange = { newMobile = it.filter { c -> c.isDigit() || c == '+' || c == '-' || c == ' ' } },
-                        label = { Text("Mobile (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        trailingIcon = {
-                            IconButton(onClick = { contactPickerTarget = ContactPickerTarget.ADD_DIALOG; contactPickerLauncher.launch(null) }) {
-                                Icon(Icons.Default.Contacts, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                            }
-                        })
-                    OutlinedTextField(value = newAmount, onValueChange = { newAmount = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text(if (newType == LoanType.LENDING) "Amount Given*" else "Amount Borrowed*") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = newMode == PaymentMode.CASH, onClick = { newMode = PaymentMode.CASH }, label = { Text("Cash") })
-                        FilterChip(selected = newMode == PaymentMode.UPI,  onClick = { newMode = PaymentMode.UPI  }, label = { Text("UPI")  })
-                    }
-                    OutlinedButton(onClick = { showNewDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(dateFormat.format(Date(newDate)))
-                    }
-                    HorizontalDivider()
-                    Text("Insert after (optional)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(value = insertAfterName, onValueChange = { insertAfterName = it; if (it.isNotBlank()) insertAfterSerial = "" },
-                            label = { Text("Name") }, singleLine = true, modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = insertAfterSerial, onValueChange = { insertAfterSerial = it.filter { c -> c.isDigit() }; if (it.isNotBlank()) insertAfterName = "" },
-                            label = { Text("# No.") }, singleLine = true, modifier = Modifier.weight(0.5f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    }
+        AddEditPersonDialog(
+            mode = DialogMode.ADD,
+            fileId = fileId,
+            allPersonsInFile = persons,
+            personViewModel = personViewModel,
+            isSmsPermissionGranted = false,
+            onDismiss = { showAddDialog = false },
+            onSaved = { person, _ ->
+                coroutineScope.launch {
+                    val after = resolveAfterSortOrder()
+                    doInsertPerson(person, after)
                 }
-            },
-            confirmButton = { TextButton(onClick = { attemptAddPerson() }) { Text("Add") } },
-            dismissButton = { TextButton(onClick = { showAddDialog = false; clearAddFields() }) { Text("Cancel") } }
+                showAddDialog = false
+            }
         )
-    }
-
-    if (showNewDatePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = newDate)
-        DatePickerDialog(
-            onDismissRequest = { showNewDatePicker = false },
-            confirmButton = { TextButton(onClick = { newDate = state.selectedDateMillis ?: newDate; showNewDatePicker = false }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { showNewDatePicker = false }) { Text("Cancel") } }
-        ) { DatePicker(state = state) }
     }
 
 // Edit Person dialog
-    // BUG 1 FIX: Track pending edit person for the interest dialog, mirroring add flow.
-    var pendingEditForInterest  by remember { mutableStateOf<Person?>(null) }
-    var showEditInterestDialog  by remember { mutableStateOf(false) }
-
-    personToEdit?.let { orig ->
-        var editName   by remember { mutableStateOf(orig.name) }
-        var editPlace  by remember { mutableStateOf(orig.place ?: "") }
-        var editMobile by remember { mutableStateOf(orig.mobileNumber ?: "") }
-        // Sync contact picker result
-        LaunchedEffect(editMobileFromContact) {
-            editMobileFromContact?.let { editMobile = it; editMobileFromContact = null }
-        }
-        var editAmount by remember { mutableStateOf(orig.amountGiven.toBigDecimal().stripTrailingZeros().toPlainString()) }
-        var editMode   by remember { mutableStateOf(orig.mode) }
-        var editType   by remember { mutableStateOf(orig.recordType) }
-        var editDate   by remember { mutableStateOf(orig.dateGiven) }
-        var editMoveAfterName   by remember { mutableStateOf("") }
-        var editMoveAfterSerial by remember { mutableStateOf("") }
-        var showEditDatePicker by remember { mutableStateOf(false) }
-
-        fun resolveMoveAfterSortOrder(): Int? {
-            val serial = editMoveAfterSerial.trim().toIntOrNull()
-            if (serial != null) {
-                val idx = serial - 1
-                return if (idx in persons.indices) persons[idx].sortOrder else null
-            }
-            val name = editMoveAfterName.trim()
-            if (name.isNotBlank()) return persons.firstOrNull { it.name.equals(name, ignoreCase = true) }?.sortOrder
-            return null
-        }
-
-        // BUG 6 FIX: Proper move-after logic.
-        // Before shifting positions after the target slot, we first compact the gap
-        // left by the person being moved by decrementing all sortOrders above its
-        // current position. This prevents duplicate sort-order collisions.
-        fun doMoveAfter(updatedPerson: Person, afterSortOrder: Int) {
-            coroutineScope.launch {
-                // 1. Remove person from current position: shift everything above it down by 1
-                personViewModel.shiftSortOrdersDown(fileId, updatedPerson.sortOrder)
-                // 2. After compaction the target slot may have shifted down by 1 if it was
-                //    above the original position — recalculate
-                val adjustedAfter = if (afterSortOrder > updatedPerson.sortOrder)
-                    afterSortOrder - 1 else afterSortOrder
-                // 3. Open a slot at adjustedAfter + 1 by shifting everything above up by 1
-                personViewModel.shiftSortOrdersAfterSync(fileId, adjustedAfter)
-                // 4. Place the person in the newly opened slot
-                personViewModel.updatePerson(updatedPerson.copy(sortOrder = adjustedAfter + 1))
-            }
-        }
-
-        AlertDialog(
-            onDismissRequest = { personToEdit = null },
-            title = { Text("Edit Person") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = editType == LoanType.LENDING,   onClick = { editType = LoanType.LENDING },   label = { Text("Lending")   })
-                        FilterChip(selected = editType == LoanType.BORROWING, onClick = { editType = LoanType.BORROWING }, label = { Text("Borrowing") })
-                    }
-                    OutlinedTextField(value = editName, onValueChange = { editName = it }, label = { Text("Name*") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = editPlace, onValueChange = { editPlace = it }, label = { Text("Place") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = editMobile, onValueChange = { editMobile = it.filter { c -> c.isDigit() || c == '+' || c == '-' || c == ' ' } },
-                        label = { Text("Mobile") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        trailingIcon = {
-                            IconButton(onClick = { contactPickerTarget = ContactPickerTarget.EDIT_DIALOG; contactPickerLauncher.launch(null) }) {
-                                Icon(Icons.Default.Contacts, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                            }
-                        })
-                    OutlinedTextField(value = editAmount, onValueChange = { editAmount = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text(if (editType == LoanType.LENDING) "Amount Given" else "Amount Borrowed") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = editMode == PaymentMode.CASH, onClick = { editMode = PaymentMode.CASH }, label = { Text("Cash") })
-                        FilterChip(selected = editMode == PaymentMode.UPI,  onClick = { editMode = PaymentMode.UPI  }, label = { Text("UPI")  })
-                    }
-                    OutlinedButton(onClick = { showEditDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(dateFormat.format(Date(editDate)))
-                    }
-                    // BUG 1 FIX / FEATURE 2: Show current interest summary and offer to edit
-                    if (orig.interestRate > 0 || orig.totalRepayment > orig.amountGiven) {
-                        HorizontalDivider()
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Interest", style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(
-                                    "Rate: ${orig.interestRate}% • Total: ₹${orig.totalRepayment}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            TextButton(onClick = {
-                                val amt = editAmount.toDoubleOrNull()
-                                if (editName.isNotBlank() && amt != null) {
-                                    // Stage the basic edits so the interest dialog can show correct principal
-                                    pendingEditForInterest = orig.copy(
-                                        name = editName.trim(),
-                                        place = editPlace.trim().ifEmpty { null },
-                                        mobileNumber = editMobile.trim().ifEmpty { null },
-                                        amountGiven = amt, mode = editMode,
-                                        dateGiven = editDate, recordType = editType
-                                    )
-                                    showEditInterestDialog = true
-                                }
-                            }) { Text("Edit Interest") }
-                        }
+    if (personToEdit != null) {
+        AddEditPersonDialog(
+            mode = DialogMode.EDIT,
+            existingPerson = personToEdit,
+            fileId = fileId,
+            allPersonsInFile = persons,
+            personViewModel = personViewModel,
+            isSmsPermissionGranted = false,
+            onDismiss = { personToEdit = null },
+            onSaved = { updatedPerson, _ ->
+                coroutineScope.launch {
+                    // Preserve move-after logic: check if sortOrder changed
+                    if (updatedPerson.sortOrder != personToEdit!!.sortOrder) {
+                        val moveAfterSortOrder = updatedPerson.sortOrder
+                        personViewModel.shiftSortOrdersDown(fileId, personToEdit!!.sortOrder)
+                        val adjustedAfter = if (moveAfterSortOrder > personToEdit!!.sortOrder)
+                            moveAfterSortOrder - 1 else moveAfterSortOrder
+                        personViewModel.shiftSortOrdersAfterSync(fileId, adjustedAfter)
+                        personViewModel.updatePerson(updatedPerson.copy(sortOrder = adjustedAfter + 1))
                     } else {
-                        HorizontalDivider()
-                        OutlinedButton(
-                            onClick = {
-                                val amt = editAmount.toDoubleOrNull()
-                                if (editName.isNotBlank() && amt != null) {
-                                    pendingEditForInterest = orig.copy(
-                                        name = editName.trim(),
-                                        place = editPlace.trim().ifEmpty { null },
-                                        mobileNumber = editMobile.trim().ifEmpty { null },
-                                        amountGiven = amt, mode = editMode,
-                                        dateGiven = editDate, recordType = editType
-                                    )
-                                    showEditInterestDialog = true
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Percent, null, Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Add Interest")
-                        }
-                    }
-                    HorizontalDivider()
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.SwapVert, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Move after (optional)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = editMoveAfterName,
-                            onValueChange = { editMoveAfterName = it; if (it.isNotBlank()) editMoveAfterSerial = "" },
-                            label = { Text("Name") }, singleLine = true, modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = editMoveAfterSerial,
-                            onValueChange = { editMoveAfterSerial = it.filter { c -> c.isDigit() }; if (it.isNotBlank()) editMoveAfterName = "" },
-                            label = { Text("# No.") }, singleLine = true, modifier = Modifier.weight(0.5f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                    }
-                    if (editMoveAfterName.isNotBlank() || editMoveAfterSerial.isNotBlank()) {
-                        val targetLabel = if (editMoveAfterSerial.isNotBlank()) {
-                            val idx = (editMoveAfterSerial.toIntOrNull() ?: 0) - 1
-                            persons.getOrNull(idx)?.name?.let { "after \"$it\" (#${editMoveAfterSerial})" } ?: "serial not found"
-                        } else {
-                            persons.firstOrNull { it.name.equals(editMoveAfterName.trim(), ignoreCase = true) }
-                                ?.let { p -> "after \"${p.name}\" (#${persons.indexOf(p) + 1})" } ?: "name not found"
-                        }
-                        Text(
-                            "Will place: $targetLabel",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (targetLabel.contains("not found")) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.primary
-                        )
+                        personViewModel.updatePerson(updatedPerson)
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val amt = editAmount.toDoubleOrNull()
-                    if (editName.isNotBlank() && amt != null) {
-                        // BUG 1 FIX: Recalculate interest when amount changes.
-                        // If interest was set previously, recompute interestAmount and totalRepayment
-                        // based on the new principal to keep them consistent.
-                        val newInterestAmount = when {
-                            orig.interestType == "FIXED_AMOUNT" -> orig.interestAmount
-                            orig.interestRate > 0 && orig.isDurationBased && orig.durationDays != null ->
-                                calcDurationInterest(amt, orig.interestRate, orig.durationDays)
-                            orig.interestRate > 0 ->
-                                calcFlatInterest(amt, orig.interestRate)
-                            else -> 0.0
-                        }
-                        val newTotalRepayment = if (newInterestAmount > 0) amt + newInterestAmount else amt
-                        val newPerInstallment = if (orig.numberOfInstallments > 0) newTotalRepayment / orig.numberOfInstallments else newTotalRepayment
-
-                        val updatedPerson = orig.copy(
-                            name = editName.trim(),
-                            place = editPlace.trim().ifEmpty { null },
-                            mobileNumber = editMobile.trim().ifEmpty { null },
-                            amountGiven = amt, mode = editMode,
-                            dateGiven = editDate, recordType = editType,
-                            interestAmount = newInterestAmount,
-                            totalRepayment = newTotalRepayment,
-                            perInstallmentAmount = newPerInstallment
-                        )
-                        val moveAfter = resolveMoveAfterSortOrder()
-                        if (moveAfter != null) {
-                            doMoveAfter(updatedPerson, moveAfter)
-                        } else {
-                            personViewModel.updatePerson(updatedPerson)
-                        }
-                        personToEdit = null
-                    }
-                }) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { personToEdit = null }) { Text("Cancel") } }
+                personToEdit = null
+            }
         )
-
-        if (showEditDatePicker) {
-            val state = rememberDatePickerState(initialSelectedDateMillis = editDate)
-            DatePickerDialog(
-                onDismissRequest = { showEditDatePicker = false },
-                confirmButton = { TextButton(onClick = { editDate = state.selectedDateMillis ?: editDate; showEditDatePicker = false }) { Text("OK") } },
-                dismissButton = { TextButton(onClick = { showEditDatePicker = false }) { Text("Cancel") } }
-            ) { DatePicker(state = state) }
-        }
     }
 
     // BUG 1 FIX / FEATURE 2: Interest editing dialog for edit-person flow

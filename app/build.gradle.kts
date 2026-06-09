@@ -15,9 +15,12 @@ android {
         applicationId = "com.moneymate.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 55
+        versionCode = 56
+        versionName = "1.2"
 
-        versionName = "1.1"
+        buildConfigField("String", "LICENSE_SERVER_URL", "\"https://your-license-server.com/api/verify\"")
+        buildConfigField("String", "SUPPORT_PHONE", "\"+910000000000\"")
+        buildConfigField("String", "UPI_ID", "\"moneymate@upi\"")
     }
 
     signingConfigs {
@@ -47,6 +50,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     kotlinOptions {
@@ -79,9 +83,10 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
 
-    implementation("com.google.dagger:hilt-android:2.51.1")
-    ksp("com.google.dagger:hilt-compiler:2.51.1")
+    implementation("com.google.dagger:hilt-android:2.55")
+    ksp("com.google.dagger:hilt-compiler:2.55")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation("androidx.hilt:hilt-work:1.2.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
@@ -91,4 +96,17 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
+
+    // ── Phase 5: Export dependencies ──
+    implementation("com.itextpdf:itext7-core:7.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
+    implementation("androidx.core:core-ktx:1.15.0")
+
+    // ── Phase 6: Notifications & WorkManager ──
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // ── Settings Enhancements: Ktor HTTP client for license verification ──
+    implementation("io.ktor:ktor-client-android:2.3.0")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.0")
 }

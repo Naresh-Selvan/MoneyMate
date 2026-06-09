@@ -45,6 +45,11 @@ class UpdateViewModel @Inject constructor(
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState
 
+    /**
+     * Background check (called from MainActivity.onCreate).
+     * Skips if checked within the last 24 hours.
+     * Only shows dialog if an update is available.
+     */
     fun checkForUpdate(currentVersionCode: Int) {
         if (_updateState.value is UpdateState.Checking) return
 
@@ -56,17 +61,20 @@ class UpdateViewModel @Inject constructor(
         if (now - lastChecked < oneDayMs) return
 
         prefs.edit().putLong("last_checked", now).apply()
-        doCheck(currentVersionCode)
+        doCheck(currentVersionCode, fromSettings = false)
     }
 
+    /**
+     * Force check from Settings — always checks, always shows result.
+     */
     fun forceCheckForUpdate(currentVersionCode: Int) {
         _updateState.value = UpdateState.Idle  // clear any stuck state
         val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
         prefs.edit().putLong("last_checked", 0L).apply()
-        doCheck(currentVersionCode)
+        doCheck(currentVersionCode, fromSettings = true)
     }
 
-    private fun doCheck(currentVersionCode: Int) {
+    private fun doCheck(currentVersionCode: Int, fromSettings: Boolean = false) {
         _updateState.value = UpdateState.Checking
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -94,9 +102,15 @@ class UpdateViewModel @Inject constructor(
 
                 withContext(Dispatchers.Main) {
                     when {
-                        apkUrl.isBlank()          -> _updateState.value = UpdateState.UpToDate
+                        apkUrl.isBlank()          -> {
+                            if (fromSettings) _updateState.value = UpdateState.UpToDate
+                            else _updateState.value = UpdateState.Idle
+                        }
                         vCode > currentVersionCode -> _updateState.value = UpdateState.Available(UpdateInfo(vName, vCode, apkUrl, releaseNotes))
-                        else                       -> _updateState.value = UpdateState.UpToDate
+                        else                       -> {
+                            if (fromSettings) _updateState.value = UpdateState.UpToDate
+                            else _updateState.value = UpdateState.Idle
+                        }
                     }
                 }
             } catch (e: Exception) {

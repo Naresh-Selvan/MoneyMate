@@ -5,10 +5,11 @@ import com.moneymate.app.data.local.dao.PaymentDao;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.Preconditions;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -22,7 +23,9 @@ import javax.inject.Provider;
     "rawtypes",
     "KotlinInternal",
     "KotlinInternalInJava",
-    "cast"
+    "cast",
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class AppModule_ProvidePaymentDaoFactory implements Factory<PaymentDao> {
   private final Provider<AppDatabase> dbProvider;
@@ -34,6 +37,11 @@ public final class AppModule_ProvidePaymentDaoFactory implements Factory<Payment
   @Override
   public PaymentDao get() {
     return providePaymentDao(dbProvider.get());
+  }
+
+  public static AppModule_ProvidePaymentDaoFactory create(
+      javax.inject.Provider<AppDatabase> dbProvider) {
+    return new AppModule_ProvidePaymentDaoFactory(Providers.asDaggerProvider(dbProvider));
   }
 
   public static AppModule_ProvidePaymentDaoFactory create(Provider<AppDatabase> dbProvider) {

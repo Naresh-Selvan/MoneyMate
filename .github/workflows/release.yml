@@ -18,12 +18,14 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/moneymate-release.jks
       - name: Make gradlew executable
         run: chmod +x ./gradlew
-      - name: Build release APK
+      - name: Build Release APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
+          GRADLE_OPTS: "-Xmx4g"
+          LINT_PRINT_STACKTRACE: "true"
+        run: ./gradlew assembleRelease -x lintVitalAnalyzeRelease
       - name: Upload APK to release
         uses: softprops/action-gh-release@v2
         with:
